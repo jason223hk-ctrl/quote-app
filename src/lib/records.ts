@@ -67,24 +67,56 @@ export type RecordsApi = {
   softDelete: (id: string) => Promise<QuoteRecord>
 }
 
-function toNull(value: string): string | null {
-  const trimmed = value.trim()
-  return trimmed === '' ? null : trimmed
+/** 欄位中文名。錯誤訊息同表單提示都用返同一份，唔會兩邊叫法唔同。 */
+export const FIELD_LABELS: Record<string, string> = {
+  record_date: '日期',
+  name: '個名',
+  main_con: '大判',
+  site: '地點',
+  client: '客戶／聯絡人',
+  region: '地區',
+  shift: '日／夜更',
+  start_time: '預計開工',
+  odoo_ref: 'Odoo REF#',
+  internal_note: '內部備註',
+  status: '狀態',
+  created_by: '建立者',
 }
 
-/** 表單 → DB 欄位。只掂表單擁有嘅欄，status / markup_pct / locked 等一律唔碰。 */
-export function inputToRow(input: RecordInput): Record<string, string | null> {
+export type FieldErrors = Partial<Record<keyof RecordInput, string>>
+
+/**
+ * 一定要填嘅欄。地區同日／夜更係必填而唔係俾個預設值——
+ * 佢哋直接影響夾車、吊機、夜更價，靜靜幫人揀等於靜靜報錯價。
+ */
+export function validateInput(input: RecordInput): FieldErrors {
+  const errors: FieldErrors = {}
+  if (input.record_date.trim() === '') errors.record_date = '請揀日期'
+  if (input.name.trim() === '') errors.name = '請填個名'
+  if (input.region === '') errors.region = '請揀地區'
+  if (input.shift === '') errors.shift = '請揀日更定夜更'
+  return errors
+}
+
+/**
+ * 表單 → DB 欄位。
+ *
+ * 呢啲 text 欄喺 schema 係 not null default ''，所以空白一律送空字串，
+ * **永遠唔送 null**（送 null 會逐個欄爆 not-null constraint，現場填漏一欄就落唔到單）。
+ * 只掂表單擁有嘅欄，status / markup_pct / locked / archived / deleted_at 一律唔碰。
+ */
+export function inputToRow(input: RecordInput): Record<string, string> {
   return {
     record_date: input.record_date,
     name: input.name.trim(),
-    main_con: toNull(input.main_con),
-    site: toNull(input.site),
-    client: toNull(input.client),
-    region: input.region === '' ? null : input.region,
-    shift: input.shift === '' ? null : input.shift,
-    start_time: toNull(input.start_time),
-    odoo_ref: toNull(input.odoo_ref),
-    internal_note: toNull(input.internal_note),
+    main_con: input.main_con.trim(),
+    site: input.site.trim(),
+    client: input.client.trim(),
+    region: input.region,
+    shift: input.shift,
+    start_time: input.start_time.trim(),
+    odoo_ref: input.odoo_ref.trim(),
+    internal_note: input.internal_note.trim(),
   }
 }
 
@@ -111,11 +143,44 @@ export function rowToInput(record: QuoteRecord): RecordInput {
 const NO_ROW_MESSAGE =
   '改唔到呢一單。可能已經鎖定（locked），或者唔係你開嘅單。要 admin 幫手先改得。'
 
-function describeError(message: string): string {
+/**
+ * DB 嘅英文 error 阿耀、聰、Isaac 睇唔明，所以譯返人話中文。
+ * 原文照樣寫落 console（見 reportError），方便查。
+ */
+export function translateDbError(message: string): string {
+  const notNull = /null value in column "([^"]+)"/.exec(message)
+  if (notNull) {
+    const field = FIELD_LABELS[notNull[1]] ?? notNull[1]
+    return `「${field}」未填好，請檢查返再儲存。`
+  }
+
+  if (message.includes('permission denied')) {
+    return '呢個帳號未有權限讀寫報價單。資料庫嗰邊未 GRANT 俾 authenticated，要 admin 補返。'
+  }
+
+  if (message.includes('row-level security')) {
+    return '冇權限做呢個動作。你只可以改自己開、而且未鎖定嘅單。'
+  }
+
   if (message.includes('PGRST116') || message.toLowerCase().includes('0 rows')) {
     return NO_ROW_MESSAGE
   }
-  return message
+
+  if (message.includes('duplicate key')) {
+    return '呢一單好似已經存在，請返清單睇返。'
+  }
+
+  if (message.includes('Failed to fetch') || message.includes('NetworkError')) {
+    return '連唔到伺服器，請check返個網絡再試。'
+  }
+
+  return '儲存唔到，請再試一次。如果一直唔得，請截圖搵 Jason。'
+}
+
+/** 原文英文留喺 console，畫面出中文。 */
+function reportError(message: string): Error {
+  console.error('[quote-app] DB error:', message)
+  return new Error(translateDbError(message))
 }
 
 export function createRecordsApi(client: SupabaseClient, userId: string): RecordsApi {
@@ -123,7 +188,7 @@ export function createRecordsApi(client: SupabaseClient, userId: string): Record
     promise: PromiseLike<{ data: unknown; error: { message: string } | null }>,
   ): Promise<QuoteRecord> {
     const { data, error } = await promise
-    if (error) throw new Error(describeError(error.message))
+    if (error) throw reportError(error.message)
     if (!data) throw new Error(NO_ROW_MESSAGE)
     return data as QuoteRecord
   }
@@ -147,7 +212,7 @@ export function createRecordsApi(client: SupabaseClient, userId: string): Record
         .order('record_date', { ascending: false })
         .order('created_at', { ascending: false })
 
-      if (error) throw new Error(error.message)
+      if (error) throw reportError(error.message)
       return (data ?? []) as QuoteRecord[]
     },
 

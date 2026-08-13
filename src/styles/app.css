@@ -440,6 +440,14 @@ body {
 
 /* ---- 表單補充 ---- */
 
+.field__error {
+  display: block;
+  margin-top: var(--space-2);
+  color: var(--danger);
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+
 .field__input--area {
   min-height: 96px;
   padding: var(--space-3);

@@ -53,6 +53,30 @@ npm run dev
 - **冇環境變數唔會白畫面**：`src/lib/env.ts` 會檢查兩個變數，缺任何一個就顯示
   「未設定 Supabase 連線」同埋列明邊個變數未設定，唔會 crash。
 
+## 資料庫規矩（開新表之前一定要睇）
+
+**每開一張 `quote_` 表，除咗 RLS policy，一定要有對應嘅 GRANT，兩樣缺一不可。**
+
+GRANT 決定「入唔入到張表」，RLS 決定「入到之後睇到／改到邊幾行」。淨係開 RLS 而冇
+GRANT，app 一開就會紅字 `permission denied for table quote_xxx`，睇落好似 RLS 寫錯，
+其實係權限未開。（2026-08-13 P1 就係咁中過一次。v7 張 `projects` 表一直有 GRANT，新表要跟返。）
+
+現時已經跑咗嘅（P1，由 Jason 執行）：
+
+```
+grant select, insert, update on quote_records, quote_admins to authenticated;
+grant execute on function is_quote_admin() to authenticated;
+```
+
+刻意唔做嘅兩樣，之後開新表都要跟：
+
+- **唔 grant DELETE** —— 唔可以真刪，只可以寫 `deleted_at`。
+- **唔 grant 俾 `anon`** —— 未登入唔應該掂到任何報價資料。
+
+另外，schema 側 text 欄係 `not null default ''`，所以前端**永遠唔可以送 `null`**，
+空白要送空字串。呢個規矩由 `src/lib/records.ts` 嘅 `inputToRow()` 一個位負責，
+有 regression test 睇住，唔好喺個別欄位度散修。
+
 ## Build ID
 
 `vite.config.ts` 用 Vite `define` 注入 `__BUILD_ID__` = git short SHA + build 時間。
