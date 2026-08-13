@@ -1,0 +1,20 @@
+node_modules
+dist
+dist-ssr
+*.local
+
+# 環境變數：真值一律唔入 repo
+.env
+.env.local
+.env.*.local
+
+# 編輯器 / 系統
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.log
+npm-debug.log*
+
+# build 快取
+*.tsbuildinfo

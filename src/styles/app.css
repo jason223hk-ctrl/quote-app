@@ -1,0 +1,222 @@
+@import './tokens.css';
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: var(--text-base);
+  line-height: 1.5;
+  -webkit-text-size-adjust: 100%;
+}
+
+.app {
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.app__main {
+  flex: 1;
+  width: 100%;
+  max-width: 480px;
+  margin: 0 auto;
+  padding: var(--space-5) var(--space-4);
+}
+
+/* ---- 標題 ---- */
+
+.brand {
+  text-align: center;
+  margin-bottom: var(--space-5);
+}
+
+.brand__mark {
+  display: inline-block;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--hedge-green);
+  margin-bottom: var(--space-3);
+}
+
+.brand__title {
+  margin: 0;
+  font-size: var(--text-xl);
+  font-weight: 600;
+}
+
+.brand__subtitle {
+  margin: var(--space-1) 0 0;
+  color: var(--ink-muted);
+  font-size: var(--text-sm);
+}
+
+/* ---- 卡 ---- */
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: var(--space-4);
+}
+
+.card__title {
+  margin: 0 0 var(--space-3);
+  font-size: var(--text-lg);
+  font-weight: 600;
+}
+
+/* ---- 表單 ---- */
+
+.field {
+  display: block;
+  margin-bottom: var(--space-4);
+}
+
+.field__label {
+  display: block;
+  margin-bottom: var(--space-2);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--ink-muted);
+}
+
+.field__input {
+  width: 100%;
+  min-height: var(--tap-target);
+  padding: 0 var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--ink);
+  font-family: inherit;
+  /* 16px 以上先唔會令 iOS Safari 自動 zoom */
+  font-size: 16px;
+}
+
+.field__input:focus-visible {
+  outline: 2px solid var(--hedge-green);
+  outline-offset: 1px;
+}
+
+.field__input:disabled {
+  background: var(--bg);
+  color: var(--ink-muted);
+}
+
+/* ---- 掣 ---- */
+
+.button {
+  width: 100%;
+  min-height: var(--tap-target);
+  padding: 0 var(--space-4);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: var(--hedge-green);
+  color: #fff;
+  font-family: inherit;
+  font-size: var(--text-base);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.button:active {
+  background: var(--hedge-green-dark);
+}
+
+.button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.button--secondary {
+  background: var(--surface);
+  border-color: var(--line);
+  color: var(--ink);
+}
+
+/* ---- 訊息 ---- */
+
+.notice {
+  border-radius: var(--radius-sm);
+  padding: var(--space-3);
+  font-size: var(--text-sm);
+}
+
+.notice--error {
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+
+.notice--warning {
+  background: var(--warning-bg);
+  color: var(--warning);
+}
+
+.notice__title {
+  margin: 0 0 var(--space-2);
+  font-size: var(--text-base);
+  font-weight: 600;
+}
+
+.notice__list {
+  margin: var(--space-2) 0 0;
+  padding-left: var(--space-4);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+/* ---- 已登入主頁 ---- */
+
+.home__row {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-2) 0;
+  font-size: var(--text-sm);
+}
+
+.home__label {
+  color: var(--ink-muted);
+}
+
+.home__value {
+  font-weight: 600;
+  word-break: break-all;
+  text-align: right;
+}
+
+.home__empty {
+  margin: var(--space-5) 0;
+  text-align: center;
+  color: var(--ink-muted);
+  font-size: var(--text-sm);
+}
+
+/* ---- 頁尾 Build ID ---- */
+
+.build-id {
+  padding: var(--space-4);
+  text-align: center;
+  color: var(--ink-muted);
+  font-size: 12px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.loading {
+  padding: var(--space-6);
+  text-align: center;
+  color: var(--ink-muted);
+}
