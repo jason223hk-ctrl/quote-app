@@ -37,31 +37,34 @@ export default function App() {
 
   return (
     <div className="app">
-      <main className="app__main">
+      <main className="app__main">{renderBody()}</main>
+      <footer className="build-id">Build ID：v0.1 · {__BUILD_ID__}</footer>
+    </div>
+  )
+
+  function renderBody() {
+    // 登入之後 HomePage 有自己嘅頂欄，唔再重複個大 brand header。
+    if (configResult.ok && supabase && session) {
+      return <HomePage client={supabase} session={session} />
+    }
+
+    return (
+      <>
         <header className="brand">
           <div className="brand__mark" aria-hidden="true" />
           <h1 className="brand__title">森伝現場報價記錄</h1>
           <p className="brand__subtitle">Sylvan quotation site-record</p>
         </header>
 
-        {renderBody()}
-      </main>
-
-      <footer className="build-id">Build ID：v0.1 · {__BUILD_ID__}</footer>
-    </div>
-  )
-
-  function renderBody() {
-    // 冇環境變數：一定要見到清楚訊息，唔可以白畫面。
-    if (!configResult.ok || !supabase) {
-      return <ConfigMissing missing={configResult.ok ? [] : configResult.missing} />
-    }
-    if (checkingSession) {
-      return <p className="loading">載入中…</p>
-    }
-    if (!session) {
-      return <LoginPage client={supabase} />
-    }
-    return <HomePage client={supabase} session={session} />
+        {/* 冇環境變數：一定要見到清楚訊息，唔可以白畫面。 */}
+        {!configResult.ok || !supabase ? (
+          <ConfigMissing missing={configResult.ok ? [] : configResult.missing} />
+        ) : checkingSession ? (
+          <p className="loading">載入中…</p>
+        ) : (
+          <LoginPage client={supabase} />
+        )}
+      </>
+    )
   }
 }
