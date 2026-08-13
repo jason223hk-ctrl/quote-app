@@ -440,6 +440,110 @@ body {
 
 /* ---- 表單補充 ---- */
 
+/* ---- P2：選項組、樹木清單 ---- */
+
+.group {
+  margin: 0 0 var(--space-5);
+  padding: var(--space-4);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+}
+
+.group__legend {
+  padding: 0 var(--space-2);
+  font-size: var(--text-base);
+  font-weight: 600;
+}
+
+.group__hint {
+  margin: 0 0 var(--space-3);
+  color: var(--ink-muted);
+  font-size: 12px;
+}
+
+.group__options {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.option {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: var(--tap-target);
+  cursor: pointer;
+}
+
+.option input {
+  width: 22px;
+  height: 22px;
+  flex: none;
+  accent-color: var(--hedge-green);
+}
+
+.option__extra {
+  margin: 0 0 var(--space-2) 34px;
+  width: calc(100% - 34px);
+}
+
+.option__extra-field {
+  display: block;
+  margin: 0 0 var(--space-2) 34px;
+  width: calc(100% - 34px);
+}
+
+.hint {
+  margin: calc(var(--space-3) * -1) 0 var(--space-4);
+  color: var(--ink-muted);
+  font-size: 12px;
+}
+
+.field-row {
+  display: flex;
+  gap: var(--space-3);
+}
+
+.field-row .field {
+  flex: 1;
+  min-width: 0;
+}
+
+.sub-pages {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-top: var(--space-5);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--line);
+}
+
+.page-head__sub {
+  margin: var(--space-1) 0 0;
+  color: var(--ink-muted);
+  font-size: var(--text-sm);
+}
+
+.tag--warning {
+  background: var(--warning-bg);
+  border-color: var(--warning);
+  color: var(--warning);
+}
+
+.notice--ok {
+  background: var(--hedge-green-light);
+  color: var(--hedge-green-dark);
+}
+
+.field__warning {
+  display: block;
+  margin-top: var(--space-2);
+  color: var(--warning);
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+
 .field__error {
   display: block;
   margin-top: var(--space-2);

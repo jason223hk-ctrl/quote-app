@@ -81,6 +81,25 @@ export const FIELD_LABELS: Record<string, string> = {
   internal_note: '內部備註',
   status: '狀態',
   created_by: '建立者',
+  // 樹木
+  tree_no: '樹編號',
+  species: '品種',
+  height_m: '樹高',
+  dbh_mm: 'DBH',
+  crown_m: '冠幅',
+  mitigations: '處理方法',
+  mitigation_other: '其他處理方法',
+  note: '備註',
+  // 現場資料表
+  crew_total: '總共幾多人',
+  work_days: '做幾多天',
+  climbers_per_day: '一日幾多個攀樹師',
+  waste_options: '垃圾處理',
+  waste_t24_qty: '24噸夾車架數',
+  waste_t30_qty: '30噸夾車架數',
+  machine_options: '機械',
+  lift_other: '升降台 Other',
+  stump_options: '起樹頭',
 }
 
 export type FieldErrors = Partial<Record<keyof RecordInput, string>>

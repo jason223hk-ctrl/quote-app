@@ -17,6 +17,9 @@ type Props = {
   onSave: (input: RecordInput) => Promise<void>
   onArchiveToggle: () => Promise<void>
   onDelete: () => Promise<void>
+  /** 只有已經存低咗嘅單先入得去（要有 record_id） */
+  onOpenTrees?: () => void
+  onOpenSiteForm?: () => void
   onBack: () => void
 }
 
@@ -27,6 +30,8 @@ export default function RecordFormPage({
   onSave,
   onArchiveToggle,
   onDelete,
+  onOpenTrees,
+  onOpenSiteForm,
   onBack,
 }: Props) {
   const [input, setInput] = useState<RecordInput>(() =>
@@ -231,6 +236,31 @@ export default function RecordFormPage({
           {busy === 'save' ? '儲存中…' : '儲存'}
         </button>
       </form>
+
+      {record && (onOpenTrees || onOpenSiteForm) && (
+        <div className="sub-pages">
+          {onOpenTrees && (
+            <button
+              className="button button--secondary"
+              type="button"
+              disabled={busy !== null}
+              onClick={onOpenTrees}
+            >
+              樹木清單 →
+            </button>
+          )}
+          {onOpenSiteForm && (
+            <button
+              className="button button--secondary"
+              type="button"
+              disabled={busy !== null}
+              onClick={onOpenSiteForm}
+            >
+              現場資料表 →
+            </button>
+          )}
+        </div>
+      )}
 
       {record && (
         <div className="danger-zone">
