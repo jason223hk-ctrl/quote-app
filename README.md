@@ -75,4 +75,6 @@ SHA 來源優先次序：Cloudflare Pages 嘅 `CF_PAGES_COMMIT_SHA` → 本機 `
 Push 上 `main` 就會自動 build 同部署到 production。驗收方法：開網址睇底部 Build ID
 入面嘅 short SHA，要同最新 commit 對得返。
 
+部署鏈已經喺 P0 驗證過：main 每次收到新 commit，線上 Build ID 入面個 short SHA 都會跟住轉。
+
 改咗環境變數之後要重新 build 先生效（Vite 係 build 時 inline 環境變數，唔係 runtime 讀）。
