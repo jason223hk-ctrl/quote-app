@@ -19,13 +19,13 @@ function resolveShortSha(): string {
   }
 }
 
-const buildTime = new Date().toISOString().slice(0, 16).replace('T', ' ')
-const buildId = `${resolveShortSha()} · ${buildTime}Z`
-
+// 同 tree-app-v7 一樣分開兩個常數（BUILD_SHA / BUILD_TIME），
+// 版本字串喺 src/ui/version.ts 砌，格式跟佢：v0.1 · Build <sha> · <HHmm>
 export default defineConfig({
   plugins: [react()],
   define: {
-    __BUILD_ID__: JSON.stringify(buildId),
+    __BUILD_SHA__: JSON.stringify(resolveShortSha()),
+    __BUILD_TIME__: JSON.stringify(new Date().toISOString()),
   },
   test: {
     environment: 'node',

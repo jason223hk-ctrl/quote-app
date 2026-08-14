@@ -18,6 +18,7 @@ import {
 } from '../lib/siteForm'
 import type { QuoteRecord } from '../lib/records'
 import OptionGroup from './OptionGroup'
+import { BackChip, BotanicalHeader, HeaderTitle, ScrollBody } from '../ui/shell'
 
 type Props = {
   api: SiteFormApi
@@ -126,19 +127,22 @@ export default function SiteFormScreen({ api, record, onBack }: Props) {
   }
 
   return (
-    <section className="card">
-      <div className="page-head">
-        <button className="link-button" type="button" onClick={onBack} disabled={saving}>
-          ← 返基本資料
-        </button>
-        <h2 className="card__title">現場資料表</h2>
-        <p className="page-head__sub">{record.name}</p>
-      </div>
+    <>
+      <BotanicalHeader
+        left={
+          <HeaderTitle
+            back={<BackChip onClick={onBack} />}
+            name="現場資料表"
+            sub={record.name}
+          />
+        }
+      />
 
+      <ScrollBody testid="site-form-scroll">
       {loading ? (
         <p className="loading">載入中…</p>
       ) : (
-        <form onSubmit={handleSubmit} noValidate>
+        <form className="card" onSubmit={handleSubmit} noValidate>
           <fieldset className="group">
             <legend className="group__legend">人手</legend>
             <p className="group__hint">唔知就留空。留空係「未填」，唔會當咗零。</p>
@@ -233,6 +237,7 @@ export default function SiteFormScreen({ api, record, onBack }: Props) {
           </button>
         </form>
       )}
-    </section>
+      </ScrollBody>
+    </>
   )
 }

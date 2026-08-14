@@ -1,40 +1,85 @@
+/*
+ * Design tokens。
+ *
+ * 結構同命名邏輯係照抄 tree-app-v7 `src/ui/tokens.css`，只係換值——
+ * 咁樣兩個 app 嘅版面、卡片、浮卡、間距全部對得返，同事開兩個 app 係同一種手感。
+ *
+ * 主色由深綠換做**深啡**（Jason 2026-08-14 拍板）：同事一眼就知自己開緊邊個 app，
+ * 唔會喺報價 app 度揾影相功能。P0 嗰個 Hedge Green #768A75 嘅決定由今日起推翻。
+ *
+ * ⚠️ 特登唔用 `--v7-*` 呢個 prefix：個名叫 header-green 但入面裝住啡色會呃人。
+ * 用 `--q-*`，一對一對應如下：
+ *
+ *   --q-header          ←→ --v7-header-green        （換值：深綠 → 深啡）
+ *   --q-header-deep     ←→ --v7-header-green-deep
+ *   --q-page-bg         ←→ --v7-page-bg             （同值，唔變）
+ *   --q-card-bg         ←→ --v7-card-bg             （同值，唔變）
+ *   --q-card-alt        ←→ --v7-card-alt            （換值：偏綠 → 偏啡）
+ *   --q-text-primary    ←→ --v7-text-primary        （換值）
+ *   --q-text-secondary  ←→ --v7-text-secondary      （換值，同比例調淡）
+ *   --q-complete        ←→ --v7-complete            （同值：語意色，唔係品牌色）
+ *   --q-incomplete      ←→ --v7-incomplete          （同值）
+ *   --q-danger          ←→ --v7-danger              （同值）
+ *   --q-border          ←→ --v7-border              （同值）
+ *   --q-radius-*        ←→ --v7-radius-*            （同值）
+ *   --q-shadow-card     ←→ --v7-shadow-card         （同值）
+ *   --q-card-lift       ←→ --v7-card-lift           （同值：同一條 clamp）
+ *
+ * tree app 個 tokens.css 寫住 "do not recolor"，所以嗰邊一個字都冇郁過。
+ */
 :root {
-  /* 品牌 */
-  --hedge-green: #768a75;
-  --hedge-green-dark: #5d6f5c;
-  --hedge-green-light: #e9eee8;
+  /* 品牌 —— 深啡 */
+  --q-header: #4a3728;
+  --q-header-deep: #3a2b1f;
 
-  /* 中性 */
-  --ink: #1f2320;
-  --ink-muted: #5c635d;
-  --line: #dce0db;
-  --surface: #ffffff;
-  --bg: #f6f7f5;
+  /* 底色／卡片（同 tree app 一樣，唔變） */
+  --q-page-bg: #f5efe5;
+  --q-card-bg: #fffdf8;
+  --q-card-alt: #f1eae0;
 
-  /* 狀態 */
-  --danger: #a3392f;
-  --danger-bg: #fbeceb;
-  --warning: #8a6d2f;
-  --warning-bg: #fdf4e2;
+  /* 文字 */
+  --q-text-primary: #3a2a1c;
+  --q-text-secondary: #7a6a5c;
+  --q-on-header: #fdfaf5;
 
-  /* 尺寸 */
-  --radius: 10px;
-  --radius-sm: 6px;
-  --space-1: 4px;
-  --space-2: 8px;
-  --space-3: 12px;
-  --space-4: 16px;
-  --space-5: 24px;
-  --space-6: 32px;
+  /* 語意色 —— 唔係品牌色，所以照抄 tree app，唔跟啡色走 */
+  --q-complete: #2f7d4d;
+  --q-incomplete: #d58a18;
+  --q-danger: #b94b3e;
+  --q-danger-bg: #fbeceb;
 
-  /* 字 */
-  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans TC',
+  --q-border: #e4ded3;
+
+  --q-radius-sm: 14px;
+  --q-radius-md: 20px;
+  --q-radius-lg: 24px;
+
+  --q-shadow-card:
+    0 10px 24px rgba(50, 43, 32, 0.11),
+    0 2px 5px rgba(50, 43, 32, 0.06);
+
+  /* 間距 */
+  --q-space-1: 4px;
+  --q-space-2: 8px;
+  --q-space-3: 12px;
+  --q-space-4: 16px;
+  --q-space-5: 24px;
+  --q-space-6: 32px;
+
+  /* 字級 */
+  --q-font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
     'PingFang HK', 'Microsoft JhengHei', sans-serif;
-  --text-sm: 13px;
-  --text-base: 15px;
-  --text-lg: 18px;
-  --text-xl: 22px;
+  --q-text-sm: 13px;
+  --q-text-base: 15px;
+  --q-text-lg: 18px;
+  --q-text-xl: 22px;
 
   /* 觸控目標最細高度（手機優先） */
-  --tap-target: 48px;
+  --q-tap-target: 48px;
+
+  /*
+   * 第一張卡浮起嘅高度。同 tree app 一條 clamp：header 高度隨闊度變，所以個 lift 都要隨闊度變，
+   * 320–430px 之間個重疊先會一致。呢度係**唯一**個 lift 來源，個別頁唔准自己寫死。
+   */
+  --q-card-lift: clamp(-46px, calc(6px - 9vw), -18px);
 }

@@ -3,10 +3,15 @@ import type { Session, SupabaseClient } from '@supabase/supabase-js'
 import { createRecordsApi, type QuoteRecord, type RecordsApi } from '../lib/records'
 import { createTreesApi, type TreesApi } from '../lib/trees'
 import { createSiteFormApi, type SiteFormApi } from '../lib/siteForm'
+import { activeTab, type Nav, type Route } from '../ui/routes'
+import { BottomNav, userInfoFrom, type UserInfo } from '../ui/shell'
+import HomeScreen from './HomeScreen'
 import RecordListPage from './RecordListPage'
+import RecordHubScreen from './RecordHubScreen'
 import RecordFormPage from './RecordFormPage'
 import TreesScreen from './TreesScreen'
 import SiteFormScreen from './SiteFormScreen'
+import SettingsScreen from './SettingsScreen'
 
 type Props = {
   client: SupabaseClient
@@ -19,12 +24,6 @@ export type QuoteApi = {
   siteForm: SiteFormApi
 }
 
-type View =
-  | { kind: 'list' }
-  | { kind: 'form'; id: string | null }
-  | { kind: 'trees'; id: string }
-  | { kind: 'site-form'; id: string }
-
 export default function HomePage({ client, session }: Props) {
   const api: QuoteApi = useMemo(
     () => ({
@@ -35,26 +34,36 @@ export default function HomePage({ client, session }: Props) {
     [client, session.user.id],
   )
 
-  return <RecordsScreen api={api} email={session.user.email ?? ''} onSignOut={() => client.auth.signOut()} />
+  return (
+    <RecordsScreen
+      api={api}
+      user={userInfoFrom(session.user.email ?? '')}
+      userId={session.user.id}
+      onSignOut={() => client.auth.signOut()}
+    />
+  )
 }
 
 type ScreenProps = {
   api: QuoteApi
-  email: string
+  user: UserInfo
+  userId: string
   onSignOut: () => Promise<unknown>
 }
 
 /**
- * 只認 QuoteApi，唔認 Supabase client——本機可以餵一個 in-memory 假 api 行真流程。
- * 每次寫入之後都由 server 重新攞一次清單：DB 係唯一 source of truth，
- * 唔會本機砌一份 state 扮已經寫咗入去。
+ * 登入之後嘅根。照 tree-app-v7 `SignedInApp`：一個 route state、一個共用外殼、
+ * 底部導航永遠釘住。只認 QuoteApi 唔認 Supabase client，所以本機可以餵假 api 行真流程。
+ *
+ * 資料流冇變（P1 定落）：每次寫入之後由 server 重新攞清單，DB 係唯一 source of truth。
  */
-export function RecordsScreen({ api, email, onSignOut }: ScreenProps) {
+export function RecordsScreen({ api, user, userId, onSignOut }: ScreenProps) {
   const [records, setRecords] = useState<QuoteRecord[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [view, setView] = useState<View>({ kind: 'list' })
-  const [signingOut, setSigningOut] = useState(false)
+  const [route, setRoute] = useState<Route>({ name: 'home' })
+
+  const nav: Nav = { go: setRoute }
 
   const reload = useCallback(async () => {
     setLoading(true)
@@ -72,119 +81,133 @@ export function RecordsScreen({ api, email, onSignOut }: ScreenProps) {
     void reload()
   }, [reload])
 
-  const editing =
-    view.kind === 'form' && view.id !== null
-      ? (records.find((record) => record.id === view.id) ?? null)
-      : null
-
-  /** 樹木清單同現場資料表都掛喺一張已存在嘅單度。 */
-  const openedRecord =
-    view.kind === 'trees' || view.kind === 'site-form'
-      ? (records.find((record) => record.id === view.id) ?? null)
-      : null
-
-  /** 寫入 → 用 server 回傳嘅 row 做準 → 重新攞清單 → 返清單頁。 */
-  async function afterWrite(write: () => Promise<QuoteRecord>) {
-    await write()
-    await reload()
-    setView({ kind: 'list' })
+  function findRecord(id: string): QuoteRecord | null {
+    return records.find((record) => record.id === id) ?? null
   }
 
-  async function handleSignOut() {
-    setSigningOut(true)
-    await onSignOut()
-    setSigningOut(false)
+  /** 寫入 → 用 server 回傳嘅 row 做準 → 重新攞清單 → 去指定嘅版。 */
+  async function afterWrite(write: () => Promise<QuoteRecord>, next: (saved: QuoteRecord) => Route) {
+    const saved = await write()
+    await reload()
+    setRoute(next(saved))
   }
 
   return (
-    <>
-      <header className="topbar">
-        <div>
-          <h1 className="topbar__title">森伝現場報價記錄</h1>
-          <p className="topbar__email">{email || '（冇電郵）'}</p>
-        </div>
-        <button
-          className="link-button"
-          type="button"
-          onClick={handleSignOut}
-          disabled={signingOut}
-        >
-          {signingOut ? '登出中…' : '登出'}
-        </button>
-      </header>
-
-      {renderView()}
-    </>
+    <div className="app app--float">
+      {renderRoute()}
+      <BottomNav active={activeTab(route)} nav={nav} />
+    </div>
   )
 
-  function renderView() {
-    if (view.kind === 'trees' || view.kind === 'site-form') {
-      // 母單載入緊、或者已經唔喺清單（例如俾人封存咗又篩走咗）就唔好白畫面。
-      if (!openedRecord) {
-        return loading ? (
-          <p className="loading">載入中…</p>
-        ) : (
-          <p className="notice notice--warning">
-            搵唔到呢一單。{' '}
-            <button className="link-button" type="button" onClick={() => setView({ kind: 'list' })}>
-              返清單
-            </button>
-          </p>
+  function missingRecord() {
+    return (
+      <div className="content">
+        <p className="notice notice--warning">
+          搵唔到呢一單。{' '}
+          <button className="link-button" type="button" onClick={() => nav.go({ name: 'records' })}>
+            返工程清單
+          </button>
+        </p>
+      </div>
+    )
+  }
+
+  function renderRoute() {
+    switch (route.name) {
+      case 'home':
+        return <HomeScreen records={records} loading={loading} user={user} nav={nav} />
+
+      case 'records':
+        return (
+          <RecordListPage
+            records={records}
+            loading={loading}
+            error={error}
+            user={user}
+            onOpen={(record) => nav.go({ name: 'record', recordId: record.id })}
+            onCreate={() => nav.go({ name: 'record-form', recordId: null })}
+            onRetry={() => void reload()}
+          />
+        )
+
+      case 'record': {
+        const record = findRecord(route.recordId)
+        if (!record) return loading ? <div className="content"><p className="loading">載入中…</p></div> : missingRecord()
+        return <RecordHubScreen api={api.trees} record={record} nav={nav} />
+      }
+
+      case 'record-form': {
+        const record = route.recordId === null ? null : findRecord(route.recordId)
+        if (route.recordId !== null && !record) {
+          return loading ? <div className="content"><p className="loading">載入中…</p></div> : missingRecord()
+        }
+        return (
+          <RecordFormPage
+            record={record}
+            onSave={(input) =>
+              afterWrite(
+                () => (record ? api.records.update(record.id, input) : api.records.create(input)),
+                (saved) => ({ name: 'record', recordId: saved.id }),
+              )
+            }
+            onArchiveToggle={() =>
+              afterWrite(
+                () => {
+                  if (!record) throw new Error('搵唔到呢一單，請返清單再試。')
+                  return api.records.setArchived(record.id, !record.archived)
+                },
+                () => ({ name: 'records' }),
+              )
+            }
+            onDelete={() =>
+              afterWrite(
+                () => {
+                  if (!record) throw new Error('搵唔到呢一單，請返清單再試。')
+                  return api.records.softDelete(record.id)
+                },
+                () => ({ name: 'records' }),
+              )
+            }
+            onBack={() =>
+              nav.go(record ? { name: 'record', recordId: record.id } : { name: 'records' })
+            }
+          />
         )
       }
 
-      return view.kind === 'trees' ? (
-        <TreesScreen
-          api={api.trees}
-          record={openedRecord}
-          onBack={() => setView({ kind: 'form', id: openedRecord.id })}
-        />
-      ) : (
-        <SiteFormScreen
-          api={api.siteForm}
-          record={openedRecord}
-          onBack={() => setView({ kind: 'form', id: openedRecord.id })}
-        />
-      )
-    }
+      case 'trees': {
+        const record = findRecord(route.recordId)
+        if (!record) return loading ? <div className="content"><p className="loading">載入中…</p></div> : missingRecord()
+        return (
+          <TreesScreen
+            api={api.trees}
+            record={record}
+            onBack={() => nav.go({ name: 'record', recordId: record.id })}
+          />
+        )
+      }
 
-    if (view.kind === 'list') {
-      return (
-        <RecordListPage
-          records={records}
-          loading={loading}
-          error={error}
-          onOpen={(record) => setView({ kind: 'form', id: record.id })}
-          onCreate={() => setView({ kind: 'form', id: null })}
-          onRetry={() => void reload()}
-        />
-      )
-    }
+      case 'site-form': {
+        const record = findRecord(route.recordId)
+        if (!record) return loading ? <div className="content"><p className="loading">載入中…</p></div> : missingRecord()
+        return (
+          <SiteFormScreen
+            api={api.siteForm}
+            record={record}
+            onBack={() => nav.go({ name: 'record', recordId: record.id })}
+          />
+        )
+      }
 
-    return (
-      <RecordFormPage
-        record={editing}
-        onSave={(input) =>
-          afterWrite(() =>
-            editing ? api.records.update(editing.id, input) : api.records.create(input),
-          )
-        }
-        onArchiveToggle={() =>
-          afterWrite(() => {
-            if (!editing) throw new Error('搵唔到呢一單，請返清單再試。')
-            return api.records.setArchived(editing.id, !editing.archived)
-          })
-        }
-        onDelete={() =>
-          afterWrite(() => {
-            if (!editing) throw new Error('搵唔到呢一單，請返清單再試。')
-            return api.records.softDelete(editing.id)
-          })
-        }
-        onOpenTrees={editing ? () => setView({ kind: 'trees', id: editing.id }) : undefined}
-        onOpenSiteForm={editing ? () => setView({ kind: 'site-form', id: editing.id }) : undefined}
-        onBack={() => setView({ kind: 'list' })}
-      />
-    )
+      case 'settings':
+        return (
+          <SettingsScreen
+            user={user}
+            userId={userId}
+            recordCount={records.length}
+            onSignOut={onSignOut}
+          />
+        )
+    }
   }
 }

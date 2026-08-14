@@ -10,6 +10,7 @@ import {
   type TreeInput,
 } from '../lib/trees'
 import OptionGroup from './OptionGroup'
+import { BackChip, BotanicalHeader, HeaderTitle, ScrollBody } from '../ui/shell'
 
 type Props = {
   /** null = 加新樹 */
@@ -18,6 +19,8 @@ type Props = {
   suggestedTreeNo: string
   /** 同一單入面其他樹嘅編號，用嚟即時提示撞號 */
   otherTreeNos: string[]
+  /** 母單名，喺頁頂副題顯示 */
+  recordName: string
   onSave: (input: TreeInput) => Promise<void>
   onDelete: () => Promise<void>
   onBack: () => void
@@ -27,6 +30,7 @@ export default function TreeFormPage({
   tree,
   suggestedTreeNo,
   otherTreeNos,
+  recordName,
   onSave,
   onDelete,
   onBack,
@@ -85,15 +89,19 @@ export default function TreeFormPage({
   }
 
   return (
-    <section className="card">
-      <div className="page-head">
-        <button className="link-button" type="button" onClick={onBack} disabled={busy !== null}>
-          ← 返樹木清單
-        </button>
-        <h2 className="card__title">{tree ? '改樹' : '加樹'}</h2>
-      </div>
+    <>
+      <BotanicalHeader
+        left={
+          <HeaderTitle
+            back={<BackChip onClick={onBack} label="返樹木清單" />}
+            name={tree ? `改樹 #${tree.tree_no || '—'}` : '加樹'}
+            sub={recordName}
+          />
+        }
+      />
 
-      <form onSubmit={handleSubmit} noValidate>
+      <ScrollBody testid="tree-form-scroll">
+        <form className="card" onSubmit={handleSubmit} noValidate>
         <label className="field">
           <span className="field__label">樹編號</span>
           <input
@@ -211,7 +219,7 @@ export default function TreeFormPage({
       </form>
 
       {tree && (
-        <div className="danger-zone">
+        <div className="card danger-zone">
           {confirmingDelete ? (
             <>
               <button
@@ -249,6 +257,7 @@ export default function TreeFormPage({
           <p className="danger-zone__note">刪除只係記低刪除時間，資料庫入面唔會真刪。</p>
         </div>
       )}
-    </section>
+      </ScrollBody>
+    </>
   )
 }

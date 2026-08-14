@@ -9,6 +9,7 @@ import {
   reverseGeocode,
   type ReverseResult,
 } from '../lib/geo'
+import { BackChip, BotanicalHeader, HeaderTitle, ScrollBody } from '../ui/shell'
 import {
   EMPTY_INPUT,
   rowToInput,
@@ -26,9 +27,6 @@ type Props = {
   onSave: (input: RecordInput) => Promise<void>
   onArchiveToggle: () => Promise<void>
   onDelete: () => Promise<void>
-  /** 只有已經存低咗嘅單先入得去（要有 record_id） */
-  onOpenTrees?: () => void
-  onOpenSiteForm?: () => void
   onBack: () => void
 }
 
@@ -39,8 +37,6 @@ export default function RecordFormPage({
   onSave,
   onArchiveToggle,
   onDelete,
-  onOpenTrees,
-  onOpenSiteForm,
   onBack,
 }: Props) {
   const [input, setInput] = useState<RecordInput>(() =>
@@ -151,15 +147,19 @@ export default function RecordFormPage({
   }
 
   return (
-    <section className="card">
-      <div className="page-head">
-        <button className="link-button" type="button" onClick={onBack} disabled={busy !== null}>
-          ← 返清單
-        </button>
-        <h2 className="card__title">{record ? '編輯工程' : '新增工程'}</h2>
-      </div>
+    <>
+      <BotanicalHeader
+        left={
+          <HeaderTitle
+            back={<BackChip onClick={onBack} label="返回" />}
+            name={record ? '基本資料' : '新增工程'}
+            sub={record ? record.name : '填好之後就可以加樹同現場資料'}
+          />
+        }
+      />
 
-      <form onSubmit={handleSubmit} noValidate>
+      <ScrollBody testid="record-form-scroll">
+        <form className="card" onSubmit={handleSubmit} noValidate>
         <label className="field">
           <span className="field__label">日期</span>
           <input
@@ -318,33 +318,8 @@ export default function RecordFormPage({
         </button>
       </form>
 
-      {record && (onOpenTrees || onOpenSiteForm) && (
-        <div className="sub-pages">
-          {onOpenTrees && (
-            <button
-              className="button button--secondary"
-              type="button"
-              disabled={busy !== null}
-              onClick={onOpenTrees}
-            >
-              樹木清單 →
-            </button>
-          )}
-          {onOpenSiteForm && (
-            <button
-              className="button button--secondary"
-              type="button"
-              disabled={busy !== null}
-              onClick={onOpenSiteForm}
-            >
-              現場資料表 →
-            </button>
-          )}
-        </div>
-      )}
-
       {record && (
-        <div className="danger-zone">
+        <div className="card danger-zone">
           <button
             className="button button--secondary"
             type="button"
@@ -395,6 +370,7 @@ export default function RecordFormPage({
           </p>
         </div>
       )}
-    </section>
+      </ScrollBody>
+    </>
   )
 }

@@ -1,10 +1,17 @@
 import { useEffect, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { configResult, supabase } from './lib/supabase'
+import { LoginHeader } from './ui/shell'
 import ConfigMissing from './components/ConfigMissing'
 import LoginPage from './components/LoginPage'
 import HomePage from './components/HomePage'
+import './styles/app.css'
 
+/**
+ * 外殼結構照 tree-app-v7 `src/App.tsx`：
+ * 冇環境變數 → 波浪頭 + 一句警告；未登入 → 波浪頭 + 登入卡；
+ * 登入之後成個 app 交俾 HomePage（route + 底部導航）。
+ */
 export default function App() {
   const [session, setSession] = useState<Session | null>(null)
   const [checkingSession, setCheckingSession] = useState(true)
@@ -35,36 +42,40 @@ export default function App() {
     }
   }, [])
 
-  return (
-    <div className="app">
-      <main className="app__main">{renderBody()}</main>
-      <footer className="build-id">Build ID：v0.1 · {__BUILD_ID__}</footer>
-    </div>
-  )
-
-  function renderBody() {
-    // 登入之後 HomePage 有自己嘅頂欄，唔再重複個大 brand header。
-    if (configResult.ok && supabase && session) {
-      return <HomePage client={supabase} session={session} />
-    }
-
+  // 冇環境變數：一定要見到清楚訊息，唔可以白畫面。
+  if (!configResult.ok || !supabase) {
     return (
-      <>
-        <header className="brand">
-          <div className="brand__mark" aria-hidden="true" />
-          <h1 className="brand__title">森伝現場報價記錄</h1>
-          <p className="brand__subtitle">Sylvan quotation site-record</p>
-        </header>
-
-        {/* 冇環境變數：一定要見到清楚訊息，唔可以白畫面。 */}
-        {!configResult.ok || !supabase ? (
+      <div className="app">
+        <LoginHeader />
+        <div className="content">
           <ConfigMissing missing={configResult.ok ? [] : configResult.missing} />
-        ) : checkingSession ? (
-          <p className="loading">載入中…</p>
-        ) : (
-          <LoginPage client={supabase} />
-        )}
-      </>
+        </div>
+      </div>
     )
   }
+
+  // 未 probe 完唔好 render 登入卡，否則 refresh 一下就好似要重新登入。
+  if (checkingSession) {
+    return (
+      <div className="app">
+        <LoginHeader />
+        <div className="content">
+          <div className="muted empty">載入中…</div>
+        </div>
+      </div>
+    )
+  }
+
+  if (!session) {
+    return (
+      <div className="app">
+        <LoginHeader />
+        <div className="content">
+          <LoginPage client={supabase} />
+        </div>
+      </div>
+    )
+  }
+
+  return <HomePage client={supabase} session={session} />
 }

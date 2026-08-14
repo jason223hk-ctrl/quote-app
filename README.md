@@ -3,8 +3,41 @@
 Sylvan quotation site-record app。獨立 repo，同 tree-app-v7 冇任何共用檔案或設定
 （只係共用同一個 Supabase project 做認證）。
 
-現時階段：**P0 骨架 + 部署鏈驗證**。只有登入 / 登出 / 空白主頁 / Build ID，
-未有任何報價資料表、樹木、相片、成本、PDF、地圖功能。
+現時階段：**P2.6 換皮**。有登入、工程清單、工程詳情 hub、基本資料（連 GPS）、
+樹木清單、現場資料表、設定。未有相片、成本、markup、PDF、地圖、轉工程。
+
+## 同 tree app 嘅關係（P2.6 換皮）
+
+兩個 app **照舊分開，唔合併**。但 quote app 嘅結構、畫面同寫法係**刻意抄返
+tree-app-v7（v8）**，等阿耀、聰、Isaac 開兩個 app 都係同一種手感，唔使學兩套：
+波浪頭、浮起嘅第一張卡、全頁唔捲只有內容捲、底部導航、卡片同 chips、Build ID 格式。
+
+抄嘅係手感同結構，唔係盲抄。以下係**特登唔跟** tree app 嘅：
+
+- 唔用 `ConfirmModal` 彈窗，刪除同登出一律**畫面內兩段式**（現場戴住手套，彈窗易撳錯，
+  而且自動化驗唔到）。
+- 唔抄滑動刪除、Dexie 離線佇列、R2、Google Drive 鏡像、對位相機。
+- 唔抄 `SECURITY DEFINER` 嘅 soft-delete RPC —— 我哋 schema 特登冇 delete policy，
+  直接寫 `deleted_at` 就啱。
+- admin 係 `quote_admins` + `is_quote_admin()`，**唔係** tree app 嗰個 `admins` 表。
+- 冇搬 tree app 任何 icon PNG（波浪係純 CSS 畫）。
+
+### 主色點解係深啡
+
+tree app 深綠、quote app **深啡 `#4A3728`**。版面一樣但主色唔同，係為咗令同事一眼就知
+自己開緊邊個 app，唔會喺報價 app 度揾影相功能。P0 嗰個 Hedge Green `#768A75` 嘅決定
+由 2026-08-14 起推翻。
+
+`src/styles/tokens.css` 嘅變數結構同命名邏輯係照抄 tree app 個 `tokens.css`，只係換值，
+檔頭有一張 1:1 對應表。**tree app 嗰個 tokens 檔寫住 "do not recolor"，所以嗰邊一個字都冇郁過。**
+啡色深咗淺咗都只係改一個變數嘅事。
+
+### 兩個 app 都叫「工程」
+
+同一件工程嘅兩個階段：報價 app 開單，中標之後過去 tree app 繼續做。所以叫同一個名係啱嘅。
+但**兩邊個「工程」係唔同資料表**（`quote_records` vs `projects`），撈亂嘅風險係真嘅，
+所以靠兩樣嘢分：**顏色**（深啡 vs 深綠），同埋 **P6 轉工程嗰陣兩邊都要清楚寫明呢單係由報價轉過嚟**。
+P6 到時要兌現呢一句。
 
 ## Stack
 
@@ -17,7 +50,7 @@ Sylvan quotation site-record app。獨立 repo，同 tree-app-v7 冇任何共用
 | Lint | ESLint 9 flat config + typescript-eslint |
 | Test | Vitest |
 
-品牌主色：Hedge Green `#768A75`。手機優先（`max-width: 480px` 單欄、觸控目標 48px、
+品牌主色：深啡 `#4A3728`（見上面「主色點解係深啡」）。手機優先（`max-width: 480px` 單欄、觸控目標 48px、
 輸入框 16px 避免 iOS 自動 zoom）。
 
 ## 本機開發
@@ -104,10 +137,11 @@ grant execute on function is_quote_admin() to authenticated;
 
 ## Build ID
 
-`vite.config.ts` 用 Vite `define` 注入 `__BUILD_ID__` = git short SHA + build 時間。
-SHA 來源優先次序：Cloudflare Pages 嘅 `CF_PAGES_COMMIT_SHA` → 本機 `git rev-parse` → `nogit`。
+`vite.config.ts` 用 Vite `define` 注入 `__BUILD_SHA__`（git short SHA）同 `__BUILD_TIME__`，
+版本字串喺 `src/ui/version.ts` 砌。SHA 來源優先次序：Cloudflare Pages 嘅
+`CF_PAGES_COMMIT_SHA` → 本機 `git rev-parse` → `nogit`。
 
-畫面底部長期顯示 `Build ID：v0.1 · <sha> · <build time>Z`，用嚟核對線上跑緊邊個 commit。
+畫面底部（登入頁）同設定頁嘅診斷卡顯示 `v0.1 · Build <sha> · <HHmm>`，格式跟 tree app 嘅 `VERSION_LABEL`，用嚟核對線上跑緊邊個 commit。
 
 ## Cloudflare Pages 部署
 
