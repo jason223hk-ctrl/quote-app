@@ -33,9 +33,9 @@ export function shiftLabel(shift: Shift | null): string {
   return SHIFT_OPTIONS.find((option) => option.value === shift)?.label ?? '—'
 }
 
-/** 卡上面「大判 - 地點」嗰行。任何一邊冇填都唔可以出多餘嘅「-」。 */
-export function contractorSiteLine(mainCon: string | null, site: string | null): string {
-  return [mainCon, site].filter((part) => part && part.trim() !== '').join(' - ')
+/** 卡上面「客戶 - 地址」嗰行。任何一邊冇填都唔可以出多餘嘅「-」。 */
+export function clientAddressLine(client: string | null, address: string | null): string {
+  return [client, address].filter((part) => part && part.trim() !== '').join(' - ')
 }
 
 export function todayIso(now: Date): string {

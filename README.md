@@ -77,6 +77,31 @@ grant execute on function is_quote_admin() to authenticated;
 空白要送空字串。呢個規矩由 `src/lib/records.ts` 嘅 `inputToRow()` 一個位負責，
 有 regression test 睇住，唔好喺個別欄位度散修。
 
+數字欄相反：**留空就係 `null`，唔准變 0**。未量度同零係兩件事（樹高 0m 同「未量」
+對報價完全兩回事）。
+
+### 表單拿走欄位嘅時候
+
+欄位喺表單消失 ≠ 喺 DB 消失。`main_con`、`site`、`start_time`、`odoo_ref` 由 P2.5
+起唔再顯示，但舊單資料要永遠查得返，所以**呢幾個 key 完全唔會出現喺 `inputToRow()`
+嘅 payload**——唔喺 payload 出現，`update` 就唔會郁佢哋。如果照送空字串，等於每次
+開返舊單再儲存都靜靜刪一次資料。有 regression test 睇住。
+
+## GPS 同地址反查
+
+- 反查用 OpenStreetMap Nominatim 嘅 `/reverse`（`format=jsonv2`、`zoom=18`、
+  `accept-language=zh-HK,zh,en`）。
+- **只可以喺用家撳「用 GPS 定位」嗰陣發一次請求**：冇 debounce、冇 autocomplete、
+  冇連環快發，同一組座標唔會查第二次（`coordsKey` 記住上次結果）。
+- 地址欄附近長期顯示「地址資料來自 OpenStreetMap」，係佢哋條款要求嘅出處標示。
+- 十八區 → 地區嘅對應喺 `src/lib/districts.ts`，係**整格比對唔係包含比對**：
+  「North Point」喺東區（HK），用包含就會誤中「North」＝北區（NT），夾車同吊機價
+  即刻報錯。認唔到就留返地區未揀 + 出「認唔到地區，請自己揀」，**唔准估**。
+- `address_source` / `region_source` 係 `gps` 嗰陣，欄位下面出「由 GPS 自動填，請確認」；
+  用家一改嗰個欄，來源即刻變返 `manual`。
+- 攞唔到定位、反查失敗、冇網，全部出中文一句，而且地址欄照打得字、照儲存得。
+  座標攞到但反查失敗，一定要照存座標。
+
 ## Build ID
 
 `vite.config.ts` 用 Vite `define` 注入 `__BUILD_ID__` = git short SHA + build 時間。

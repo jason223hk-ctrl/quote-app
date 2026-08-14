@@ -1,5 +1,14 @@
-import { useState, type FormEvent } from 'react'
+import { useRef, useState, type FormEvent } from 'react'
 import { REGION_OPTIONS, SHIFT_OPTIONS, todayIso } from '../lib/labels'
+import {
+  coordsKey,
+  getCurrentCoords,
+  OSM_ATTRIBUTION,
+  REGION_UNKNOWN_MESSAGE,
+  REVERSE_FAILED_MESSAGE,
+  reverseGeocode,
+  type ReverseResult,
+} from '../lib/geo'
 import {
   EMPTY_INPUT,
   rowToInput,
@@ -42,6 +51,11 @@ export default function RecordFormPage({
   const [error, setError] = useState<string | null>(null)
   const [confirmingDelete, setConfirmingDelete] = useState(false)
 
+  const [locating, setLocating] = useState(false)
+  const [gpsMessage, setGpsMessage] = useState<string | null>(null)
+  /** 同一組座標唔重複查 Nominatim（佢哋條款要求唔好連環發請求）。 */
+  const lastReverse = useRef<{ key: string; result: ReverseResult } | null>(null)
+
   function patch(values: Partial<RecordInput>) {
     setInput((current) => ({ ...current, ...values }))
     // 改咗邊個欄就即刻清返嗰欄嘅提示，唔會一路紅住。
@@ -61,6 +75,53 @@ export default function RecordFormPage({
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : String(caught))
       setBusy(null)
+    }
+  }
+
+  /**
+   * 撳掣先發一次請求：冇 debounce、冇 autocomplete、冇連環快發。
+   * 全程唔會 block 儲存——攞唔到定位一樣打得字、儲存得。
+   */
+  async function handleLocate() {
+    setLocating(true)
+    setGpsMessage(null)
+
+    let coords
+    try {
+      coords = await getCurrentCoords()
+    } catch (caught) {
+      setGpsMessage(caught instanceof Error ? caught.message : String(caught))
+      setLocating(false)
+      return
+    }
+
+    // 座標一攞到就即刻記低，就算跟住反查失敗都唔會掉咗。
+    patch({ gps_lat: coords.lat, gps_lng: coords.lng, gps_at: coords.at })
+
+    const key = coordsKey(coords.lat, coords.lng)
+    try {
+      const cached = lastReverse.current
+      const result = cached?.key === key ? cached.result : await reverseGeocode(coords.lat, coords.lng)
+      lastReverse.current = { key, result }
+
+      if (result.address) {
+        patch({ address: result.address, address_source: 'gps' })
+      }
+      if (result.region) {
+        patch({ region: result.region, region_source: 'gps' })
+      }
+
+      if (!result.address) {
+        setGpsMessage(REVERSE_FAILED_MESSAGE)
+      } else if (!result.region) {
+        // 地區直接影響夾車同吊機價，認唔到就一定要用家自己揀，唔可以估。
+        setGpsMessage(REGION_UNKNOWN_MESSAGE)
+      }
+    } catch (caught) {
+      console.error('[quote-app] reverse geocode failed:', caught)
+      setGpsMessage(REVERSE_FAILED_MESSAGE)
+    } finally {
+      setLocating(false)
     }
   }
 
@@ -95,7 +156,7 @@ export default function RecordFormPage({
         <button className="link-button" type="button" onClick={onBack} disabled={busy !== null}>
           ← 返清單
         </button>
-        <h2 className="card__title">{record ? '編輯報價單' : '新一單'}</h2>
+        <h2 className="card__title">{record ? '編輯工程' : '新增工程'}</h2>
       </div>
 
       <form onSubmit={handleSubmit} noValidate>
@@ -112,7 +173,23 @@ export default function RecordFormPage({
         </label>
 
         <label className="field">
-          <span className="field__label">個名</span>
+          <span className="field__label">日／夜工作</span>
+          <select
+            className="field__input"
+            value={input.shift}
+            disabled={busy !== null}
+            onChange={(event) => patch({ shift: event.target.value as Shift })}
+          >
+            {SHIFT_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label className="field">
+          <span className="field__label">工程名稱</span>
           <input
             className="field__input"
             type="text"
@@ -123,30 +200,70 @@ export default function RecordFormPage({
           {fieldError('name')}
         </label>
 
+        <div className="field">
+          <span className="field__label">地址</span>
+          <div className="field__with-action">
+            <input
+              className="field__input"
+              type="text"
+              aria-label="地址"
+              value={input.address}
+              disabled={busy !== null}
+              // 用家一改地址，來源即刻變返 manual。
+              onChange={(event) => patch({ address: event.target.value, address_source: 'manual' })}
+            />
+            <button
+              className="button button--secondary button--inline"
+              type="button"
+              disabled={busy !== null || locating}
+              onClick={handleLocate}
+            >
+              {locating ? '定位中…' : '用 GPS 定位'}
+            </button>
+          </div>
+          {input.address_source === 'gps' && (
+            <span className="field__hint">由 GPS 自動填，請確認</span>
+          )}
+          {fieldError('address')}
+          {gpsMessage && (
+            <span className="field__warning" role="status">
+              {gpsMessage}
+            </span>
+          )}
+          {input.gps_lat !== null && input.gps_lng !== null && (
+            <span className="field__hint">
+              已記低座標：{input.gps_lat.toFixed(5)}, {input.gps_lng.toFixed(5)}
+            </span>
+          )}
+          <span className="field__hint">{OSM_ATTRIBUTION}</span>
+        </div>
+
         <label className="field">
-          <span className="field__label">大判</span>
-          <input
+          <span className="field__label">地區</span>
+          <select
             className="field__input"
-            type="text"
-            value={input.main_con}
+            value={input.region}
             disabled={busy !== null}
-            onChange={(event) => patch({ main_con: event.target.value })}
-          />
+            // 用家一改地區，來源即刻變返 manual。
+            onChange={(event) =>
+              patch({ region: event.target.value as Region | '', region_source: 'manual' })
+            }
+          >
+            <option value="">未選</option>
+            {REGION_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+          {input.region_source === 'gps' && (
+            <span className="field__hint">由 GPS 自動填，請確認</span>
+          )}
+          {fieldError('region')}
         </label>
 
         <label className="field">
-          <span className="field__label">地點</span>
-          <input
-            className="field__input"
-            type="text"
-            value={input.site}
-            disabled={busy !== null}
-            onChange={(event) => patch({ site: event.target.value })}
-          />
-        </label>
-
-        <label className="field">
-          <span className="field__label">客戶／聯絡人</span>
+          <span className="field__label">客戶</span>
           <input
             className="field__input"
             type="text"
@@ -157,66 +274,30 @@ export default function RecordFormPage({
         </label>
 
         <label className="field">
-          <span className="field__label">地區</span>
-          <select
-            className="field__input"
-            value={input.region}
-            disabled={busy !== null}
-            onChange={(event) => patch({ region: event.target.value as Region | '' })}
-          >
-            <option value="">未選</option>
-            {REGION_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-          {fieldError('region')}
-        </label>
-
-        <label className="field">
-          <span className="field__label">日／夜更</span>
-          <select
-            className="field__input"
-            value={input.shift}
-            disabled={busy !== null}
-            onChange={(event) => patch({ shift: event.target.value as Shift | '' })}
-          >
-            <option value="">未選</option>
-            {SHIFT_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-          {fieldError('shift')}
-        </label>
-
-        <label className="field">
-          <span className="field__label">預計開工</span>
+          <span className="field__label">聯絡人</span>
           <input
             className="field__input"
             type="text"
-            placeholder="例如：下星期一朝早"
-            value={input.start_time}
+            value={input.contact}
             disabled={busy !== null}
-            onChange={(event) => patch({ start_time: event.target.value })}
+            onChange={(event) => patch({ contact: event.target.value })}
           />
         </label>
 
         <label className="field">
-          <span className="field__label">Odoo REF#（選填）</span>
+          <span className="field__label">電話</span>
           <input
             className="field__input"
-            type="text"
-            value={input.odoo_ref}
+            type="tel"
+            inputMode="tel"
+            value={input.phone}
             disabled={busy !== null}
-            onChange={(event) => patch({ odoo_ref: event.target.value })}
+            onChange={(event) => patch({ phone: event.target.value })}
           />
         </label>
 
         <label className="field">
-          <span className="field__label">內部備註</span>
+          <span className="field__label">其他備註</span>
           <textarea
             className="field__input field__input--area"
             rows={4}

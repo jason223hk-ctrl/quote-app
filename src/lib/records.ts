@@ -4,19 +4,35 @@ export type QuoteStatus = 'site' | 'pending' | 'quoted' | 'sent' | 'won' | 'lost
 export type Region = 'NT' | 'KLN' | 'HK'
 export type Shift = 'day' | 'night'
 
-/** quote_records 一行。Schema 由 Jason 喺 Supabase 建，呢度只係對應，唔改。 */
+export type SourceKind = 'gps' | 'manual'
+
+/**
+ * quote_records 一行。Schema 由 Jason 喺 Supabase 建，呢度只係對應，唔改。
+ *
+ * main_con / site / start_time / odoo_ref 由 P2.5 開始唔再喺表單顯示，
+ * 但欄位仲喺 DB、舊單資料一律保留，永遠查得返——所以型別要留住佢哋。
+ */
 export type QuoteRecord = {
   id: string
   record_date: string
   name: string
-  main_con: string | null
-  site: string | null
+  address: string
   client: string | null
+  contact: string
+  phone: string
   region: Region | null
   shift: Shift | null
+  internal_note: string | null
+  gps_lat: number | null
+  gps_lng: number | null
+  gps_at: string | null
+  address_source: SourceKind
+  region_source: SourceKind
+  /** 以下四個係舊表單嘅欄位：唔顯示、唔寫入，但唔准刪。 */
+  main_con: string | null
+  site: string | null
   start_time: string | null
   odoo_ref: string | null
-  internal_note: string | null
   status: QuoteStatus
   markup_pct: number | null
   archived: boolean
@@ -28,31 +44,44 @@ export type QuoteRecord = {
   deleted_at: string | null
 }
 
-/** 表單填出嚟嘅嘢。全部 string，寫入前先轉 null。 */
+/**
+ * 新增工程表單填出嚟嘅嘢（P2.5 規格）。
+ * 欄位順序：日期、日／夜工作、工程名稱、地址、地區、客戶、聯絡人、電話、其他備註。
+ * 客戶就係大判（Jason 確認），所以冇獨立大判格。
+ */
 export type RecordInput = {
   record_date: string
-  name: string
-  main_con: string
-  site: string
-  client: string
-  region: Region | ''
   shift: Shift | ''
-  start_time: string
-  odoo_ref: string
+  name: string
+  address: string
+  region: Region | ''
+  client: string
+  contact: string
+  phone: string
   internal_note: string
+  gps_lat: number | null
+  gps_lng: number | null
+  gps_at: string | null
+  address_source: SourceKind
+  region_source: SourceKind
 }
 
 export const EMPTY_INPUT: RecordInput = {
   record_date: '',
+  // 新單一開就係日更，唔再係「未選」。
+  shift: 'day',
   name: '',
-  main_con: '',
-  site: '',
-  client: '',
+  address: '',
   region: '',
-  shift: '',
-  start_time: '',
-  odoo_ref: '',
+  client: '',
+  contact: '',
+  phone: '',
   internal_note: '',
+  gps_lat: null,
+  gps_lng: null,
+  gps_at: null,
+  address_source: 'manual',
+  region_source: 'manual',
 }
 
 /**
@@ -70,15 +99,24 @@ export type RecordsApi = {
 /** 欄位中文名。錯誤訊息同表單提示都用返同一份，唔會兩邊叫法唔同。 */
 export const FIELD_LABELS: Record<string, string> = {
   record_date: '日期',
-  name: '個名',
+  name: '工程名稱',
+  address: '地址',
+  client: '客戶',
+  contact: '聯絡人',
+  phone: '電話',
+  region: '地區',
+  shift: '日／夜工作',
+  internal_note: '其他備註',
+  gps_lat: 'GPS 緯度',
+  gps_lng: 'GPS 經度',
+  gps_at: 'GPS 時間',
+  address_source: '地址來源',
+  region_source: '地區來源',
+  // 舊表單欄位，唔再顯示但 DB 仲有
   main_con: '大判',
   site: '地點',
-  client: '客戶／聯絡人',
-  region: '地區',
-  shift: '日／夜更',
   start_time: '預計開工',
   odoo_ref: 'Odoo REF#',
-  internal_note: '內部備註',
   status: '狀態',
   created_by: '建立者',
   // 樹木
@@ -111,9 +149,9 @@ export type FieldErrors = Partial<Record<keyof RecordInput, string>>
 export function validateInput(input: RecordInput): FieldErrors {
   const errors: FieldErrors = {}
   if (input.record_date.trim() === '') errors.record_date = '請揀日期'
-  if (input.name.trim() === '') errors.name = '請填個名'
+  if (input.name.trim() === '') errors.name = '請填工程名稱'
+  if (input.address.trim() === '') errors.address = '請填地址'
   if (input.region === '') errors.region = '請揀地區'
-  if (input.shift === '') errors.shift = '請揀日更定夜更'
   return errors
 }
 
@@ -124,34 +162,47 @@ export function validateInput(input: RecordInput): FieldErrors {
  * **永遠唔送 null**（送 null 會逐個欄爆 not-null constraint，現場填漏一欄就落唔到單）。
  * 只掂表單擁有嘅欄，status / markup_pct / locked / archived / deleted_at 一律唔碰。
  */
-export function inputToRow(input: RecordInput): Record<string, string> {
+export function inputToRow(input: RecordInput): Record<string, unknown> {
   return {
     record_date: input.record_date,
-    name: input.name.trim(),
-    main_con: input.main_con.trim(),
-    site: input.site.trim(),
-    client: input.client.trim(),
-    region: input.region,
     shift: input.shift,
-    start_time: input.start_time.trim(),
-    odoo_ref: input.odoo_ref.trim(),
+    name: input.name.trim(),
+    address: input.address.trim(),
+    region: input.region,
+    client: input.client.trim(),
+    contact: input.contact.trim(),
+    phone: input.phone.trim(),
     internal_note: input.internal_note.trim(),
+    gps_lat: input.gps_lat,
+    gps_lng: input.gps_lng,
+    gps_at: input.gps_at,
+    address_source: input.address_source,
+    region_source: input.region_source,
   }
+  // 特登冇 main_con / site / start_time / odoo_ref：
+  // 表單唔再顯示佢哋，如果照送空字串就會靜靜刪咗舊單嘅資料。
+  // 唔喺 payload 出現 = update 唔會郁佢哋。
 }
 
 /** DB 一行 → 表單值，方便編輯。 */
 export function rowToInput(record: QuoteRecord): RecordInput {
   return {
     record_date: record.record_date,
+    // 舊單可能係 null（P2.5 之前未有預設），開返出嚟當日更。
+    shift: record.shift ?? 'day',
     name: record.name,
-    main_con: record.main_con ?? '',
-    site: record.site ?? '',
-    client: record.client ?? '',
+    // 舊單嘅 site 已經由 Jason 抄咗入 address，所以呢度唔使再 fallback。
+    address: record.address ?? '',
     region: record.region ?? '',
-    shift: record.shift ?? '',
-    start_time: record.start_time ?? '',
-    odoo_ref: record.odoo_ref ?? '',
+    client: record.client ?? '',
+    contact: record.contact ?? '',
+    phone: record.phone ?? '',
     internal_note: record.internal_note ?? '',
+    gps_lat: record.gps_lat ?? null,
+    gps_lng: record.gps_lng ?? null,
+    gps_at: record.gps_at ?? null,
+    address_source: record.address_source ?? 'manual',
+    region_source: record.region_source ?? 'manual',
   }
 }
 
@@ -212,7 +263,7 @@ export function createRecordsApi(client: SupabaseClient, userId: string): Record
     return data as QuoteRecord
   }
 
-  function patch(id: string, values: Record<string, string | boolean | null>) {
+  function patch(id: string, values: Record<string, unknown>) {
     return client
       .from('quote_records')
       .update({ ...values, updated_at: new Date().toISOString() })

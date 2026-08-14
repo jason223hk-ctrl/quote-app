@@ -1,7 +1,7 @@
 import type { QuoteRecord } from './records'
 
 export type RecordFilters = {
-  /** 搜尋：個名、大判、地點、客戶 */
+  /** 搜尋：工程名稱、客戶、地址、聯絡人、電話 */
   query: string
   /** 日期範圍，空字串 = 唔限 */
   dateFrom: string
@@ -17,7 +17,7 @@ export const EMPTY_FILTERS: RecordFilters = {
   showArchived: false,
 }
 
-const SEARCH_FIELDS = ['name', 'main_con', 'site', 'client'] as const
+const SEARCH_FIELDS = ['name', 'client', 'address', 'contact', 'phone'] as const
 
 export function matchesQuery(record: QuoteRecord, query: string): boolean {
   const needle = query.trim().toLowerCase()

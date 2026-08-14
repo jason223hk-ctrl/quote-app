@@ -7,14 +7,22 @@ function makeRecord(overrides: Partial<QuoteRecord>): QuoteRecord {
     id: 'id-1',
     record_date: '2026-08-10',
     name: '測試單',
-    main_con: null,
-    site: null,
+    address: '',
     client: null,
+    contact: '',
+    phone: '',
     region: null,
     shift: null,
+    internal_note: null,
+    gps_lat: null,
+    gps_lng: null,
+    gps_at: null,
+    address_source: 'manual',
+    region_source: 'manual',
+    main_con: null,
+    site: null,
     start_time: null,
     odoo_ref: null,
-    internal_note: null,
     status: 'site',
     markup_pct: null,
     archived: false,
@@ -28,7 +36,14 @@ function makeRecord(overrides: Partial<QuoteRecord>): QuoteRecord {
   }
 }
 
-const active = makeRecord({ id: 'active', name: '荃灣路邊修剪', main_con: '有利', site: '荃灣' })
+const active = makeRecord({
+  id: 'active',
+  name: '荃灣路邊修剪',
+  client: '碧瑤',
+  address: '荃灣海濱花園',
+  contact: '陳生',
+  phone: '91234567',
+})
 const archived = makeRecord({ id: 'archived', name: '舊單', archived: true })
 const deleted = makeRecord({ id: 'deleted', name: '已刪單', deleted_at: '2026-08-11T00:00:00Z' })
 
@@ -46,19 +61,17 @@ describe('filterRecords', () => {
     expect(result.map((r) => r.id)).toEqual(['active', 'archived'])
   })
 
-  it('搜尋覆蓋名、大判、地點、客戶', () => {
-    const byClient = makeRecord({ id: 'by-client', client: '陳生' })
-    const pool = [active, byClient]
+  it('搜尋覆蓋工程名稱、客戶、地址、聯絡人、電話', () => {
+    const other = makeRecord({ id: 'other', name: '觀塘塌樹', client: '新輝' })
+    const pool = [active, other]
+    const ids = (query: string) => filterRecords(pool, { ...EMPTY_FILTERS, query }).map((r) => r.id)
 
-    expect(filterRecords(pool, { ...EMPTY_FILTERS, query: '荃灣' }).map((r) => r.id)).toEqual([
-      'active',
-    ])
-    expect(filterRecords(pool, { ...EMPTY_FILTERS, query: '有利' }).map((r) => r.id)).toEqual([
-      'active',
-    ])
-    expect(filterRecords(pool, { ...EMPTY_FILTERS, query: '陳生' }).map((r) => r.id)).toEqual([
-      'by-client',
-    ])
+    expect(ids('荃灣路邊')).toEqual(['active']) // 工程名稱
+    expect(ids('碧瑤')).toEqual(['active']) // 客戶
+    expect(ids('海濱花園')).toEqual(['active']) // 地址
+    expect(ids('陳生')).toEqual(['active']) // 聯絡人
+    expect(ids('9123')).toEqual(['active']) // 電話
+    expect(ids('新輝')).toEqual(['other'])
   })
 
   it('搜尋唔分大細楷，亦會 trim 頭尾空白', () => {

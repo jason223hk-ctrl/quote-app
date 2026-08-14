@@ -8,67 +8,87 @@ import {
   type QuoteRecord,
   type RecordInput,
 } from './records'
-import { contractorSiteLine, todayIso } from './labels'
+import { clientAddressLine, todayIso } from './labels'
 
 const filled: RecordInput = {
   record_date: '2026-08-13',
-  name: '  荃灣路邊修剪  ',
-  main_con: '有利建築',
-  site: '荃灣海濱',
-  client: '陳生',
-  region: 'NT',
   shift: 'night',
-  start_time: '下星期一朝早',
-  odoo_ref: '',
+  name: '  荃灣路邊修剪  ',
+  address: '荃灣海濱花園 1 座',
+  region: 'NT',
+  client: '碧瑤',
+  contact: '陳生',
+  phone: '9123 4567',
   internal_note: '   ',
+  gps_lat: null,
+  gps_lng: null,
+  gps_at: null,
+  address_source: 'manual',
+  region_source: 'manual',
 }
 
 describe('inputToRow', () => {
   it('trim 所有欄，空白欄送空字串', () => {
     expect(inputToRow(filled)).toEqual({
       record_date: '2026-08-13',
-      name: '荃灣路邊修剪',
-      main_con: '有利建築',
-      site: '荃灣海濱',
-      client: '陳生',
-      region: 'NT',
       shift: 'night',
-      start_time: '下星期一朝早',
-      odoo_ref: '',
+      name: '荃灣路邊修剪',
+      address: '荃灣海濱花園 1 座',
+      region: 'NT',
+      client: '碧瑤',
+      contact: '陳生',
+      phone: '9123 4567',
       internal_note: '',
+      gps_lat: null,
+      gps_lng: null,
+      gps_at: null,
+      address_source: 'manual',
+      region_source: 'manual',
     })
   })
 
   /**
-   * Regression（2026-08-13 線上事故）：空白欄以前送 null，撞正 schema 嘅
-   * not null default ''，現場同事唔填「預計開工」／「Odoo REF#」／「內部備註」
-   * 就落唔到單，而且要逐個欄試先知爭邊個。
+   * Regression（2026-08-13 線上事故）：空白文字欄以前送 null，撞正 schema 嘅
+   * not null default ''，現場同事填漏一欄就落唔到單。
    */
-  it('全部選填欄留空都唔會出現任何 null', () => {
-    const blank: RecordInput = {
+  it('文字欄全部留空都唔會出現 null', () => {
+    const row = inputToRow({
       ...EMPTY_INPUT,
       record_date: '2026-08-13',
-      name: '淨係填咗個名',
+      name: '淨係填咗工程名稱',
+      address: '某某道',
       region: 'NT',
-      shift: 'day',
-    }
-
-    const row = inputToRow(blank)
-
-    expect(Object.values(row).some((value) => value === null)).toBe(false)
-    expect(Object.values(row).some((value) => value === undefined)).toBe(false)
-    expect(row).toEqual({
-      record_date: '2026-08-13',
-      name: '淨係填咗個名',
-      main_con: '',
-      site: '',
-      client: '',
-      region: 'NT',
-      shift: 'day',
-      start_time: '',
-      odoo_ref: '',
-      internal_note: '',
     })
+
+    for (const key of ['name', 'address', 'client', 'contact', 'phone', 'internal_note']) {
+      expect(row[key]).not.toBeNull()
+      expect(row[key]).not.toBeUndefined()
+    }
+    expect(row.client).toBe('')
+    expect(row.contact).toBe('')
+    expect(row.phone).toBe('')
+    expect(row.internal_note).toBe('')
+  })
+
+  it('GPS 未用過就送 null（唔可以變 0）', () => {
+    const row = inputToRow(EMPTY_INPUT)
+    expect(row.gps_lat).toBeNull()
+    expect(row.gps_lng).toBeNull()
+    expect(row.gps_at).toBeNull()
+    expect(row.gps_lat).not.toBe(0)
+  })
+
+  /**
+   * Regression（P2.5）：main_con / site / start_time / odoo_ref 唔再喺表單，
+   * 但欄位仲喺 DB。如果照送空字串就會靜靜刪咗舊單資料，
+   * 所以呢幾個 key 一定唔可以出現喺 payload。
+   */
+  it('唔會掂舊表單欄位——main_con / site / start_time / odoo_ref 完全唔喺 payload', () => {
+    const keys = Object.keys(inputToRow(filled))
+    expect(keys).not.toContain('main_con')
+    expect(keys).not.toContain('site')
+    expect(keys).not.toContain('start_time')
+    expect(keys).not.toContain('odoo_ref')
   })
 
   it('只寫表單擁有嘅欄，唔會掂 status / markup_pct / locked / archived', () => {
@@ -87,39 +107,44 @@ describe('validateInput', () => {
     ...EMPTY_INPUT,
     record_date: '2026-08-13',
     name: '有名',
+    address: '某某道 1 號',
     region: 'KLN',
-    shift: 'night',
   }
 
-  it('必填齊晒就冇 error', () => {
+  it('必填三個齊晒就冇 error', () => {
     expect(validateInput(ok)).toEqual({})
   })
 
-  /**
-   * Regression：地區同日／夜更留喺「未選」以前會送 null 落 DB 爆 constraint。
-   * 修法唔可以係悄悄 default——呢兩樣影響夾車、吊機、夜更價。
-   */
+  it('工程名稱未填就攔住', () => {
+    expect(validateInput({ ...ok, name: '   ' }).name).toBe('請填工程名稱')
+  })
+
+  it('地址未填就攔住，唔會去到 DB', () => {
+    expect(validateInput({ ...ok, address: '' }).address).toBe('請填地址')
+  })
+
+  /** 地區影響夾車同吊機價，未揀一定要攔住，唔可以悄悄 default。 */
   it('地區未揀就攔住，唔會去到 DB', () => {
-    expect(validateInput({ ...ok, region: '' })).toEqual({ region: '請揀地區' })
+    expect(validateInput({ ...ok, region: '' }).region).toBe('請揀地區')
   })
 
-  it('日／夜更未揀就攔住，唔會去到 DB', () => {
-    expect(validateInput({ ...ok, shift: '' })).toEqual({ shift: '請揀日更定夜更' })
-  })
-
-  it('兩樣都未揀就兩個提示一齊出', () => {
-    expect(validateInput({ ...ok, region: '', shift: '' })).toEqual({
+  it('三個都未填就三個提示一齊出', () => {
+    expect(validateInput({ ...ok, name: '', address: '', region: '' })).toEqual({
+      name: '請填工程名稱',
+      address: '請填地址',
       region: '請揀地區',
-      shift: '請揀日更定夜更',
     })
   })
 
-  it('個名淨係空白都當冇填', () => {
-    expect(validateInput({ ...ok, name: '   ' }).name).toBe('請填個名')
+  it('客戶、聯絡人、電話、其他備註留空唔會當錯', () => {
+    expect(validateInput({ ...ok, client: '', contact: '', phone: '', internal_note: '' })).toEqual(
+      {},
+    )
   })
 
-  it('選填欄留空唔會當錯', () => {
-    expect(validateInput({ ...ok, odoo_ref: '', internal_note: '', start_time: '' })).toEqual({})
+  it('日／夜工作預設日更，唔會攔住', () => {
+    expect(EMPTY_INPUT.shift).toBe('day')
+    expect(validateInput(ok).shift).toBeUndefined()
   })
 })
 
@@ -150,55 +175,73 @@ describe('translateDbError', () => {
 })
 
 describe('rowToInput', () => {
-  it('DB 嘅 null 轉返空字串，input 先 render 得', () => {
-    const record: QuoteRecord = {
-      id: 'id-1',
-      record_date: '2026-08-13',
-      name: '單名',
-      main_con: null,
-      site: null,
-      client: null,
-      region: null,
-      shift: null,
-      start_time: null,
-      odoo_ref: null,
-      internal_note: null,
-      status: 'site',
-      markup_pct: null,
-      archived: false,
-      locked: false,
-      transferred_project_id: null,
-      created_by: 'user-1',
-      created_at: '2026-08-13T00:00:00Z',
-      updated_at: '2026-08-13T00:00:00Z',
-      deleted_at: null,
-    }
+  const base: QuoteRecord = {
+    id: 'id-1',
+    record_date: '2026-08-13',
+    name: '單名',
+    address: '荃灣海濱花園',
+    client: null,
+    contact: '',
+    phone: '',
+    region: null,
+    shift: null,
+    internal_note: null,
+    gps_lat: null,
+    gps_lng: null,
+    gps_at: null,
+    address_source: 'manual',
+    region_source: 'manual',
+    main_con: '有利建築',
+    site: '荃灣海濱花園',
+    start_time: '下星期一朝早',
+    odoo_ref: 'SO1234',
+    status: 'site',
+    markup_pct: null,
+    archived: false,
+    locked: false,
+    transferred_project_id: null,
+    created_by: 'user-1',
+    created_at: '2026-08-13T00:00:00Z',
+    updated_at: '2026-08-13T00:00:00Z',
+    deleted_at: null,
+  }
 
-    expect(rowToInput(record)).toEqual({
-      record_date: '2026-08-13',
-      name: '單名',
-      main_con: '',
-      site: '',
-      client: '',
-      region: '',
-      shift: '',
-      start_time: '',
-      odoo_ref: '',
-      internal_note: '',
-    })
+  it('DB 嘅 null 轉返空字串，input 先 render 得', () => {
+    const input = rowToInput(base)
+    expect(input.client).toBe('')
+    expect(input.contact).toBe('')
+    expect(input.internal_note).toBe('')
+    expect(input.region).toBe('')
+  })
+
+  it('舊單冇 shift 就當日更', () => {
+    expect(rowToInput(base).shift).toBe('day')
+  })
+
+  it('舊單嘅地址睇得返（Jason 已經將 site 抄咗入 address）', () => {
+    expect(rowToInput(base).address).toBe('荃灣海濱花園')
+  })
+
+  /** 舊表單欄位唔會經表單行一圈——開返出嚟再儲存唔會整走佢哋。 */
+  it('行一圈返嚟嘅 payload 冇 main_con / start_time / odoo_ref', () => {
+    const keys = Object.keys(inputToRow(rowToInput(base)))
+    expect(keys).not.toContain('main_con')
+    expect(keys).not.toContain('start_time')
+    expect(keys).not.toContain('odoo_ref')
+    expect(keys).not.toContain('site')
   })
 })
 
-describe('contractorSiteLine', () => {
+describe('clientAddressLine', () => {
   it('兩邊都有就用「-」駁埋', () => {
-    expect(contractorSiteLine('有利', '荃灣')).toBe('有利 - 荃灣')
+    expect(clientAddressLine('碧瑤', '荃灣海濱花園')).toBe('碧瑤 - 荃灣海濱花園')
   })
 
   it('一邊冇就唔會留低多餘嘅「-」', () => {
-    expect(contractorSiteLine(null, '荃灣')).toBe('荃灣')
-    expect(contractorSiteLine('有利', null)).toBe('有利')
-    expect(contractorSiteLine(null, null)).toBe('')
-    expect(contractorSiteLine('  ', '荃灣')).toBe('荃灣')
+    expect(clientAddressLine(null, '荃灣海濱花園')).toBe('荃灣海濱花園')
+    expect(clientAddressLine('碧瑤', null)).toBe('碧瑤')
+    expect(clientAddressLine(null, null)).toBe('')
+    expect(clientAddressLine('  ', '荃灣海濱花園')).toBe('荃灣海濱花園')
   })
 })
 

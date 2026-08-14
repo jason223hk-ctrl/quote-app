@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { EMPTY_FILTERS, filterRecords, type RecordFilters } from '../lib/filters'
-import { contractorSiteLine, statusLabel } from '../lib/labels'
+import { clientAddressLine, statusLabel } from '../lib/labels'
 import type { QuoteRecord } from '../lib/records'
 
 type Props = {
@@ -37,8 +37,8 @@ export default function RecordListPage({
         <input
           className="field__input"
           type="search"
-          placeholder="搜尋名、大判、地點、客戶"
-          aria-label="搜尋名、大判、地點、客戶"
+          placeholder="搜尋工程名稱、客戶、地址、聯絡人、電話"
+          aria-label="搜尋工程名稱、客戶、地址、聯絡人、電話"
           value={filters.query}
           onChange={(event) => patchFilters({ query: event.target.value })}
         />
@@ -99,7 +99,7 @@ export default function RecordListPage({
 
       {!loading && !error && visible.length === 0 && (
         <p className="home__empty">
-          {records.length === 0 ? '仲未有報價單。撳右下角「＋ 新一單」開始。' : '冇單符合而家嘅篩選。'}
+          {records.length === 0 ? '仲未有工程。撳右下角「＋ 新增工程」開始。' : '冇單符合而家嘅篩選。'}
         </p>
       )}
 
@@ -117,9 +117,9 @@ export default function RecordListPage({
 
               <span className="card__name">{record.name}</span>
 
-              {contractorSiteLine(record.main_con, record.site) !== '' && (
+              {clientAddressLine(record.client, record.address) !== '' && (
                 <span className="card__meta">
-                  {contractorSiteLine(record.main_con, record.site)}
+                  {clientAddressLine(record.client, record.address)}
                 </span>
               )}
 
@@ -130,7 +130,7 @@ export default function RecordListPage({
       </ul>
 
       <button className="fab" type="button" onClick={onCreate}>
-        ＋ 新一單
+        ＋ 新增工程
       </button>
     </section>
   )
