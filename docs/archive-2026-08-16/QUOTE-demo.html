@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>森伝報價 app — 流程 demo</title>
+<style>
+:root{
+  --green:#768A75; --green-d:#5d6f5c; --green-l:#eaf0e9;
+  --ink:#1f241e; --mute:#6b736a; --line:#dde2db; --bg:#f6f7f5;
+  --warn:#b4531f; --warn-bg:#fdf1e7; --ok:#2f7d4f; --stop:#a83232;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{margin:0;font:16px/1.55 -apple-system,"PingFang HK","Helvetica Neue",sans-serif;
+  background:var(--bg);color:var(--ink);padding-bottom:60px}
+.wrap{max-width:520px;margin:0 auto;padding:0 14px}
+header{background:var(--green);color:#fff;padding:14px 0 12px;position:sticky;top:0;z-index:9;
+  box-shadow:0 1px 6px rgba(0,0,0,.12)}
+header .wrap{display:flex;align-items:center;gap:10px}
+header h1{font-size:17px;margin:0;font-weight:600;flex:1}
+.back{background:rgba(255,255,255,.18);border:0;color:#fff;font-size:15px;padding:6px 11px;
+  border-radius:8px;cursor:pointer}
+.fake{background:var(--warn-bg);border-bottom:1px solid #f0d9c4;color:var(--warn);
+  font-size:12.5px;padding:8px 0;line-height:1.45}
+.card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:14px;margin:12px 0}
+.card h2{font-size:15px;margin:0 0 10px;color:var(--green-d)}
+label{display:block;font-size:13px;color:var(--mute);margin:10px 0 4px}
+input,select,textarea{width:100%;padding:10px;border:1px solid var(--line);border-radius:8px;
+  font-size:16px;font-family:inherit;background:#fff}
+input:disabled,select:disabled{background:#f2f3f1;color:#6b736a;border-style:dashed}
+button{font-family:inherit}
+.btn{display:block;width:100%;padding:13px;border:0;border-radius:10px;background:var(--green);
+  color:#fff;font-size:16px;font-weight:600;cursor:pointer;margin-top:12px}
+.btn:disabled{background:#c3cac1;cursor:not-allowed}
+.btn.ghost{background:#fff;color:var(--green-d);border:1.5px solid var(--green)}
+.btn.danger{background:#fff;color:var(--stop);border:1.5px solid #e0bcbc}
+.btn.sm{width:auto;padding:8px 14px;font-size:14px;display:inline-block;margin:0 6px 6px 0}
+.row{display:flex;gap:8px}.row>*{flex:1}
+.pill{display:inline-block;font-size:12px;padding:3px 9px;border-radius:999px;font-weight:600}
+.s-draft{background:#eceee9;color:#5c645a}
+.s-sent{background:#e4ecf6;color:#2b4f7d}
+.s-accepted{background:#e2f1e7;color:var(--ok)}
+.s-rejected{background:#f7e6e6;color:var(--stop)}
+.s-expired{background:#f3ecdb;color:#8a6d1f}
+.s-converted{background:var(--green-l);color:var(--green-d)}
+.s-superseded{background:#efeff0;color:#8b8b90}
+.qrow{display:flex;justify-content:space-between;align-items:center;padding:11px 0;
+  border-bottom:1px solid var(--line);cursor:pointer}
+.qrow:last-child{border-bottom:0}
+.qrow .no{font-weight:600;font-size:14.5px}
+.qrow .sub{font-size:12.5px;color:var(--mute)}
+.qrow .amt{font-weight:600;font-size:15px;white-space:nowrap;margin-left:8px}
+.item{border:1px solid var(--line);border-radius:10px;padding:10px;margin-bottom:8px;background:#fcfdfc}
+.item .top{display:flex;justify-content:space-between;font-weight:600;font-size:14.5px}
+.item .meta{font-size:12.5px;color:var(--mute);margin-top:3px}
+.item .x{background:none;border:0;color:var(--stop);font-size:13px;cursor:pointer;padding:4px 0}
+.tot{display:flex;justify-content:space-between;padding:6px 0;font-size:14.5px}
+.tot.big{font-size:19px;font-weight:700;border-top:2px solid var(--green);margin-top:6px;padding-top:10px}
+.note{font-size:12.5px;color:var(--mute);margin-top:8px;line-height:1.5}
+.locked{background:var(--green-l);border:1px solid #cfdccd;border-radius:10px;padding:10px;
+  font-size:13px;color:var(--green-d);margin-bottom:10px}
+.paper{background:#fff;border:1px solid var(--line);border-radius:6px;padding:22px 18px;
+  font-size:13.5px;line-height:1.7}
+.paper h3{margin:0;font-size:19px;color:var(--green-d);letter-spacing:1px}
+.paper table{width:100%;border-collapse:collapse;margin-top:12px;font-size:12.5px}
+.paper th{background:var(--green-l);text-align:left;padding:6px;border:1px solid var(--line);font-weight:600}
+.paper td{padding:6px;border:1px solid var(--line);vertical-align:top}
+.paper td.r,.paper th.r{text-align:right}
+.hidden{display:none}
+.tag{font-size:11px;background:#f0e6d8;color:#7a5c22;padding:1px 6px;border-radius:4px;margin-left:5px}
+.hint{font-size:12.5px;color:var(--mute);background:#fff;border-left:3px solid var(--green);
+  padding:8px 10px;margin:10px 0;border-radius:0 8px 8px 0}
+.emptylist{text-align:center;color:var(--mute);font-size:14px;padding:26px 0}
+</style>
+</head>
+<body>
+
+<header><div class="wrap">
+  <button class="back hidden" id="backBtn">‹ 返</button>
+  <h1 id="title">森伝報價</h1>
+</div></header>
+
+<div class="fake"><div class="wrap">
+  ⚠️ <b>呢個係流程 demo，唔係真 app。</b>所有價錢係<b>我編出嚟嘅假數</b>，
+  等 Jason 俾真價目表先會換。冇資料庫、冇登入，refresh 就清空。
+  目的只有一個：<b>撳一次，睇下條流程啱唔啱</b>。
+</div></div>
+
+<div class="wrap">
+
+<!-- ============ 列表 ============ -->
+<section id="v-list">
+  <button class="btn" onclick="newQuote()">＋ 開新報價單</button>
+  <div class="card">
+    <h2>報價單</h2>
+    <div id="list"></div>
+  </div>
+  <div class="hint">
+    呢版就係 plan 入面 P6 嘅「跟進睇板」—— 阿耀一眼睇到邊單出咗、邊單接咗、邊單就快過期。
+  </div>
+</section>
+
+<!-- ============ 編輯 ============ -->
+<section id="v-edit" class="hidden">
+  <div id="lockBox"></div>
+
+  <div class="card" id="clientCard">
+    <h2>客戶同地點</h2>
+    <label>客戶名稱</label><input id="f-client" placeholder="例：XX 屋苑管理處">
+    <label>聯絡人 / 電話</label><input id="f-contact" placeholder="陳生 9xxx xxxx">
+    <label>工程地點</label><input id="f-site" placeholder="例：沙頭角村屋">
+    <label>報價有效期（日）</label><input id="f-valid" type="number" value="30">
+  </div>
+
+  <div class="card" id="addCard">
+    <h2>加項目</h2>
+    <label>樹編號 / 位置</label>
+    <input id="a-label" placeholder="T01（留空會自動派下一個號）">
+    <label>品種（可空）</label><input id="a-species" placeholder="例：細葉榕">
+    <label>工作類別</label>
+    <select id="a-work" onchange="syncPrice()"></select>
+    <div id="bandWrap">
+      <label>樹木分級</label>
+      <select id="a-band" onchange="syncPrice()"></select>
+    </div>
+    <div class="row">
+      <div><label>數量</label><input id="a-qty" type="number" value="1" min="1" oninput="syncPrice()"></div>
+      <div><label>單價（HKD）<span id="srcTag"></span></label>
+        <input id="a-price" type="number" oninput="markManual()"></div>
+    </div>
+    <label>備註（可空）</label><input id="a-note" placeholder="例：近電線，要交通安排">
+    <button class="btn" onclick="addItem()">加入報價單</button>
+    <div class="note">單價由價目表帶出。你改咗佢，系統會記低係「人手改價」——
+      報價單同 PDF 都會標示，方便事後對數。</div>
+  </div>
+
+  <div class="card">
+    <h2>項目（<span id="itemCount">0</span>）</h2>
+    <div id="items"></div>
+    <div id="discWrap">
+      <label>折扣（%）</label><input id="f-disc" type="number" value="0" min="0" max="100"
+        oninput="renderTotals()">
+    </div>
+    <div id="totals"></div>
+  </div>
+
+  <div id="actions"></div>
+</section>
+
+<!-- ============ 預覽報價單 ============ -->
+<section id="v-preview" class="hidden">
+  <div class="card"><div class="paper" id="paper"></div></div>
+  <div id="prevActions"></div>
+</section>
+
+<!-- ============ 開工程清單 ============ -->
+<section id="v-handoff" class="hidden">
+  <div class="card"><div class="paper" id="handoff"></div></div>
+  <div class="hint">
+    <b>呢一版就係 plan §7 講嘅「做法 A」。</b>報價 app 出一張清單，Anna 照住喺相片 app 開工程。
+    報價 app 由頭到尾冇掂過相片 app 嘅資料庫 —— 所以佢點死都拖唔冧相片 app。<br><br>
+    將來（P8）如果你話值得，呢一頁就會變成一粒「一撳自動開工程」掣，
+    而佢要 POST 出去嘅資料，就係你而家見到呢張清單。
+  </div>
+  <button class="btn ghost" onclick="go('list')">返報價單清單</button>
+</section>
+
+</div>
+
+<script>
+/* ---------- 假價目表（等 Jason 俾真嘢） ---------- */
+const BANDS = [
+  {id:'S', name:'S 細（樹高 <5m）'},
+  {id:'M', name:'M 中（5–10m）'},
+  {id:'L', name:'L 大（10–15m）'},
+  {id:'XL',name:'XL 特大（>15m）'}
+];
+const WORKS = [
+  {id:'prune',  name:'修剪 Crown Pruning',      unit:'每棵', banded:true,  price:{S:800, M:1500,L:2800, XL:4500}},
+  {id:'thin',   name:'疏剪 Crown Thinning',     unit:'每棵', banded:true,  price:{S:900, M:1700,L:3200, XL:5000}},
+  {id:'reduce', name:'修短 Crown Reduction',    unit:'每棵', banded:true,  price:{S:1000,M:1900,L:3500, XL:5600}},
+  {id:'remove', name:'移除 Tree Removal',       unit:'每棵', banded:true,  price:{S:2500,M:5000,L:9000, XL:15000}},
+  {id:'stump',  name:'移除連根 Removal+Stump',  unit:'每棵', banded:true,  price:{S:3500,M:7000,L:12000,XL:20000}},
+  {id:'crane',  name:'吊機／平台車',             unit:'每日', banded:false, flat:6800},
+  {id:'waste',  name:'廢料棄置',                 unit:'每車', banded:false, flat:1200},
+  {id:'tra',    name:'樹木風險評估報告 (TRA)',   unit:'每棵', banded:false, flat:1500}
+];
+const workById = id => WORKS.find(w=>w.id===id);
+
+/* ---------- 記憶體資料（冇 DB） ---------- */
+let quotes = [], seq = 0, cur = null, priceTouched = false;
+
+const STATUS_LABEL = {draft:'草稿',sent:'已發出',accepted:'已接受',rejected:'已拒絕',
+  expired:'已過期',superseded:'已被取代',converted:'已轉工程'};
+
+function nextNo(){ seq++; return 'Q-2026-' + String(seq).padStart(4,'0'); }
+
+function newQuote(){
+  cur = {id:crypto.randomUUID(), groupId:crypto.randomUUID(), no:nextNo(), version:1,
+    status:'draft', client:'', contact:'', site:'', validDays:30, disc:0,
+    items:[], snapshot:null, sentAt:null, acceptedAt:null, convertedAt:null};
+  quotes.unshift(cur);
+  go('edit');
+}
+
+/* ---------- 畫面切換 ---------- */
+function go(view){
+  ['list','edit','preview','handoff'].forEach(v=>
+    document.getElementById('v-'+v).classList.toggle('hidden', v!==view));
+  document.getElementById('backBtn').classList.toggle('hidden', view==='list');
+  document.getElementById('title').textContent =
+    view==='list' ? '森伝報價'
+    : view==='preview' ? (cur.no+' 預覽')
+    : view==='handoff' ? '開工程清單'
+    : (cur.no + (cur.version>1 ? ' (v'+cur.version+')' : ''));
+  if(view==='list') renderList();
+  if(view==='edit') renderEdit();
+  window.scrollTo(0,0);
+}
+document.getElementById('backBtn').onclick = ()=> go(
+  document.getElementById('v-edit').classList.contains('hidden') ? 'edit' : 'list');
+
+/* ---------- 列表 ---------- */
+function renderList(){
+  const el = document.getElementById('list');
+  if(!quotes.length){ el.innerHTML='<div class="emptylist">仲未有報價單。<br>撳上面「開新報價單」試下。</div>'; return; }
+  el.innerHTML = quotes.map(q=>`
+    <div class="qrow" onclick="openQuote('${q.id}')">
+      <div>
+        <div class="no">${q.no}${q.version>1?' <span class="tag">v'+q.version+'</span>':''}</div>
+        <div class="sub">${q.client||'（未填客戶）'} · ${q.site||'（未填地點）'}</div>
+        <div style="margin-top:5px"><span class="pill s-${q.status}">${STATUS_LABEL[q.status]}</span></div>
+      </div>
+      <div class="amt">$${fmt(total(q))}</div>
+    </div>`).join('');
+}
+function openQuote(id){ cur = quotes.find(q=>q.id===id); go('edit'); }
+
+/* ---------- 計數 ---------- */
+const sub = q => q.items.reduce((s,i)=>s+i.qty*i.price,0);
+const total = q => Math.round(sub(q)*(1-(q.disc||0)/100));
+const fmt = n => n.toLocaleString('en-US');
+
+/* ---------- 編輯畫面 ---------- */
+function fillSelects(){
+  document.getElementById('a-work').innerHTML =
+    WORKS.map(w=>`<option value="${w.id}">${w.name}（${w.unit}）</option>`).join('');
+  document.getElementById('a-band').innerHTML =
+    BANDS.map(b=>`<option value="${b.id}">${b.name}</option>`).join('');
+}
+function syncPrice(){
+  const w = workById(document.getElementById('a-work').value);
+  document.getElementById('bandWrap').classList.toggle('hidden', !w.banded);
+  if(!priceTouched){
+    const b = document.getElementById('a-band').value;
+    document.getElementById('a-price').value = w.banded ? w.price[b] : w.flat;
+    document.getElementById('srcTag').innerHTML = '<span class="tag">照價目表</span>';
+  }
+}
+function markManual(){
+  priceTouched = true;
+  document.getElementById('srcTag').innerHTML = '<span class="tag" style="background:#f7e2e2;color:#a83232">人手改價</span>';
+}
+function addItem(){
+  if(cur.status!=='draft') return;
+  const w = workById(document.getElementById('a-work').value);
+  const band = w.banded ? document.getElementById('a-band').value : null;
+  const price = Number(document.getElementById('a-price').value)||0;
+  const listed = w.banded ? w.price[band] : w.flat;
+  const label = document.getElementById('a-label').value.trim() ||
+    'T' + String(cur.items.length+1).padStart(2,'0');
+  cur.items.push({
+    label, species:document.getElementById('a-species').value.trim(),
+    work:w.id, workName:w.name, unit:w.unit, band,
+    qty:Math.max(1,Number(document.getElementById('a-qty').value)||1),
+    price, src: price===listed ? 'table':'manual',
+    note:document.getElementById('a-note').value.trim()
+  });
+  ['a-label','a-species','a-note'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('a-qty').value = 1;
+  priceTouched = false; syncPrice(); renderEdit();
+}
+function delItem(i){ if(cur.status==='draft'){ cur.items.splice(i,1); renderEdit(); } }
+
+function readForm(){
+  if(cur.status!=='draft') return;
+  cur.client = document.getElementById('f-client').value;
+  cur.contact= document.getElementById('f-contact').value;
+  cur.site   = document.getElementById('f-site').value;
+  cur.validDays = Number(document.getElementById('f-valid').value)||30;
+  cur.disc   = Number(document.getElementById('f-disc').value)||0;
+}
+['f-client','f-contact','f-site','f-valid'].forEach(id=>
+  document.addEventListener('input', e=>{ if(e.target.id===id) readForm(); }));
+
+function renderEdit(){
+  const editable = cur.status==='draft';
+  document.getElementById('f-client').value = cur.client;
+  document.getElementById('f-contact').value= cur.contact;
+  document.getElementById('f-site').value   = cur.site;
+  document.getElementById('f-valid').value  = cur.validDays;
+  document.getElementById('f-disc').value   = cur.disc;
+  ['f-client','f-contact','f-site','f-valid','f-disc'].forEach(id=>
+    document.getElementById(id).disabled = !editable);
+  document.getElementById('addCard').classList.toggle('hidden', !editable);
+
+  document.getElementById('lockBox').innerHTML = editable ? '' :
+    `<div class="locked">🔒 <b>呢張單已經「${STATUS_LABEL[cur.status]}」，內容鎖死改唔到。</b><br>
+     要改就開新版本 —— 舊版永遠留低，客手上張單同系統入面永遠對得返。</div>`;
+
+  document.getElementById('itemCount').textContent = cur.items.length;
+  document.getElementById('items').innerHTML = cur.items.length ? cur.items.map((it,i)=>`
+    <div class="item">
+      <div class="top"><span>${it.label} ${it.workName}</span><span>$${fmt(it.qty*it.price)}</span></div>
+      <div class="meta">
+        ${it.species?it.species+' · ':''}${it.band?it.band+' 級 · ':''}${it.qty} ${it.unit.replace('每','')} × $${fmt(it.price)}
+        ${it.src==='manual'?'<span class="tag" style="background:#f7e2e2;color:#a83232">人手改價</span>':''}
+        ${it.note?'<br>📝 '+it.note:''}
+      </div>
+      ${editable?`<button class="x" onclick="delItem(${i})">移除</button>`:''}
+    </div>`).join('') : '<div class="emptylist">仲未有項目</div>';
+
+  document.getElementById('discWrap').classList.toggle('hidden', !editable && !cur.disc);
+  renderTotals();
+  renderActions();
+}
+function renderTotals(){
+  if(cur.status==='draft') cur.disc = Number(document.getElementById('f-disc').value)||0;
+  document.getElementById('totals').innerHTML = `
+    <div class="tot"><span>小計</span><span>$${fmt(sub(cur))}</span></div>
+    ${cur.disc?`<div class="tot"><span>折扣 ${cur.disc}%</span><span>−$${fmt(Math.round(sub(cur)*cur.disc/100))}</span></div>`:''}
+    <div class="tot big"><span>總額</span><span>$${fmt(total(cur))}</span></div>`;
+}
+
+/* ---------- 狀態機（只准呢啲轉換） ---------- */
+function renderActions(){
+  const a = document.getElementById('actions'); const s = cur.status;
+  let h = '';
+  if(s==='draft'){
+    h = `<button class="btn" onclick="preview()" ${cur.items.length?'':'disabled'}>
+           預覽 / 發出報價單</button>
+         <div class="note">${cur.items.length?'發出之後內容鎖死，只可以開新版本。':'加咗項目先發得。'}</div>`;
+  }
+  if(s==='sent'){
+    h = `<button class="btn" onclick="setStatus('accepted')">✅ 客接受咗</button>
+         <button class="btn danger" onclick="setStatus('rejected')">✕ 客拒絕</button>
+         <button class="btn ghost" onclick="newVersion()">✎ 客要改 → 開新版本</button>
+         <button class="btn ghost" onclick="preview()">睇返張單</button>`;
+  }
+  if(s==='accepted'){
+    h = `<button class="btn" onclick="convert()">🌳 轉工程</button>
+         <button class="btn ghost" onclick="setStatus('sent')">撤銷接受</button>
+         <button class="btn ghost" onclick="preview()">睇返張單</button>`;
+  }
+  if(s==='converted'){
+    h = `<div class="locked">✅ 已經轉咗工程。呢張單完全鎖死 —— 要加嘢就開一張追加工程單。</div>
+         <button class="btn ghost" onclick="showHandoff()">睇返開工程清單</button>
+         <button class="btn ghost" onclick="preview()">睇返張單</button>`;
+  }
+  if(s==='rejected'||s==='expired'||s==='superseded'){
+    h = `<button class="btn ghost" onclick="newVersion()">重新報價（開新版本）</button>
+         <button class="btn ghost" onclick="preview()">睇返張單</button>`;
+  }
+  a.innerHTML = h;
+}
+function setStatus(s){
+  cur.status = s;
+  if(s==='accepted') cur.acceptedAt = new Date();
+  renderEdit();
+}
+function newVersion(){
+  cur.status = 'superseded';
+  const v = JSON.parse(JSON.stringify(cur));
+  v.id = crypto.randomUUID(); v.version = cur.version+1; v.status='draft';
+  v.snapshot=null; v.sentAt=null; v.acceptedAt=null; v.convertedAt=null;
+  quotes.unshift(v); cur = v; go('edit');
+}
+function convert(){
+  cur.status='converted'; cur.convertedAt=new Date();
+  showHandoff();
+}
+
+/* ---------- 預覽 / 發出 ---------- */
+function preview(){
+  readForm();
+  const q = cur, d = new Date();
+  const exp = new Date(d.getTime()+ (q.validDays||30)*864e5);
+  const src = q.snapshot || q.items;
+  document.getElementById('paper').innerHTML = `
+    <h3>森伝園藝</h3>
+    <div style="color:#6b736a;font-size:11.5px">Sylvan Landscaping Limited　·　報 價 單 QUOTATION</div>
+    <hr style="border:0;border-top:2px solid #768A75;margin:10px 0">
+    <table style="margin:0"><tr>
+      <td style="border:0;padding:2px 0"><b>單號</b>　${q.no}${q.version>1?' (v'+q.version+')':''}</td>
+      <td style="border:0;padding:2px 0" class="r"><b>日期</b>　${d.toLocaleDateString('zh-HK')}</td>
+    </tr><tr>
+      <td style="border:0;padding:2px 0"><b>客戶</b>　${q.client||'—'}</td>
+      <td style="border:0;padding:2px 0" class="r"><b>有效至</b>　${exp.toLocaleDateString('zh-HK')}</td>
+    </tr><tr>
+      <td style="border:0;padding:2px 0" colspan="2"><b>地點</b>　${q.site||'—'}
+        ${q.contact?'　·　'+q.contact:''}</td>
+    </tr></table>
+    <table>
+      <tr><th>#</th><th>項目</th><th class="r">數量</th><th class="r">單價</th><th class="r">小計</th></tr>
+      ${src.map((it,i)=>`<tr>
+        <td>${i+1}</td>
+        <td><b>${it.label}</b> ${it.workName}${it.band?' ('+it.band+')':''}
+          ${it.species?'<br><span style="color:#6b736a">'+it.species+'</span>':''}
+          ${it.note?'<br><span style="color:#6b736a;font-size:11.5px">'+it.note+'</span>':''}</td>
+        <td class="r">${it.qty}</td>
+        <td class="r">${fmt(it.price)}</td>
+        <td class="r">${fmt(it.qty*it.price)}</td></tr>`).join('')}
+      <tr><td colspan="4" class="r"><b>小計</b></td><td class="r">${fmt(sub(q))}</td></tr>
+      ${q.disc?`<tr><td colspan="4" class="r">折扣 ${q.disc}%</td>
+        <td class="r">−${fmt(Math.round(sub(q)*q.disc/100))}</td></tr>`:''}
+      <tr style="background:#eaf0e9"><td colspan="4" class="r"><b>總額 HKD</b></td>
+        <td class="r"><b>${fmt(total(q))}</b></td></tr>
+    </table>
+    <div style="margin-top:14px;font-size:11.5px;color:#6b736a;line-height:1.6">
+      ⚠️ 呢個排版係<b>我求其砌嘅示意圖</b>，唔係森伝真格式。<br>
+      P4 要做 PDF 之前，一定要你俾一份真報價單樣本 —— <b>格式唔准我自創</b>，同 TRA 報告一樣。
+    </div>`;
+  document.getElementById('prevActions').innerHTML = q.status==='draft'
+    ? `<button class="btn" onclick="send()">📤 確認發出（之後改唔到）</button>
+       <button class="btn ghost" onclick="go('edit')">返去繼續改</button>`
+    : `<button class="btn ghost" onclick="go('edit')">返去</button>`;
+  go('preview');
+}
+function send(){
+  cur.snapshot = JSON.parse(JSON.stringify(cur.items));  // ← plan §5 講嘅 items_snapshot
+  cur.status = 'sent'; cur.sentAt = new Date();
+  go('edit');
+}
+
+/* ---------- 開工程清單（做法 A） ---------- */
+function showHandoff(){
+  const q = cur, src = q.snapshot || q.items;
+  const trees = src.filter(i=>['prune','thin','reduce','remove','stump'].includes(i.work));
+  document.getElementById('handoff').innerHTML = `
+    <h3>開工程清單</h3>
+    <div style="color:#6b736a;font-size:11.5px">由 ${q.no}${q.version>1?' v'+q.version:''} 產生　·
+      ${new Date().toLocaleString('zh-HK')}</div>
+    <hr style="border:0;border-top:2px solid #768A75;margin:10px 0">
+    <p style="margin:0 0 4px"><b>喺相片 app 開一個工程：</b></p>
+    <table style="margin-top:6px">
+      <tr><th style="width:34%">工程名</th><td>${q.site||'—'}</td></tr>
+      <tr><th>客戶</th><td>${q.client||'—'}${q.contact?'（'+q.contact+'）':''}</td></tr>
+      <tr><th>報價單號</th><td>${q.no}${q.version>1?' v'+q.version:''}　（工程備註寫返呢個號）</td></tr>
+      <tr><th>合約金額</th><td>HKD ${fmt(total(q))}</td></tr>
+      <tr><th>樹木總數</th><td>${trees.reduce((s,i)=>s+i.qty,0)} 棵</td></tr>
+    </table>
+    <p style="margin:14px 0 4px"><b>逐棵樹：</b></p>
+    <table>
+      <tr><th>樹號</th><th>品種</th><th>工作類別</th><th>數量</th></tr>
+      ${trees.length ? trees.map(i=>`<tr><td><b>${i.label}</b></td><td>${i.species||'—'}</td>
+        <td>${i.workName}${i.band?' ('+i.band+')':''}</td><td>${i.qty}</td></tr>`).join('')
+        : '<tr><td colspan="4" style="color:#6b736a">呢張單冇逐棵樹嘅項目</td></tr>'}
+    </table>
+    ${src.length>trees.length ? `<p style="margin:12px 0 4px"><b>其他項目（唔使入樹，只係成本）：</b></p>
+      <table>${src.filter(i=>!trees.includes(i)).map(i=>
+        `<tr><td>${i.workName}</td><td class="r">${i.qty} ${i.unit.replace('每','')}</td></tr>`).join('')}</table>`:''}
+    <div style="margin-top:14px;font-size:11.5px;color:#6b736a;line-height:1.6">
+      報價 app <b>冇</b>直接寫入相片 app 嘅資料庫。呢張清單係人手交接 ——
+      咁樣報價 app 出咩事都拖唔冧相片 app。
+    </div>`;
+  go('handoff');
+}
+
+/* ---------- 起機 ---------- */
+fillSelects(); syncPrice(); renderList();
+</script>
+</body>
+</html>
