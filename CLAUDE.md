@@ -130,6 +130,11 @@ RLS 唔會 throw，佢只係令 0 行受影響——所以「冇報錯」唔等�
 
 實作喺 `src/lib/records.ts` 嘅 `translateDbError()`，全部 api 共用。
 
+### 2.8 一張 live 相任何時候至少有兩份雲端副本
+
+R2 加 Drive。**未鏡像到 Drive 嗰啲，唔准刪佢嘅 R2 副本**（嗰份係剩返嘅唯一一份）。
+細節見 `docs/開發紀錄.md` §九。
+
 ---
 
 ## 3. ⛔ 邊啲嘢一定要問 Jason，唔准自己做
