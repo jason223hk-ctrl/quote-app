@@ -33,9 +33,23 @@ export const PRUNING_OPTIONS: Option[] = [
   { value: 'crown_raising', label: '提升樹冠', en: 'Crown Raising' },
 ]
 
-/** 五個平排項目，同修剪冇從屬關係。 */
+/**
+ * 「移除」自己一個位，同「修剪」同一級（Jason 2026-08-22 逐格確認）。
+ *
+ * **點解唔擺喺「其他處理方法」**：**斬走成棵樹係一件同修剪同級嘅大事**，
+ * 唔應該收埋喺「其他」入面。
+ *
+ * ⚠️ 但佢同「修剪」有一樣唔同：**「修剪」係純標題，剔唔到；「移除」係可剔選項。**
+ */
+export const REMOVAL_OPTION: Option = { value: 'removal', label: '移除', en: 'Removal' }
+
+/**
+ * 「其他處理方法」組，五項。
+ *
+ * ⚠️ `close_up`（近景）**本身唔係一種處理方法，係一種相**。
+ * 擺喺呢度唔完美，**但係 Jason 拍板嘅位置，⛔ 唔准自己再搬。**
+ */
 export const OTHER_WORK_OPTIONS: Option[] = [
-  { value: 'removal', label: '移除', en: 'Removal' },
   { value: 'stump_removal', label: '起樹頭', en: 'Stump Removal' },
   { value: 'cabling', label: '拉索加固', en: 'Cabling' },
   { value: 'root_pruning', label: '修根', en: 'Root Pruning' },
@@ -64,7 +78,11 @@ export const LEGACY_MITIGATION_OPTIONS: Option[] = [
 /**
  * 揀得嘅嘢。⛔ **唔包 legacy** —— 新單只可以揀四個細項同五個平排項。
  */
-export const SELECTABLE_MITIGATIONS: Option[] = [...PRUNING_OPTIONS, ...OTHER_WORK_OPTIONS]
+export const SELECTABLE_MITIGATIONS: Option[] = [
+  ...PRUNING_OPTIONS,
+  REMOVAL_OPTION,
+  ...OTHER_WORK_OPTIONS,
+]
 
 /**
  * 查名用嘅完整清單。**包埋 legacy**，所以舊單顯示得返「修剪（未細分）」，

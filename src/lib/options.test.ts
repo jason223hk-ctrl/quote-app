@@ -6,6 +6,7 @@ import {
   MITIGATION_OTHER,
   OTHER_WORK_OPTIONS,
   PRUNING_OPTIONS,
+  REMOVAL_OPTION,
   SELECTABLE_MITIGATIONS,
   hasLegacyMitigation,
   isSelectableMitigation,
@@ -58,8 +59,27 @@ describe('新結構', () => {
     ])
   })
 
-  it('平排項目有五個加其他', () => {
+  it('「移除」自己一個位，⛔ 唔喺「其他處理方法」入面', () => {
+    expect(REMOVAL_OPTION.value).toBe('removal')
+    expect(OTHER_WORK_OPTIONS.map((option) => option.value)).not.toContain('removal')
+  })
+
+  it('「其他處理方法」組有五項，近景喺入面', () => {
     expect(OTHER_WORK_OPTIONS.map((option) => option.value)).toEqual([
+      'stump_removal',
+      'cabling',
+      'root_pruning',
+      'close_up',
+      MITIGATION_OTHER,
+    ])
+  })
+
+  it('三組加埋就係全部揀得嘅嘢，一個都冇漏', () => {
+    expect(SELECTABLE_MITIGATIONS.map((option) => option.value)).toEqual([
+      'crown_cleaning',
+      'crown_thinning',
+      'crown_reduction',
+      'crown_raising',
       'removal',
       'stump_removal',
       'cabling',

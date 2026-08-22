@@ -4,6 +4,7 @@ import {
   MITIGATION_OTHER,
   OTHER_WORK_OPTIONS,
   PRUNING_OPTIONS,
+  REMOVAL_OPTION,
   hasLegacyMitigation,
   optionLabel,
   LEGACY_MITIGATION_OPTIONS,
@@ -197,6 +198,32 @@ export default function TreeFormPage({
           disabled={busy !== null}
           onToggle={(value) => patch({ mitigations: toggleValue(input.mitigations, value) })}
         />
+
+        {/*
+          「移除」自己一個位，同「修剪」同一級 —— 斬走成棵樹係一件同修剪同級嘅大事，
+          唔應該收埋喺「其他」。
+
+          ⚠️ 佢同「修剪」唔同嘅地方：「修剪」係純標題剔唔到，「移除」本身剔得。
+          所以呢度唔用 OptionGroup —— 用咗就會出一個 legend「移除」加一個
+          label 又係「移除」，同一個字出兩次。呢度得一個掣，直接畫。
+        */}
+        <fieldset className="group">
+          <div className="group__options">
+            <div>
+              <label className="option">
+                <input
+                  type="checkbox"
+                  checked={input.mitigations.includes(REMOVAL_OPTION.value)}
+                  disabled={busy !== null}
+                  onChange={() =>
+                    patch({ mitigations: toggleValue(input.mitigations, REMOVAL_OPTION.value) })
+                  }
+                />
+                <span>{REMOVAL_OPTION.label}</span>
+              </label>
+            </div>
+          </div>
+        </fieldset>
 
         <OptionGroup
           legend="其他處理方法"
