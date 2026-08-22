@@ -538,119 +538,96 @@ Jason 喺張 SQL 加咗三樣：**`operation_id` unique index**、**`updated_at`
 
 ---
 
-# ⛔ 臨時診斷入口 `/selftest`（2026-08-22）—— 用完要刪
+# 診斷入口 `/selftest`（2026-08-22）—— ✅ 已經刪咗
 
-## 現況（全部實測，唔係推算）
+**呢個入口已經由 `worker/src/worker.mjs` 移除。⛔ 而家冇呢條路。**
+留低呢一節係記住**點解要有過**，唔係話仲有得叫。
 
-- 手機喺 preview 影相 → **「有事要人睇」**，紅字
-  **「上傳中斷：Failed to fetch。相仲喺部機度」**
-- 照 `photoTransport.ts`，「上傳中斷」= `putBytes` ——
-  **即係 `sign` 嗰步過咗**
-- Mac Chrome 喺同一個 origin 直接試：
-  - 叫 Worker `/sign` → **HTTP 401**（Worker 正常、有回應、有 CORS，
-    401 只係因為冇 token）
-  - PUT / GET 落 R2 → **全部 Failed to fetch**
-  - 用 `mode: 'no-cors'` → **通到（opaque）**，即係請求真係去到 R2，
-    只係冇 CORS 標頭返嚟
-- R2 實測：**Class A = 0、Bucket Size = 0 B、一個 object 都冇** ——
-  **由頭到尾一個 PUT 都未寫入成功**
-- CORS Jason 設過兩次（`*`，之後明文列 header），
-  AllowedMethods `GET PUT HEAD`，AllowedOrigins 兩條核對過一個字唔差 ——
-  **兩次都仲係唔得**
+## 佢解決咗咩
 
-## ⚠️ 一個更正：「根源係 CORS 冇生效」呢個結論係企唔住嘅
+真機影相出「上傳中斷：Failed to fetch」。喺瀏覽器度，
+**「CORS 冇生效」同「簽名唔啱」係分唔開嘅** ——
+兩樣都會俾你見到同一句 `Failed to fetch`，因為 R2 回 400 / 403 嗰陣冇 CORS 標頭。
 
-**嗰啲測試證唔到。** 手動發嘅請求**冇簽名**，
-**R2 會喺處理 CORS 之前就拒絕**，所以 CORS 設成點都會 `Failed to fetch`。
+所以由 **Worker 自己**（server side，**冇瀏覽器、冇 CORS 呢回事**）
+用**同一個 `presign()`** 寫三個字節上去，一次過分清楚：
 
-同樣道理：**簽名唔啱 → R2 回 403 → 403 冇 CORS 標頭 → 瀏覽器一樣顯示
-`Failed to fetch`**。
+- **寫得入** → key 同簽名冇事，剩返 CORS 一個可能
+- **寫唔入** → 係 key 或者簽名，同 CORS 完全無關
 
-⛔ **即係「CORS 唔啱」同「簽名唔啱」，喺瀏覽器度分唔開。**
+**答案係第二個。** 詳情見上面〈真機驗收〉同 `docs/開發紀錄.md` 附錄 A I5。
 
-## 所以加咗一個最窄嘅只讀診斷
-
-`GET /selftest`（`worker/src/worker.mjs`）。
-
-由 **Worker 自己**（server side，**冇瀏覽器、冇 CORS 呢回事**）
-用**同一個 `presign()`** 寫三個字節上 `__selftest/probe.txt`，再讀返出嚟。
-
-**回一個 JSON**：`putStatus`、`putErrorText`（截頭 300 字）、`getStatus`、
-`getBodyLength`、`bucket`、`accountIdLast4`、`accessKeyIdLast4`。
-
-**點樣讀個答案：**
-
-- **寫得入** → key 同簽名冇事，**剩返 CORS 一個可能**
-- **寫唔入** → 係 key 或者簽名，**同 CORS 完全無關**
-
-## ⛔ 呢一版特登乜都冇修
+## ⛔ 嗰一版特登乜都冇修
 
 **未知根因就改 code，係方法論第八、第九條明文禁止嘅。**
-
-所以 `presign()` **一個字都冇郁**，CORS 邏輯**一個字都冇郁**。
-呢個 commit 淨係加咗一個診斷入口。
-
-## ⛔ 要刪
-
-- **merge 入 `main` 之前一定要刪 `/selftest`**，
-  `worker/src/worker.mjs` 入面有註解寫死。
-- **佢冇驗身分**（要喺瀏覽器直接叫得到），
-  即係知道網址嘅人**寫得到 `__selftest/probe.txt` 一個 key**、
-  睇到兩個 id 嘅**尾四位**。⛔ **唔會回傳 secret，唔會回傳完整 access key id。**
-- 診斷完之後，`quote-photos` 入面會有一個 `__selftest/probe.txt`，
-  **順手清埋**。
+所以加診斷嗰個 commit 入面，`presign()` 同 CORS 邏輯**一個字都冇郁**。
 
 ---
 
-# ✅ 真機驗收：第一個動作通咗（2026-08-22）
+# ✅ 三個真機動作全部過晒（2026-08-22）
 
-## `/selftest` 講咗咩
+1. **有網影一張** → **已入 R2**。bucket 入面親眼見到嗰個
+   **412.09 KB** 嘅 jpg。
+2. **飛行模式** → **成功**（Jason 回報）。
+3. **網絡中途出事** → **「有事要人睇」＋ 中文，冇扮成功**。
+   （今日意外驗咗好多次。）
 
-- 第一次：**`putStatus` 400**，錯誤原文
-  **`Credential access key has length 44, should be 32`**，
-  `accessKeyIdLast4` = **`_KEY`**
-- 換咗新 token 之後：**`putStatus` 200、`getStatus` 200、`getBodyLength` 3**
+**P3a 功能上收貨。**
 
-## ⛔ 根因：R2 Access Key ID 貼錯
+---
 
-第一次 `wrangler secret put` 貼咗**標籤名／Token value**落去，
-**唔係真正嘅 Access Key ID**。換成 **32 位 access key id ＋ 64 位 secret** 即刻通。
+# ⛔ 「技術上驗收咗」同「可以放上現場」係兩件事
 
-**唔係 CORS、唔係 Worker、唔係 `presign()` 寫法、唔係手機 ——
-四個懷疑對象全部無辜。**
+P3a **merge 咗上 `main` 之後，`sylvan-quote.pages.dev` 就會出現影相功能**，
+而**每張相仍然係得 R2 一份雲端副本** ——
+照 `docs/開發紀錄.md` §九 張表，就係 **🔴 契約已破** 嗰格。
 
-**點解一個錯扮到三個問題**：R2 回 **400**，而 **400 唔帶 CORS 標頭**，
-瀏覽器就**一律顯示成 `Failed to fetch`**。
+**所以 merge 呢個決定要 Jason 拍板，唔係驗收完就自動 merge。**
 
-⛔ **教訓（已入 `docs/開發紀錄.md` 附錄 A I5）：
-presigned 上傳失敗而瀏覽器只講 `Failed to fetch` 嗰陣，唔好由 CORS 開始查，
-要先由 server side 用同一條簽名網址試一次** ——
-**client 睇到嘅錯誤訊息被 CORS 規則遮蔽咗真相。**
+## 三個選項（等 Jason 揀）
 
-## 真機實測結果（Cloudflare 上親眼核對，唔係推算）
+**甲：merge 上 `main`，但 Production 唔加 `VITE_PHOTO_WORKER_URL`**
+功能出現，但畫面會明寫「未設定相片上傳服務」，**相只存部機**。
 
-- 手機撳「再試一次」→ 狀態變 **「已入 R2（Drive 未做）」**
-- `quote-photos` 入面出現咗資料夾
-  **`e583a567-e37f-4d97-b344-7d5107739af1/`** —— 即係 **Jason 個 uid**，
-  **證明檔名真係由 Worker 用佢自己驗返嚟嘅 uid 砌，唔係前端講咩就係咩**
-- 入面得一個檔 **`a0315df3-12c9-4a23-b1d2-883649abb67b.jpg`**，
-  **image/jpeg、412.09 KB、2026-08-22 12:0x**
-- **Class A 由 0 變 10**
+**乙：merge 埋、加埋設定**
+功能真正開放，但**得一份雲端副本**。
 
-### ⭐ 重試咗好多次，資料夾入面**得一個檔，冇重複**
+**丙：唔 merge，留喺 branch，直落 P3b 做 Drive 鏡像**
+夠**兩份雲端副本**先一次過上 `main`。
 
-即係**影相編號重用**同埋 **`23505` 嗰段處理**，喺真機真 DB 上面**行得**。
-（本機 harness 之前只證到 code 層面，呢次係真嘢。）
-
-## 仲未驗
-
-- **飛行模式嗰個動作**（Jason 做緊）
-- **中途熄 Wi-Fi 嗰個動作**
+**建議：丙。**
 
 ---
 
 # ⛔ Merge 入 `main` 之前一定要做嘅清單
 
-1. ~~刪 `/selftest`~~ —— ✅ **呢個 commit 已經做咗**。
-2. **清走 `quote-photos` 入面個 `__selftest/probe.txt`。**
-3. **重新 deploy Worker**（刪咗 `/selftest` 之後）。
+## Code / 部署
+
+1. ~~刪 `/selftest`~~ —— ✅ **做咗**（commit `30afeb4`）。
+2. **重新 deploy Worker**（刪咗 `/selftest` 之後先算數）。
+
+## ⛔ 環境變數 —— 呢條唔記得就會「功能上到 main 但影唔到相」
+
+**2026-08-22 實測：Cloudflare Pages 個 Production 環境
+`VITE_PHOTO_WORKER_URL` 係冇嘅，只有 Preview 有。**
+
+（Preview 原本**三個變數都冇**，係今日叫 Jason 加返
+`VITE_SUPABASE_URL`、`VITE_SUPABASE_PUBLISHABLE_KEY`、
+`VITE_PHOTO_WORKER_URL` 三個先行到。）
+
+所以**將來邊一日 merge 上 `main`**：
+
+3. ⛔ **一定要同時喺 Production 環境加 `VITE_PHOTO_WORKER_URL`**
+4. ⛔ **加完要重新 build** —— Vite 係 **build 時 inline** 環境變數，
+   唔重新 build 唔生效
+
+**唔做呢兩步嘅症狀**：功能出現咗，但每個人影相都見到
+「未設定相片上傳服務」。**唔會爆，就係影唔到。**
+
+## Bucket 殘留 —— 要決定清唔清
+
+5. **`__selftest/probe.txt`**（診斷寫落去嗰個三字節檔）
+6. **Jason 今日試影嗰啲相**（`e583a567-…/` 資料夾入面嗰啲）
+
+**兩樣都係測試殘留，唔係真單。⛔ 但清唔清係 Jason 決定，我唔會自己清。**
+（`quote-photos` 係我哋自己個 bucket，清得；⛔ **`tree-photos` 一個 byte 都唔准掂。**）
