@@ -102,16 +102,26 @@ tree app 全部相、公司檔案、私人檔案，全部。
 左邊**選單**（如果冇，撳左上角三條橫線 ☰）→ **APIs & Services**
 → **OAuth consent screen**。
 
-### 步驟 8
+### 步驟 8 —— 揀 **External**
 
-**見到**：問你揀 `Internal` 定 `External`。
+**見到**：`User Type`，下面有 **External**（有啲版本寫「外部」）。
 
-- 如果係**公司 Google Workspace 帳戶** → 揀 **Internal**
-- 如果係**普通 gmail.com** → 揀 **External**
+**揀 `External`，撳 `CREATE`。**
 
-撳 **CREATE**。
+⚠️ **唔使諗，一定係 External。**
+`Internal` 只會喺**公司 Google Workspace 機構帳戶**度出現，
+而 `jason223hk@gmail.com` 係**普通 Google 帳戶**，
+**所以個畫面根本唔會俾你揀 `Internal`**（可能係灰色，可能根本冇）。
 
-⚠️ **揀咗邊個，話返我知。** 揀 `External` 嘅話步驟 11 有多一步。
+#### ⚠️ 「External」唔係「公開畀全世界用」
+
+見到 `External` 好易以為係「任何人都用得」。**唔係。**
+
+**實際情況係：`External` ＋ 未發佈 ＋ 只加咗你自己做 Test user
+＝ 只有你自己個帳戶授權得到。**
+**其他人就算攞到條網址，撳極都用唔到。**
+
+（「加自己做 Test user」就係下面**步驟 11**，⛔ **必做**。）
 
 ### 步驟 9
 
@@ -130,17 +140,16 @@ tree app 全部相、公司檔案、私人檔案，全部。
 ⛔ **咩都唔好撳，直接撳落面 `SAVE AND CONTINUE`。**
 （權限我哋喺步驟 20 先揀，喺呢度揀反而會撞。）
 
-### 步驟 11
-
-**如果步驟 8 揀咗 `External`：**
+### 步驟 11 —— ⛔ 必做：加自己做 Test user
 
 **見到**：`Test users` 呢一版。
 
-撳 **+ ADD USERS**，打**你自己個 email**，撳 **ADD**，再撳 **SAVE AND CONTINUE**。
+撳 **+ ADD USERS**，打 **`jason223hk@gmail.com`**，撳 **ADD**，
+再撳 **SAVE AND CONTINUE**。
 
-⚠️ **唔加呢一步，最後授權嗰陣會俾佢擋住。**
+⛔ **唔加呢一步，步驟 21 授權嗰陣會俾佢擋住，成件事行唔落去。**
 
-**如果揀咗 `Internal`**：冇呢一版，直接跳去步驟 12。
+⚠️ **加完之後喺個清單度睇多次個 email 有冇打錯。**
 
 ### 步驟 12
 

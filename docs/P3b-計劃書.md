@@ -377,6 +377,63 @@ projectFolderName = safeSegment(`${work_date}_${name}`)
 
 **兩樣唔衝突，但個名一樣，寫 code 嗰陣好易撈亂。** 記低喺度。
 
+## 7.5 ⏳ Worker 點讀 `quote_records` / `quote_trees` —— 提案，⛔ Jason 未答
+
+### 點解會有呢個問題
+
+個 Worker 要砌 Drive 檔名，就要知：
+
+- **工程嘅 `work_date` 同 `name`** —— 砌資料夾名 `工作日期_工程名`
+- **棵樹嘅 `tree_no`** —— 砌檔名第一段
+
+**但 `service_role` 而家淨係有 `quote_photos` 一張表嘅權限**
+（2026-08-22 實測：`quote_records`、`quote_trees`、`quote_site_form`、
+`quote_admins` 四張，`service_role` 一個 `SELECT` 都冇）。
+
+### 提案：Worker 需要用家嘅資料嗰陣，行用家自己個 token，⛔ 唔開新 grant
+
+**而且唔止今次 —— 寫入設計做原則。**
+
+**三個理由：**
+
+1. **最少權限。** `service_role` 一旦有咗 `quote_records` / `quote_trees` 嘅
+   `SELECT`，就等於 **Worker 出事嗰陣睇得晒全公司所有報價單**，
+   而唔止出事嗰一張相。
+2. **慳返一次批准同一次 SQL。** `CLAUDE.md` §3 寫住改權限要 Jason 本人批，
+   **能夠唔加就唔加。**
+3. **唔依賴 grant 嘅設計本身穩陣啲。** 今日已經實證過
+   「**規矩寫咗但從來冇執行過**」呢種情況會發生 ——
+   §2.2 寫住新表要 grant `service_role`，但四張現有表**一個都冇**。
+
+**RLS 照擋**：用家個 token 讀，佢本身睇到咩就係咩，唔會多。
+
+⛔ **呢個係提案，Jason 未答。未收到確認之前唔准寫死。**
+
+### ⚠️ 行用家 token 有一個含意，要而家諗清楚
+
+**鏡像只可以喺用家仲登住入嗰陣做。Token 過期就做唔到。**
+
+**所以「一張相幾時鏡像上 Drive」要定清楚：**
+
+- ✅ **影完即刻做** —— 冇問題，token 一定仲喺
+- ✅ **用家下次開 app 嗰陣補做** —— 得，但要有呢個機制
+- ⛔ **一條半夜自己行嘅 cron —— 唔得。** 嗰陣冇人嘅 token。
+
+⚠️ **呢一點會影響 P3 設計第三章嗰句「Worker 背景抄一份去 Drive」** ——
+「背景」要理解成**「app 開住嗰陣喺背景做」**，
+**唔係「server 自己夜晚做」**。
+
+#### 順帶：如果將來真係要 cron，就要換條路
+
+**唯一唔靠用家 token 嘅做法**，係**前端叫 `/mirror` 嗰陣連
+`work_date` / `name` / `tree_no` 一齊傳落去**，Worker 唔讀嗰兩張表。
+
+- **好處**：冇 token 依賴，cron 做得
+- **代價**：**檔名由前端話事**，冇咗「Worker 用自己驗返嚟嘅嘢砌」呢個保障
+  （P3a 個 R2 檔名特登唔係咁做）
+
+⛔ **兩條路都唔准自己揀。**
+
 ## 8. Source of truth
 
 - **`quote_photos` 一行** = 一張相**而家剩返幾多份**嘅唯一答案。
@@ -515,6 +572,8 @@ projectFolderName = safeSegment(`${work_date}_${name}`)
 - [x] 前置一：Drive 存原圖定壓縮版 —— **2026-08-22 定咗：壓縮版，兩邊同一份 bytes**
 - [x] 根資料夾甲／乙 —— **2026-08-22 Jason 本人批咗乙（闊權限）**
 - [ ] 前置二：Drive 授權已經撳（指示喺 `docs/Drive-授權-逐步指示.md`）
+- [ ] ⏳ Worker 點讀 `quote_records` / `quote_trees`（§7.5 提案）Jason 答咗
+- [ ] 「一張相幾時鏡像」定咗（影完即刻／下次開 app 補；⛔ 唔可以係 cron）
 - [x] ⛔ 舊樹顯示「修剪（未細分）」—— **2026-08-22 Jason 親眼睇過
       （`Testing01` 樹 #125）**
 - [x] ⛔ 新排位（移除拎出嚟、近景搬入其他）—— **2026-08-22 Jason 睇咗，答「啱」**
