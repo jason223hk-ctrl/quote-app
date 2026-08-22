@@ -114,68 +114,6 @@ async function presign(method, env, key) {
   return `https://${host}${encodePath(path)}?${query.toString()}&X-Amz-Signature=${signature}`
 }
 
-/* ─────────────────────────────────────────────────────────────────────────────
- * ⛔⛔ 臨時診斷，merge 入 main 之前一定要刪 ⛔⛔
- *
- * 點解要有：真機影相出「上傳中斷：Failed to fetch」。
- * 喺瀏覽器度，**「CORS 冇生效」同「簽名唔啱」係分唔開嘅** ——
- * 兩樣都會俾你見到同一句 `Failed to fetch`，因為 R2 回 403 嗰陣冇 CORS 標頭。
- *
- * 所以由 Worker 自己（server side，**冇瀏覽器、冇 CORS 呢回事**）
- * 用**同一個 `presign()`** 寫一個三個字節嘅檔上去：
- *
- *   - 寫得入  → key 同簽名冇事，**剩返 CORS 一個可能**
- *   - 寫唔入  → 係 key 或者簽名，**同 CORS 完全無關**
- *
- * ⛔ 呢個入口冇驗身分（要喺瀏覽器直接叫得到）。即係知道網址嘅人
- *    寫得到 `__selftest/probe.txt` 一個 key，同埋睇到兩個 id 嘅尾四位。
- *    **所以佢係臨時嘅，用完即刻刪。**
- * ⛔ 唔准回傳 `R2_SECRET_ACCESS_KEY`，唔准回傳完整 access key id。
- * ⛔ 只寫 `quote-photos`。tree app 個 `tree-photos` 一個 byte 都唔准掂。
- * ───────────────────────────────────────────────────────────────────────────── */
-const SELFTEST_KEY = '__selftest/probe.txt'
-
-function last4(value) {
-  return typeof value === 'string' && value.length >= 4 ? value.slice(-4) : ''
-}
-
-async function selftest(env, origin) {
-  const result = {
-    note: '⛔ 臨時診斷入口，用完要刪',
-    bucket: env.R2_BUCKET ?? '',
-    accountIdLast4: last4(env.R2_ACCOUNT_ID),
-    accessKeyIdLast4: last4(env.R2_ACCESS_KEY_ID),
-    key: SELFTEST_KEY,
-    putStatus: 0,
-    putErrorText: '',
-    getStatus: 0,
-    getBodyLength: -1,
-  }
-
-  try {
-    const putUrl = await presign('PUT', env, SELFTEST_KEY)
-    const putResponse = await fetch(putUrl, {
-      method: 'PUT',
-      headers: { 'content-type': 'text/plain' },
-      body: 'abc',
-    })
-    result.putStatus = putResponse.status
-    if (!putResponse.ok) {
-      result.putErrorText = (await putResponse.text()).slice(0, 300)
-      return json(result, 200, origin)
-    }
-
-    const getUrl = await presign('GET', env, SELFTEST_KEY)
-    const getResponse = await fetch(getUrl, { method: 'GET' })
-    result.getStatus = getResponse.status
-    result.getBodyLength = getResponse.ok ? (await getResponse.arrayBuffer()).byteLength : -1
-  } catch (caught) {
-    result.putErrorText = String(caught?.message ?? caught).slice(0, 300)
-  }
-
-  return json(result, 200, origin)
-}
-
 export default {
   async fetch(request, env) {
     const origin = allowedOrigin(request, env)
@@ -193,11 +131,6 @@ export default {
     }
 
     const url = new URL(request.url)
-
-    // ⛔ 臨時診斷，merge 入 main 之前一定要刪（見上面）。
-    if (url.pathname === '/selftest' && request.method === 'GET') {
-      return selftest(env, origin)
-    }
 
     if (url.pathname !== '/sign' || request.method !== 'POST') {
       return json({ error: 'not found' }, 404, origin)

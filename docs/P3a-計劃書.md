@@ -651,10 +651,6 @@ presigned 上傳失敗而瀏覽器只講 `Failed to fetch` 嗰陣，唔好由 CO
 
 # ⛔ Merge 入 `main` 之前一定要做嘅清單
 
-1. **刪 `/selftest`** —— `worker/src/worker.mjs` 入面
-   由 `/* ───… ⛔⛔ 臨時診斷 …` 開始嗰段（`SELFTEST_KEY`、`last4()`、
-   `selftest()` 三樣），同埋 `fetch()` 入面嗰三行 route。
-   **移除嗰個 commit 已經喺本機準備好，但特登未 push** ——
-   等三個動作全部驗完先，因為飛行模式嗰個可能仲要用到。
+1. ~~刪 `/selftest`~~ —— ✅ **呢個 commit 已經做咗**。
 2. **清走 `quote-photos` 入面個 `__selftest/probe.txt`。**
 3. **重新 deploy Worker**（刪咗 `/selftest` 之後）。
