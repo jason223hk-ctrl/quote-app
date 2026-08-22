@@ -649,3 +649,54 @@ projectFolderName = safeSegment(`${work_date}_${name}`)
 - [x] 舊單 mitigation 代號用量 —— **2026-08-22 實測：`pruning` 兩行，其餘冇用過**
 - [x] 舊單「修剪（未細分）」點顯示 —— **2026-08-22 定咗：保留 legacy，唔改舊行**
 - [x] 兩個新代號名 —— **`crown_thinning` / `close_up`（內部代號，唔使 Jason 拍板）**
+
+---
+
+# 實作紀錄 —— 前端（2026-08-22）
+
+**⛔ 未 merge 入 `main`。**
+
+## 改咗嘅檔
+
+- `src/lib/photos.ts` —— 加第五個狀態 `synced`（「已同步，兩份齊」）、
+  `MAX_DRIVE_ATTEMPTS`、`MIRROR_BATCH_SIZE`、`pickMirrorBatch()`
+- `src/lib/photoTransport.ts` —— `mirrorPhoto()`
+- `src/lib/photoUpload.ts` —— `PendingPhoto` 加 `driveAttempts` / `driveError`
+- `src/components/PhotoSlot.tsx` —— 影完即刻試、開 app 補做、人手再試
+
+## ⚠️ Harness 捉到兩個真 bug，兩個都係唔跑就見唔到
+
+### 一、補做效果自己炒車
+
+**第一次跑出嚟：一次開 app 就叫咗 `/mirror` 四次。**
+
+原因：補完 → `reload()` → `rows` 變咗個新 array → useEffect 再行 → 再補……
+**一次開 app 就燒晒三次配額**，而且變成連環重試 ——
+**正正就係「一次三張」想避免嗰件事。**
+
+**修法**：用一個 `triedRef`，記住今次開 app 試過邊幾張。
+**「下次開 app 補做」＝ 一次開 app 一張相試一次。**
+⚠️ **人手撳「再試一次」唔受呢個限制** —— 人手撳就係人手撳。
+
+### 二、「試咗幾多次」數少咗
+
+`runMirror` 本來由 React state 攞嗰個本機紀錄，**state 有機會落後半拍**，
+結果**數少咗就會一路試落去**。
+
+**修法**：⛔ **由 IndexedDB 讀返最新嗰個**，唔用 state。
+
+## 真實結果（瀏覽器實跑，假 Worker）
+
+- **順利** → **「已同步，兩份齊」** ✅
+- **Drive 失敗** → **「已入 R2（Drive 未做）」** ＋ 紅字「抄唔到去 Drive：Drive 滿咗」
+  ⛔ **冇扮成功，亦冇當佢係災難** —— 佢係過渡狀態
+- **重開第 2 次** → 補做叫咗第 2 次，狀態仍然「已入 R2（Drive 未做）」
+- **重開第 3 次** → 叫咗第 3 次 → **轉「有事要人睇」**
+- **重開第 4 次** → ⛔ **冇再自動試**（實測 counter 冇郁）
+
+**`npm run gate` 全綠：184 個測試。**
+
+## 仲要人手驗
+
+- **有網影一張** → R2 → Drive → **三份副本齊**
+- **改咗 `seq` 之後嗰項** —— 一齊驗

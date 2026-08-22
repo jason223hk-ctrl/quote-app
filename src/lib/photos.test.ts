@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import {
   DUPLICATE_NOT_FOUND_MESSAGE,
+  MAX_DRIVE_ATTEMPTS,
+  pickMirrorBatch,
   PHOTO_STATUS_HINT,
   PHOTO_STATUS_LABEL,
   createPhotosApi,
@@ -78,20 +80,72 @@ describe('statusOfRow', () => {
   it('⛔ 就算有錯，只要 r2 對咗數就唔可以當失敗', () => {
     expect(statusOfRow({ ...row, r2_synced_at: 'x', r2_error: '舊嗰次嘅錯' })).toBe('r2')
   })
+
+  it('兩份齊先至係 synced', () => {
+    expect(statusOfRow({ ...row, r2_synced_at: 'x', drive_synced_at: 'y' })).toBe('synced')
+  })
+
+  it('⛔ Drive 未做只係過渡，唔係出事', () => {
+    expect(statusOfRow({ ...row, r2_synced_at: 'x' }, 0)).toBe('r2')
+    expect(statusOfRow({ ...row, r2_synced_at: 'x' }, 2)).toBe('r2')
+  })
+
+  it('⛔ 試夠三次先轉「有事要人睇」', () => {
+    expect(statusOfRow({ ...row, r2_synced_at: 'x' }, MAX_DRIVE_ATTEMPTS)).toBe('error')
+  })
+
+  it('⛔ 就算試爆咗，只要 Drive 真係上到就係 synced', () => {
+    expect(statusOfRow({ ...row, r2_synced_at: 'x', drive_synced_at: 'y' }, 9)).toBe('synced')
+  })
+})
+
+describe('pickMirrorBatch', () => {
+  function make(id: string, created: string, r2 = 'x', drive: string | null = null): QuotePhoto {
+    return { ...row, id, created_at: created, r2_synced_at: r2, drive_synced_at: drive }
+  }
+
+  it('⛔ 一次最多三張 —— 唔准一次過發成個工程', () => {
+    const rows = ['1', '2', '3', '4', '5'].map((n) => make(n, `2026-08-22T0${n}:00:00Z`))
+    expect(pickMirrorBatch(rows, () => 0).map((r) => r.id)).toEqual(['1', '2', '3'])
+  })
+
+  it('舊嘅行先', () => {
+    const rows = [make('b', '2026-08-22T02:00:00Z'), make('a', '2026-08-22T01:00:00Z')]
+    expect(pickMirrorBatch(rows, () => 0).map((r) => r.id)).toEqual(['a', 'b'])
+  })
+
+  it('已經上咗 Drive 嘅唔會再揀', () => {
+    expect(pickMirrorBatch([make('a', 'x', 'x', 'done')], () => 0)).toHaveLength(0)
+  })
+
+  it('仲未入 R2 嘅唔會揀 —— 未輪到佢', () => {
+    expect(pickMirrorBatch([{ ...make('a', 'x'), r2_synced_at: null }], () => 0)).toHaveLength(0)
+  })
+
+  it('⛔ 試夠三次嘅唔會再自動試', () => {
+    expect(pickMirrorBatch([make('a', 'x')], () => MAX_DRIVE_ATTEMPTS)).toHaveLength(0)
+  })
+
+  it('試過但未夠三次嘅照試', () => {
+    expect(pickMirrorBatch([make('a', 'x')], () => 2)).toHaveLength(1)
+  })
 })
 
 describe('狀態文字', () => {
-  it('四個狀態都有中文，冇一個係空', () => {
-    for (const status of ['local', 'uploading', 'r2', 'error'] as const) {
+  it('五個狀態都有中文，冇一個係空', () => {
+    for (const status of ['local', 'uploading', 'r2', 'synced', 'error'] as const) {
       expect(PHOTO_STATUS_LABEL[status].trim()).not.toBe('')
       expect(PHOTO_STATUS_HINT[status].trim()).not.toBe('')
     }
   })
 
-  it('⛔ P3a 冇 Drive，所以一個字都唔准講「兩份齊」', () => {
-    const all = [...Object.values(PHOTO_STATUS_LABEL), ...Object.values(PHOTO_STATUS_HINT)].join(' ')
-    expect(all).not.toContain('兩份齊')
-    expect(all).not.toContain('已同步')
+  it('⛔ 「兩份齊」淨係屬於 synced —— 其他狀態一個字都唔准咁講', () => {
+    for (const status of ['local', 'uploading', 'r2', 'error'] as const) {
+      expect(PHOTO_STATUS_LABEL[status]).not.toContain('兩份齊')
+      expect(PHOTO_STATUS_LABEL[status]).not.toContain('已同步')
+      expect(PHOTO_STATUS_HINT[status]).not.toContain('兩份齊')
+    }
+    expect(PHOTO_STATUS_LABEL.synced).toContain('兩份齊')
   })
 })
 

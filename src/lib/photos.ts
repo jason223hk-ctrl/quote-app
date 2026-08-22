@@ -44,12 +44,13 @@ export type QuotePhoto = {
  * P3a 得四個 —— **冇「已同步，兩份齊」**，因為 P3a 冇 Drive。
  * 冇兩份就唔准講兩份（`docs/P3-現場影相-設計.md` 第四章）。
  */
-export type PhotoStatus = 'local' | 'uploading' | 'r2' | 'error'
+export type PhotoStatus = 'local' | 'uploading' | 'r2' | 'synced' | 'error'
 
 export const PHOTO_STATUS_LABEL: Record<PhotoStatus, string> = {
   local: '只喺部機',
   uploading: '上緊',
   r2: '已入 R2（Drive 未做）',
+  synced: '已同步，兩份齊',
   error: '有事要人睇',
 }
 
@@ -60,7 +61,8 @@ export const PHOTO_STATUS_LABEL: Record<PhotoStatus, string> = {
 export const PHOTO_STATUS_HINT: Record<PhotoStatus, string> = {
   local: '仲未上到雲端。唔好清瀏覽器資料，返到有網開一開 app。',
   uploading: '上緊，唔好熄咗個 app。',
-  r2: '雲端有一份。Drive 嗰份要等 P3b 先做。',
+  r2: '雲端有一份，Drive 嗰份補緊。通常幾秒到幾分鐘就得。',
+  synced: '兩份雲端副本齊晒。',
   error: '上唔到。撳「再試一次」，唔會影多張相。',
 }
 
@@ -74,11 +76,45 @@ export function newOperationId(): string {
   return crypto.randomUUID()
 }
 
-/** 由 DB 一行推返個狀態出嚟。UI 唔准自己另外記一份。 */
-export function statusOfRow(row: QuotePhoto): PhotoStatus {
-  if (row.r2_synced_at !== null) return 'r2'
+/**
+ * 由 DB 一行推返個狀態出嚟。UI 唔准自己另外記一份。
+ *
+ * `driveAttempts` 係本機記住嘅「Drive 試咗幾多次」。
+ * ⛔ 連續失敗 `MAX_DRIVE_ATTEMPTS` 次之後就唔再自動試，轉「有事要人睇」——
+ * 每次開 app 都自動試、每次都出聲，人好快唔再理，而唔理就等於個警告冇咗作用
+ * （`docs/P3b-計劃書.md` §7.5）。
+ */
+export function statusOfRow(row: QuotePhoto, driveAttempts = 0): PhotoStatus {
+  if (row.r2_synced_at !== null) {
+    if (row.drive_synced_at !== null) return 'synced'
+    if (driveAttempts >= MAX_DRIVE_ATTEMPTS) return 'error'
+    return 'r2'
+  }
   if (row.r2_error.trim() !== '') return 'error'
   return 'local'
+}
+
+/** ⛔ 連續失敗三次就停自動重試（Jason 2026-08-22）。 */
+export const MAX_DRIVE_ATTEMPTS = 3
+
+/** ⛔ 一次補三張。唔准一次過發成個工程嘅請求 —— 地盤網絡差，三十個會一齊死。 */
+export const MIRROR_BATCH_SIZE = 3
+
+/**
+ * 揀邊幾張相今次補鏡像。
+ *
+ * 只揀「已入 R2、Drive 未做、而且仲未試夠三次」嗰啲，舊嘅行先。
+ */
+export function pickMirrorBatch(
+  rows: QuotePhoto[],
+  attempts: (photoId: string) => number,
+  batchSize = MIRROR_BATCH_SIZE,
+): QuotePhoto[] {
+  return rows
+    .filter((row) => row.r2_synced_at !== null && row.drive_synced_at === null)
+    .filter((row) => attempts(row.id) < MAX_DRIVE_ATTEMPTS)
+    .sort((a, b) => a.created_at.localeCompare(b.created_at))
+    .slice(0, batchSize)
 }
 
 export type Digest = { size: number; sha256: string }

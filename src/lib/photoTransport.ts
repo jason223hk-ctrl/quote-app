@@ -106,3 +106,35 @@ export function createUploadDeps(accessToken: string, photos: PhotosApi): Upload
     saveRow: photos.create,
   }
 }
+
+export type MirrorResult = { ok: true; alreadyDone: boolean } | { ok: false; message: string }
+
+/**
+ * 叫 Worker 抄一份上 Drive。
+ *
+ * ⛔ bytes 唔會經前端 —— 呢度淨係傳一個相片 id 過去，
+ * Worker 自己由 R2 讀返出嚟原封不動上 Drive。
+ */
+export async function mirrorPhoto(accessToken: string, photoId: string): Promise<MirrorResult> {
+  const base = photoWorkerBase()
+  if (base === '') return { ok: false, message: WORKER_MISSING_MESSAGE }
+
+  try {
+    const response = await fetch(`${base}/mirror`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', authorization: `Bearer ${accessToken}` },
+      body: JSON.stringify({ photoId }),
+    })
+    const body = (await response.json().catch(() => ({}))) as { message?: string }
+    if (!response.ok) {
+      const detail = body.message ?? `上傳服務回覆 ${response.status}`
+      console.error('[quote-app] drive mirror failed:', detail)
+      return { ok: false, message: `抄唔到去 Drive：${detail}` }
+    }
+    return { ok: true, alreadyDone: Boolean((body as { alreadyDone?: boolean }).alreadyDone) }
+  } catch (caught) {
+    const detail = caught instanceof Error ? caught.message : String(caught)
+    console.error('[quote-app] drive mirror failed:', detail)
+    return { ok: false, message: `抄唔到去 Drive：${detail}。R2 嗰份仲喺，唔會冇咗。` }
+  }
+}

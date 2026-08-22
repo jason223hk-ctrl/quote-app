@@ -18,6 +18,9 @@ export type PendingPhoto = {
   status: 'local' | 'uploading' | 'error' | 'uploaded'
   error: string
   attempts: number
+  /** Drive 鏡像試咗幾多次。⛔ 夠三次就唔再自動試（`docs/P3b-計劃書.md` §7.5）。 */
+  driveAttempts?: number
+  driveError?: string
 }
 
 export type SignedUrls = { key: string; put: string; get: string }

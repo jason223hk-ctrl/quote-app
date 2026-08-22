@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
+  MAX_DRIVE_ATTEMPTS,
   PHOTO_STATUS_HINT,
   PHOTO_STATUS_LABEL,
   newOperationId,
+  pickMirrorBatch,
   sha256Hex,
   statusOfRow,
   type PhotoStatus,
@@ -15,6 +17,7 @@ import {
   WORKER_MISSING_MESSAGE,
   compressToJpeg,
   createUploadDeps,
+  mirrorPhoto,
   photoWorkerBase,
 } from '../lib/photoTransport'
 
@@ -34,7 +37,12 @@ type SlotItem = {
   capturedAt: string
 }
 
-function mergeItems(pending: PendingPhoto[], rows: QuotePhoto[], treeId: string): SlotItem[] {
+function mergeItems(
+  pending: PendingPhoto[],
+  rows: QuotePhoto[],
+  treeId: string,
+  attempts: (photoId: string) => number,
+): SlotItem[] {
   const byOperation = new Map(rows.map((row) => [row.operation_id, row]))
   const seen = new Set<string>()
 
@@ -44,11 +52,15 @@ function mergeItems(pending: PendingPhoto[], rows: QuotePhoto[], treeId: string)
       seen.add(item.operationId)
       const row = byOperation.get(item.operationId)
       // DB 嗰行係準嘅。本機嗰個 status 只係「未有行」嗰陣先用。
-      const status: PhotoStatus = row ? statusOfRow(row) : item.status === 'uploaded' ? 'local' : item.status
+      const status: PhotoStatus = row
+        ? statusOfRow(row, attempts(row.id))
+        : item.status === 'uploaded'
+          ? 'local'
+          : item.status
       return {
         operationId: item.operationId,
         status,
-        message: row ? '' : item.error,
+        message: row ? (row.drive_synced_at ? '' : (item.driveError ?? '')) : item.error,
         thumbUrl: null as string | null,
         capturedAt: item.capturedAt,
       }
@@ -59,8 +71,8 @@ function mergeItems(pending: PendingPhoto[], rows: QuotePhoto[], treeId: string)
     .filter((row) => row.tree_id === treeId && !seen.has(row.operation_id))
     .map((row) => ({
       operationId: row.operation_id,
-      status: statusOfRow(row),
-      message: row.r2_error,
+      status: statusOfRow(row, attempts(row.id)),
+      message: row.r2_error || row.drive_error,
       thumbUrl: null as string | null,
       capturedAt: row.captured_at ?? row.created_at,
     }))
@@ -80,6 +92,15 @@ export default function PhotoSlot({ api, accessToken, recordId, treeId }: Props)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [thumbs, setThumbs] = useState<Record<string, string>>({})
+  /**
+   * ⛔ 今次開 app 已經試過補鏡像嘅相。
+   *
+   * 冇呢個就會炒車：補完 → `reload()` → `rows` 換咗個新 array →
+   * useEffect 再行 → 再補一次…… 一次開 app 就燒晒三次配額，
+   * 而且變成連環重試，正正係「一次三張」想避免嗰件事。
+   * 「下次開 app 補做」＝**一次開 app 一張相試一次**。
+   */
+  const triedRef = useRef<Set<string>>(new Set())
   const cameraRef = useRef<HTMLInputElement>(null)
   const albumRef = useRef<HTMLInputElement>(null)
 
@@ -110,7 +131,76 @@ export default function PhotoSlot({ api, accessToken, recordId, treeId }: Props)
     })
   }, [reload])
 
-  const items = useMemo(() => mergeItems(pending, rows, treeId), [pending, rows, treeId])
+
+  // Drive 試咗幾多次係本機記住嘅（DB 冇呢個欄）。第二部機影嘅相冇本機紀錄，當 0。
+  const attemptsOf = useCallback(
+    (photoId: string) => {
+      const row = rows.find((one) => one.id === photoId)
+      const item = row ? pending.find((one) => one.operationId === row.operation_id) : undefined
+      return item?.driveAttempts ?? 0
+    },
+    [pending, rows],
+  )
+
+  const items = useMemo(
+    () => mergeItems(pending, rows, treeId, attemptsOf),
+    [pending, rows, treeId, attemptsOf],
+  )
+
+  /**
+   * 抄一張相上 Drive，然後記低結果。
+   * ⛔ 失敗要留低痕跡，唔准靜靜過骨。
+   */
+  const runMirror = useCallback(
+    async (row: QuotePhoto) => {
+      // ⛔ 由 store 度讀返最新嗰個，唔用 React state ——
+      // state 有機會落後半拍，而「試咗幾多次」數少咗就會無限試落去。
+      const before = await photoStore.get(row.operation_id)
+      if (before && (before.driveAttempts ?? 0) >= MAX_DRIVE_ATTEMPTS) {
+        return { ok: false as const, message: before.driveError ?? '' }
+      }
+
+      const result = await mirrorPhoto(accessToken, row.id)
+      if (before) {
+        await photoStore.put({
+          ...before,
+          driveAttempts: result.ok ? 0 : (before.driveAttempts ?? 0) + 1,
+          driveError: result.ok ? '' : result.message,
+        })
+      }
+      return result
+    },
+    [accessToken],
+  )
+
+  /**
+   * 開返 app 嗰陣補鏡像。
+   *
+   * ⛔ 一次三張，唔准一次過發成個工程嘅請求 —— 地盤網絡差，三十個會一齊死。
+   * ⛔ 試夠三次嘅唔會再自動試，要人手撳。
+   */
+  useEffect(() => {
+    if (!workerReady || rows.length === 0) return
+    const batch = pickMirrorBatch(rows, attemptsOf).filter(
+      (row) => !triedRef.current.has(row.id),
+    )
+    if (batch.length === 0) return
+    for (const row of batch) triedRef.current.add(row.id)
+
+    let live = true
+    void (async () => {
+      for (const row of batch) {
+        if (!live) return
+        await runMirror(row)
+      }
+      if (live) await reload()
+    })()
+    return () => {
+      live = false
+    }
+    // rows 一變就再睇有冇嘢要補；補完 reload 會令 rows 再變，
+    // 但嗰陣 pickMirrorBatch 會回空，所以唔會無限行落去。
+  }, [rows, workerReady, attemptsOf, runMirror, reload])
 
   async function send(item: PendingPhoto) {
     await photoStore.put({ ...item, status: 'uploading', error: '' })
@@ -124,6 +214,10 @@ export default function PhotoSlot({ api, accessToken, recordId, treeId }: Props)
 
     if (result.ok) {
       await photoStore.put({ ...item, status: 'uploaded', error: '' })
+      // 影完即刻試一次鏡像。唔成功就留低狀態，下次開 app 補（§7.5）。
+      triedRef.current.add(result.row.id)
+      const mirrored = await runMirror(result.row)
+      if (!mirrored.ok) setError(mirrored.message)
     } else {
       // ⛔ 失敗就係失敗。部機嗰份照留住，唔會刪。
       await photoStore.put({
@@ -188,11 +282,19 @@ export default function PhotoSlot({ api, accessToken, recordId, treeId }: Props)
 
   async function retry(operationId: string) {
     const item = pending.find((one) => one.operationId === operationId)
-    if (!item) return
+    const row = rows.find((one) => one.operation_id === operationId)
     setBusy(true)
     setError(null)
     try {
-      await send(item)
+      // R2 已經有咗就唔使再上一次 —— 差嘅係 Drive 嗰份。
+      if (row && row.r2_synced_at !== null) {
+        // 人手撳係人手撳 —— 唔受「今次開 app 試過」嗰個限制。
+        const result = await runMirror(row)
+        if (!result.ok) setError(result.message)
+        await reload()
+        return
+      }
+      if (item) await send(item)
     } finally {
       setBusy(false)
     }
