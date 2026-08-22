@@ -394,6 +394,32 @@ projectFolderName = safeSegment(`${work_date}_${name}`)
 **今日已批嘅 `service_role` 權限維持原狀** —— 淨係 `quote_photos` 一張表。
 ⛔ **唔准趁機擴大。**
 
+### ✅ 實際寫落去之後：連 `service_role` 都唔使用
+
+**寫 `/mirror` 嗰陣重新對過三個動作，用家自己個 token 全部做得到：**
+
+- **讀相片嗰行** —— `quote_photos_select` 係 `using (true)`
+- **讀工程同棵樹** —— 一樣 `using (true)`
+- **寫返 `drive_file_id` / `drive_synced_at`** ——
+  `quote_photos_update` 係 `using can_edit_quote_record(record_id)`，
+  **佢自己開嗰單就過到**
+
+**所以 Worker 入面一個 `service_role` key 都冇**，
+`worker/wrangler.toml` 寫明 ⛔ **唔准加** ——
+**一個唔使用嘅 `service_role` key 擺喺 Worker 度，就係一個唔應該存在嘅風險。**
+
+⚠️ **RLS 唔會 throw，佢只係令 0 行受影響**，所以寫返之後
+**用 `return=representation` readback 對返有冇行**，
+**0 行當被拒絕**（`CLAUDE.md` §2.6）。
+
+#### ⚠️ 連帶：`quote_photos` 個 `service_role` grant 而家係「批咗但冇用」
+
+2026-08-22 Jason 批咗 `grant select, insert, update ... to service_role`，
+**當時嘅理由就係「Worker 要寫返 Drive 狀態」**，而家證實**唔使**。
+
+**要唔要收返係 Jason 決定**（改權限要佢本人批）。
+⛔ **唔准自己 revoke。**
+
 ### ⛔ 連帶：一張相幾時上 Drive
 
 行用家 token 即係**鏡像只做得到喺用家仲登住入嗰陣**。
@@ -555,6 +581,15 @@ projectFolderName = safeSegment(`${work_date}_${name}`)
 
 **要補嘅**：Jason **親眼開返嗰兩棵樹**，睇實際 render 出嚟嗰句字。
 
+### ⛔ 三、影相上 R2 —— **要重新驗一次**
+
+**2026-08-22 改咗 `seq` 由 0 變 1**（`photoUpload.ts`）——
+**即係掂到今日真機驗收過嗰條路**。
+
+⛔ **唔准當之前驗過就算數。**
+
+**要補**：**有網影一張全景相 → 應該「已入 R2」**，Cloudflare 見到個 object。
+
 ### ✅ 二、新排位 —— 驗咗
 
 **2026-08-22 Jason 真機睇咗，答「啱」**（`bed4046`）：
@@ -608,7 +643,358 @@ projectFolderName = safeSegment(`${work_date}_${name}`)
 - [x] ⛔ 舊樹顯示「修剪（未細分）」—— **2026-08-22 Jason 親眼睇過
       （`Testing01` 樹 #125）**
 - [x] ⛔ 新排位（移除拎出嚟、近景搬入其他）—— **2026-08-22 Jason 睇咗，答「啱」**
+- [ ] ⛔ 改咗 `seq` 之後，影相上 R2 要 Jason 重新驗一次
+- [ ] `quote_photos` 個冇用嘅 `service_role` grant 收唔收返（Jason 決定）
 - [x] 工序重組拆唔拆 —— **2026-08-22 拆咗做獨立一步，已經做完（`654633c`），新樹 case 驗咗**
 - [x] 舊單 mitigation 代號用量 —— **2026-08-22 實測：`pruning` 兩行，其餘冇用過**
 - [x] 舊單「修剪（未細分）」點顯示 —— **2026-08-22 定咗：保留 legacy，唔改舊行**
 - [x] 兩個新代號名 —— **`crown_thinning` / `close_up`（內部代號，唔使 Jason 拍板）**
+
+---
+
+# 實作紀錄 —— 前端（2026-08-22）
+
+**⛔ 未 merge 入 `main`。**
+
+## 改咗嘅檔
+
+- `src/lib/photos.ts` —— 加第五個狀態 `synced`（「已同步，兩份齊」）、
+  `MAX_DRIVE_ATTEMPTS`、`MIRROR_BATCH_SIZE`、`pickMirrorBatch()`
+- `src/lib/photoTransport.ts` —— `mirrorPhoto()`
+- `src/lib/photoUpload.ts` —— `PendingPhoto` 加 `driveAttempts` / `driveError`
+- `src/components/PhotoSlot.tsx` —— 影完即刻試、開 app 補做、人手再試
+
+## ⚠️ Harness 捉到兩個真 bug，兩個都係唔跑就見唔到
+
+### 一、補做效果自己炒車
+
+**第一次跑出嚟：一次開 app 就叫咗 `/mirror` 四次。**
+
+原因：補完 → `reload()` → `rows` 變咗個新 array → useEffect 再行 → 再補……
+**一次開 app 就燒晒三次配額**，而且變成連環重試 ——
+**正正就係「一次三張」想避免嗰件事。**
+
+**修法**：用一個 `triedRef`，記住今次開 app 試過邊幾張。
+**「下次開 app 補做」＝ 一次開 app 一張相試一次。**
+⚠️ **人手撳「再試一次」唔受呢個限制** —— 人手撳就係人手撳。
+
+### 二、「試咗幾多次」數少咗
+
+`runMirror` 本來由 React state 攞嗰個本機紀錄，**state 有機會落後半拍**，
+結果**數少咗就會一路試落去**。
+
+**修法**：⛔ **由 IndexedDB 讀返最新嗰個**，唔用 state。
+
+## 真實結果（瀏覽器實跑，假 Worker）
+
+- **順利** → **「已同步，兩份齊」** ✅
+- **Drive 失敗** → **「已入 R2（Drive 未做）」** ＋ 紅字「抄唔到去 Drive：Drive 滿咗」
+  ⛔ **冇扮成功，亦冇當佢係災難** —— 佢係過渡狀態
+- **重開第 2 次** → 補做叫咗第 2 次，狀態仍然「已入 R2（Drive 未做）」
+- **重開第 3 次** → 叫咗第 3 次 → **轉「有事要人睇」**
+- **重開第 4 次** → ⛔ **冇再自動試**（實測 counter 冇郁）
+
+**`npm run gate` 全綠：184 個測試。**
+
+## 仲要人手驗
+
+- **有網影一張** → R2 → Drive → **三份副本齊**
+- **改咗 `seq` 之後嗰項** —— 一齊驗
+
+---
+
+# 🚨 I6：舊行 `seq = 0` 撞新公式，Drive 出咗個 `-1` 檔名（2026-08-22）
+
+## 實況（Drive API 直接攞返，唔係信畫面）
+
+資料夾 `Quote App Photos` → `2026-08-22_彩`，入面兩個檔：
+
+| 檔名 | size | createdTime |
+| --- | --- | --- |
+| `2_Whole View_01_Before.jpg` | 539,904 | 10:54:54 |
+| 🚨 `1_Whole View_-1_Before.jpg` | 412,094 | 10:54:43 |
+
+**新影嗰張 `NN = 01` 完全正確** —— `seq` 由 1 數起真係生效。
+🚨 **舊嗰張 `NN = -1`。**
+
+## 根因 —— ⛔ 係我漏咗
+
+**我改咗寫入側（`seq` 寫 1），但冇處理已經存在嘅舊行。**
+舊行 `seq` 仲係 `0`，鏡像一開就照住 `0` 抄，`2 × 0 − 1 = −1`。
+
+⚠️ **更差嘅係：我當時特登攞走咗 `pairedNumber` 入面「0 當 1」嗰個補救**，
+**知道舊行係 0，但冇講「所以要順手更新舊資料」。**
+攞走補救係啱嘅（唔好兩套講法），**漏咗嗰句先係錯。**
+
+## 已經做咗嘅 code 修正
+
+**`pairedNumber(seq)` 而家 `seq < 1` 就回 `null`，`photoFilename` 跟住回 `null`，
+`/mirror` 出一句中文並且寫入 `drive_error`。**
+
+⛔ **呢個唔係「0 當 1」嘅特例** ——
+**特例會靜靜咁幫你揀一個答案；呢度係拒絕，然後出聲，等人知有嘢要修。**
+**⛔ 唔准再出現一個 `-1` 檔名。**
+
+## 教訓（同 §5 一齊睇）
+
+⛔ **改一條「由邊個數字數起」嘅規矩，一定要同時問：
+「已經寫咗落 DB 嗰啲，跟唔跟新規矩？」**
+
+**寫入側改完 ≠ 改完。** 舊行唔會自己跟。
+呢次代價細（兩張測試相），但**同一個模式落喺真單度就係一堆爛檔名**。
+
+## 修法（⛔ 次序好重要，Jason 自己行 SQL）
+
+### 第一步：查有冇其他中招嘅行
+
+```sql
+-- ⛔ 只讀。數返有幾多張相會砌出 -1（或者更細）嘅檔名。
+select p.id,
+       p.seq,
+       p.record_id,
+       p.tree_id,
+       p.r2_synced_at,
+       p.drive_synced_at,
+       p.created_at
+from quote_photos p
+where p.deleted_at is null
+  and p.seq < 1
+order by p.created_at;
+```
+
+**已經鏡像咗嘅**（`drive_synced_at` 唔係 null）→ **Drive 上面有爛檔名，要清**。
+**未鏡像嘅**（`drive_synced_at` 係 null）→ **一開 app 就會產生 `-1`** ——
+不過而家 code 已經改成**拒絕**，所以佢會出中文錯誤，唔會再整爛檔。
+
+### 第二步：更新舊行
+
+```sql
+-- ⛔ Jason 自己喺 Supabase 跑。P2/P3a 試用期嗰啲 seq = 0 改成 1。
+update quote_photos
+set seq = 1,
+    drive_file_id = '',
+    drive_synced_at = null,
+    drive_error = ''
+where deleted_at is null
+  and seq < 1;
+```
+
+⚠️ **清 `drive_file_id` / `drive_synced_at` 係為咗等佢重新抄一次。**
+⛔ **唔好順手改第二個欄。**
+
+### 第三步：開返 app 等佢自己重抄
+
+用家開返 app → 補鏡像會揀到佢（`drive_synced_at` 係 null）→
+用**新檔名** `1_Whole View_01_Before.jpg` 上一次。
+
+### 第四步：⛔ 確認新檔真係喺 Drive，先至刪個爛檔
+
+**次序唔可以掉轉。**
+`CLAUDE.md` §2.8：**未確認另一份仲喺，唔准刪任何一份。**
+
+確認 `1_Whole View_01_Before.jpg` 出現咗，**先至**去 Drive 刪
+`1_Whole View_-1_Before.jpg`。
+
+## Idempotency 會唔會攞返個爛檔？⛔ 唔會
+
+`findFileInFolder()` 係**用今次要砌嗰個檔名去揾**，
+即係揾 `1_Whole View_01_Before.jpg`。
+
+**個爛檔叫 `1_Whole View_-1_Before.jpg`，名唔同，所以配唔到、唔會被重用。**
+
+⚠️ **但佢亦都唔會自己消失** —— 佢會變成一個**孤兒檔**，
+**要人手刪**（第四步）。
+
+## ⚠️ 如果唔止一行：⛔ 唔准全部改成 `seq = 1`
+
+**`seq` 係「同一格入面第幾張」**（第三章）。
+同一棵樹、同一個工序入面**兩張都叫 `seq = 1`，就會砌出兩個一模一樣嘅檔名**。
+
+### 先睇清楚係咩情況
+
+```sql
+-- 每一組（邊棵樹、邊個工序）有幾多張 seq < 1 嘅相
+select tree_id,
+       coalesce(mitigation, '(全景相)') as 工序,
+       count(*) as 幾多張
+from quote_photos
+where deleted_at is null and seq < 1
+group by tree_id, mitigation
+order by 幾多張 desc;
+```
+
+**每組都係 1 → 用上面第二步嗰句簡單 update 就得。**
+**有組多過 1 → 用下面嗰句。**
+
+### 多過一張嗰陣：按 `created_at` 重新編 1、2、3…
+
+```sql
+-- ⛔ Jason 自己跑。同一組（樹＋工序）入面按影相次序重新編。
+-- 全景相 tree_id 有值、mitigation 係 null；工程相 tree_id 係 null，
+-- 所以分組要兩樣一齊睇。
+with ordered as (
+  select id,
+         row_number() over (
+           partition by coalesce(tree_id::text, 'record:' || record_id::text),
+                        coalesce(mitigation, '')
+           order by created_at, id
+         ) as new_seq
+  from quote_photos
+  where deleted_at is null
+    and seq < 1
+)
+update quote_photos p
+set seq = o.new_seq,
+    drive_file_id = '',
+    drive_synced_at = null,
+    drive_error = ''
+from ordered o
+where p.id = o.id;
+```
+
+### ⛔ 一個要留意嘅位
+
+**呢句只重編 `seq < 1` 嗰啲。**
+如果同一組入面**已經有啱數嘅相**（例如已經有 `seq = 1`），
+**重編出嚟就會撞返佢。**
+
+**驗返有冇撞：**
+
+```sql
+select coalesce(tree_id::text, 'record:' || record_id::text) as 組,
+       coalesce(mitigation, '(全景相)') as 工序,
+       seq, count(*)
+from quote_photos
+where deleted_at is null
+group by 1, 2, 3
+having count(*) > 1;
+```
+
+**有結果 = 有撞，⛔ 停低唔好開 app**，返嚟講，
+要**成組一齊重編**（唔止 `seq < 1` 嗰啲）。
+
+⚠️ **成組重編嘅代價**：**已經上咗 Drive 嗰啲會換檔名**，
+舊檔名嗰個會變孤兒檔，**要人手清**。所以**能夠只動未鏡像嗰啲就最好**。
+
+---
+
+# 🚨 I7：用檔名做「已經抄咗」嘅判斷，靜靜食咗一張相（2026-08-22）
+
+## 實況（唯讀 SQL 查出嚟，唔係推測）
+
+`quote_photos`（`deleted_at is null`、`seq < 1`）**三行**，
+**同一單、同一棵樹、`mitigation` 全部 NULL、`seq` 全部 0**：
+
+| | id | `r2_synced_at` | `drive_file_id` | `drive_synced_at` |
+| --- | --- | --- | --- | --- |
+| **A** | `0ecd7165…3597` | 04:00:02 | `10DIlIGth…IA6Nu` | 10:54:45.896 |
+| **B** | `a24197d1…2429` | 04:05:36 | 🚨 `10DIlIGth…IA6Nu`（**同 A 一樣**） | 10:54:47.684 |
+| **C** | `6d19eb38…5b9c` | 04:05:44 | （空） | NULL |
+
+`10DIlIGth…IA6Nu` 就係 Drive 上面嗰個 **`1_Whole View_-1_Before.jpg`**。
+
+## 🚨 即係話
+
+**A 同 B 係兩個唔同嘅 R2 檔案，但指住 Drive 上面同一個檔。**
+
+**B 嘅內容從來冇上過 Drive**，但 DB 寫咗 `drive_synced_at`、
+畫面出**「已同步，兩份齊」**。
+
+⛔ **「兩份齊」講咗大話，實際係一份 —— 而且係靜靜咁失敗，冇 error、冇紅字。**
+
+## 根因
+
+三張相 `seq` 全部 `0` → 三個都算出同一個 `NN` → **同一個檔名**。
+而當時嘅 code **用檔名去判斷「係咪已經抄咗」**：
+
+```js
+async function findFileInFolder(token, name, folderId) {
+  const q = [
+    `name = '${escapeQ(name)}'`,
+    ...
+  ]
+  const files = await driveList(token, q)
+  return files.length ? files[0].id : null
+}
+```
+
+用嘅地方：
+
+```js
+let fileId = await findFileInFolder(gtoken, filename, folderId)
+if (!fileId) { …上傳… }
+```
+
+**A 先抄上去。B 跟住嚟，揾到同名嗰個，就當自己抄咗，攞返 A 個 id 寫落 DB。**
+
+## ⛔ 教訓
+
+**「已經存在」嘅判斷唔可以淨靠一個撞得到嘅 key。**
+
+**個 key 撞得到，系統就會將兩件唔同嘅嘢當成同一件 —— 而且係靜靜咁。**
+
+⚠️ **呢個唔止關今次啲舊資料事。**
+**將來任何一個令兩張相同名嘅情況**（`seq` 重複、同一格重影、並發）
+**都會再中，一樣冇聲出。**
+
+## 已經改咗嘅 code
+
+**一、認 id，唔認名。**
+上傳嗰陣喺 Drive 檔案寫低 `appProperties.quotePhotoId = quote_photos.id`，
+之後用**呢個 id** 去揾。**一張相一個 id，撞唔到。**
+
+**二、同名但唔係同一張 → ⛔ 出聲，唔上、亦唔攞返。**
+Drive 容許同名，照上就會出兩個一樣名嘅檔，之後冇人分得開。
+所以見到同名而 `quotePhotoId` 唔啱（或者冇），
+**寫入 `drive_error` 並且回 409**，⛔ **唔准覆蓋、唔准當佢係同一張** ——
+**連大細一樣都唔算數**，因為冇 `quotePhotoId` 就係唔知邊張相。
+
+**三、上完對返大細。**
+`size` 同 `quote_photos.size_bytes` 唔夾 → **唔准寫「抄咗」**。
+
+## ⛔ 修法（Jason 自己跑，⚠️ 逐行指名，唔用 `seq < 1` 一次過 update）
+
+**三張同一棵樹，所以唔可以全部 `seq = 1`** ——
+咁樣三張都算出 `_01_`，由兩張撞埋變成三張撞埋。
+
+按 `r2_synced_at` 次序：**A = 1（`NN 01`）、B = 2（`NN 03`）、C = 3（`NN 05`）**。
+
+```sql
+-- ⛔ Jason 自己喺 Supabase 跑。逐行指名，改咗咩睇得見。
+-- 三行都清 Drive 三個欄，等佢哋重新抄過。
+update quote_photos set seq = 1, drive_file_id = '', drive_synced_at = null, drive_error = ''
+where id = '0ecd7165-ad13-4422-ac8a-d59531873597';   -- A → NN 01
+
+update quote_photos set seq = 2, drive_file_id = '', drive_synced_at = null, drive_error = ''
+where id = 'a24197d1-bf0d-4f5d-bfeb-45c3ec9e2429';   -- B → NN 03
+
+update quote_photos set seq = 3, drive_file_id = '', drive_synced_at = null, drive_error = ''
+where id = '6d19eb38-530b-44c6-815b-45d66c575b9c';   -- C → NN 05
+```
+
+**驗返：**
+
+```sql
+select id, seq, drive_file_id, drive_synced_at, drive_error
+from quote_photos
+where record_id = '73750f0c-d9ca-4fff-bd2c-b5a709cb2c9a'
+order by r2_synced_at;
+```
+
+**三行都要係 `seq` 1/2/3、`drive_file_id` 空、`drive_synced_at` NULL。**
+
+### ⚠️ A 都要重抄，唔可以當佢 OK
+
+**A 個 `drive_file_id` 指住嗰個檔叫 `…_-1_…`**，
+改完之後 A 應該砌出 `…_01_…` —— **名唔同，所以佢一定要重抄。**
+（而且嗰個舊檔冇 `quotePhotoId`，新 code 亦唔會攞返佢。）
+
+### ⛔ 次序：Drive 個 `-1` 檔，最後先刪
+
+1. 跑上面三句 `update`
+2. **先 deploy 新 Worker**（⛔ 未 deploy 就開 app，會再撞一次同一個問題）
+3. 開返 app，等三張相各自抄上去
+4. **確認 Drive 見到 `…_01_`、`…_03_`、`…_05_` 三個新檔**
+5. **先至**刪 `1_Whole View_-1_Before.jpg`
+
+⛔ 第 5 步唔可以行先 —— `CLAUDE.md` §2.8：**未確認另一份仲喺，唔准刪任何一份。**

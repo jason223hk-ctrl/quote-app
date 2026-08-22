@@ -224,10 +224,15 @@ Worker 唔會 throw，張表就係一直空。開表嗰陣一齊寫，就唔會�
 ⚠️ **P3a 本身用唔著呢個權限** —— P3a 個 Worker **設計上零 DB 查詢**，
 淨係簽 presigned URL。**開咗係為咗 P3b。**
 
-### SQL 草稿（未跑）
+### SQL 草稿
+
+> ⛔ **呢張係草稿，已經被 Jason 實際跑咗嗰張取代。**
+> **少咗三樣**（`operation_id` unique index、`updated_at` 欄同佢個 trigger、
+> 兩個 index），詳情見文件最後〈實際跑咗嘅係咩〉。
+> **⚠️ 唔准照呢張再跑一次。**
 
 ```sql
--- ⛔ 未跑。由 Jason 本人喺 Supabase SQL editor 貼同跑。
+-- 草稿。實際跑嗰張見文末。
 create table public.quote_photos (
   id            uuid primary key default gen_random_uuid(),
   record_id     uuid not null references quote_records(id),
@@ -369,4 +374,325 @@ grant select, insert, update on public.quote_photos to service_role;
 - [ ] Jason 睇完，批准開工
 - [x] 第六節三個欄（`captured_at` / `remark` / `marks`）—— **2026-08-22 答咗：三個都加**
 - [x] `service_role` —— **2026-08-22 Jason 本人批咗甲**
-- [ ] Jason 自己跑咗張 SQL
+- [x] Jason 本人跑咗張 SQL —— **2026-08-22 跑咗，實測驗證結果見文末**
+
+---
+
+# 實作紀錄（2026-08-22，branch `claude/quote-app-scaffold-deploy-4yb3pe`）
+
+**⛔ 未 merge 入 `main`。** `main` 仍然係 last-known-good。
+
+## 加咗嘅新檔
+
+- `src/lib/photos.ts` —— `quote_photos` 資料層、四個狀態、對數、`photoInsertToRow`
+- `src/lib/photoUpload.ts` —— 上傳成條路（外部世界全部由外面餵入，所以測得到）
+- `src/lib/photoStore.ts` —— 部機嗰份（IndexedDB，冇加 library）
+- `src/lib/photoTransport.ts` —— 壓縮、同 Worker 攞網址、直接同 R2 講
+- `src/components/PhotoSlot.tsx` —— 全景格
+- `src/lib/photos.test.ts`、`src/lib/photoUpload.test.ts` —— 31 個新測試
+- `worker/` —— 簽網址 Worker（⛔ **未部署**）
+
+## 改咗嘅舊檔（三個核心模組，啱啱到上限）
+
+- `src/components/HomePage.tsx` —— `QuoteApi` 加 `photos`，傳 access token 落去
+- `src/components/TreesScreen.tsx` —— 傳 `photos` 落 `TreeFormPage`
+- `src/components/TreeFormPage.tsx` —— 多咗一個 `photoSlot` prop，**佢自己唔識相片係點運作**
+
+另外加咗 CSS 同 `.env.example` 一行，兩樣都唔算核心模組。
+
+## 跑咗咩、真實結果係咩
+
+**`npm run gate` 全綠**：typecheck → lint → **125 個測試全過** → build。
+**原有 94 個一個都冇跌**（94 + 31 = 125）。
+
+**本機 harness（假 API、假 R2）行咗成條路，五種情況：**
+
+- 順利 → **「已入 R2（Drive 未做）」**
+- 第二張相 → 一樣得，冇撞
+- 攞唔到簽名網址（503）→ **「有事要人睇」** + 紅字
+  「攞唔到上傳網址：上傳服務回覆 503。相仲喺部機度，唔會冇咗。」
+- 上傳中斷（500）→ **「有事要人睇」** + 紅字
+  「上傳中斷：R2 回覆 500。相仲喺部機度，撳『再試一次』就得。」
+- **讀返出嚟對唔到數** → **「有事要人睇」** + 紅字
+  「對唔到數：上傳前 759 bytes，讀返出嚟 3 bytes。呢張相未算上到。」
+  ⛔ **冇寫入資料庫**
+
+**關咗再開嗰個測試：**
+
+1. 上唔到 → 「有事要人睇」
+2. **重新載入成頁** → 相**仲喺**、**縮圖仲喺**、狀態照舊「有事要人睇」
+3. 撳「再試一次」→ **「已入 R2」**，而且**相片行數仍然係 1** ——
+   重試冇整多一行出嚟（用返同一個影相編號）
+
+## ⛔ 未做得到嘅嘢（要人手做）
+
+1. **Worker 未部署。** Code 喺 `worker/`，但部署 Worker 同放 secret 要 Jason 做
+   （方法論第十五條）。**未部署之前，真機影相上唔到 R2。**
+2. **`VITE_PHOTO_WORKER_URL` 未設定。** 未設定唔會白畫面亦唔會靜靜失敗 ——
+   相照影照存落部機，畫面明寫「未設定相片上傳服務」。
+3. **`quote_photos` 未開。** 等 Jason 跑第六節張 SQL。
+4. **preview 未驗過。** 呢個容器出唔到 Cloudflare，
+   所以 preview build 成功與否要 Jason 喺 Pages 面板睇。
+
+## 順手記低嘅兩個實作決定
+
+**一、上到 R2 之後，⛔ 唔會刪部機嗰份。**
+P3a 之後得 R2 一份雲端副本，部機嗰份係「仲剩幾多份」入面實實在在嘅一份。
+（P3b 之後可以再諗，但唔屬 P3a。）
+
+**二、新樹未儲存唔影得相。**
+新樹未有 id，冇嘢可以掛住張相。畫面出「先儲存呢棵樹，之後就影得全景相」。
+呢個係方法論第十六條嗰種**限制**：一句限制，慳返一大堆「未有 id 嘅相點算」嘅邏輯。
+
+---
+
+## 補做（2026-08-22，跟 Jason 補張 SQL 之後）
+
+Jason 喺張 SQL 加咗三樣：**`operation_id` unique index**、**`updated_at`**、
+**`record_id` / `tree_id` 兩個 index**。
+
+**`updated_at` 同兩個 index 唔使改 code**（有 default，insert 唔會掂佢）。
+**unique index 就要改一段**：
+
+### 撞到 `23505` 唔係出事，係「之前已經寫咗」
+
+原本「重試唔會多一行」**係靠 code 守住**：上傳之前查一次有冇行。
+加咗 unique index 之後，**係資料庫守住** —— 但咁樣 insert 就真係會撞到
+`23505 duplicate key value violates unique constraint`。
+
+**兩部機一齊上、或者網絡抽一抽**都會行到呢一條，所以佢**唔算失敗**。
+
+做法（`src/lib/photos.ts`）：
+
+1. 撞到 `23505` → **用 `operation_id` 揾返嗰行出嚟**
+2. **揾到 → 當成功，回返嗰行。**⛔ 唔會 throw、⛔ 唔會彈英文
+3. **揾唔到 → 出中文**：「資料庫話呢張相已經有紀錄，但即刻揾返出嚟又揾唔到…」
+   ⛔ **唔准靜靜過骨**
+
+⛔ **淨係 `23505` 咁處理。** `permission denied`、RLS 擋咗（0 行）
+全部照舊當出事，有測試釘住。
+
+**新加 10 個測試**（125 → **135**）：認得 code 同認得段字、當成功、
+⛔ 唔會插第二行、⛔ 唔會彈英文、揾唔返出中文、
+`permission denied` 唔會扮成功、0 行照樣當被拒絕、順利嗰次照舊。
+
+### ⛔ 第六節張 SQL 係草稿，唔准再跑
+
+已經喺第六節加咗警告。實際跑咗嘅係下面嗰張。
+
+---
+
+# 實際跑咗嘅係咩（2026-08-22，Jason 本人跑）
+
+## 同第六節張草稿差咗三樣
+
+1. **`operation_id` unique index** —— `quote_photos_operation_id_uidx`
+2. **`updated_at timestamptz not null default now()`**，
+   **加埋佢個 trigger** `quote_photos_touch` BEFORE UPDATE 行
+   `quote_touch_updated_at()`
+3. **`record_id` 同 `tree_id` 兩個 index**
+
+## ⚠️ 兩個更正，記低係為咗唔好再中
+
+**一、驗證期望值「delete 權限 = 0」係錯嘅。**
+
+**冇計返 owner。** 正確答案係 **1，而且必須係 `postgres`**。
+⛔ **將來寫驗證查詢要 `group by grantee`，唔好淨係 `count`** ——
+淨係數總數，你分唔出「owner 有」同「`authenticated` 有」，
+而後者先係出事嗰個。
+
+**二、原本張草稿冇 `updated_at` 個 trigger。**
+
+係 Jason 睇 **Supabase Security Advisor** 見到有個 `quote_touch_updated_at`
+函數先發現。**照原本咁跑，`updated_at` 會永遠停喺建立嗰刻** ——
+唔會報錯，就係永遠唔郁。兩樣都補咗。
+
+## 實測驗證結果（原文照錄，唔係推算）
+
+- 張表存在 = **1**
+- policy = **3 條**（`select` / `insert` / `update`）
+- **delete policy = 0**
+- trigger **由 3 行變 4 行**：`quote_photos_touch` BEFORE UPDATE 行
+  `quote_touch_updated_at()`，**同其餘三張表同一個命名同寫法**
+- GRANT 實況：
+  - `anon` —— `REFERENCES`、`TRIGGER`
+  - `authenticated` —— `SELECT INSERT UPDATE`
+  - `service_role` —— `SELECT INSERT UPDATE`
+  - `postgres` —— owner 有齊（**包括 DELETE，四張舊表一樣，正常**）
+
+**即係 `authenticated` 同 `service_role` 兩個都冇 DELETE ——
+兩道閘（冇 delete policy ＋ 冇 delete grant）都關好。**
+
+## 順帶記低嘅兩樣（⛔ 兩樣都唔關 P3a 事）
+
+1. **Supabase 掛住 `Grace period is over`** —— 免費額用完之後 project 會
+   **停止回應**，**tree app 同 quote app 兩個一齊死**。
+   已開做 `docs/開發紀錄.md` §十二 第 10 項。
+2. **Security Advisor：0 errors / 37 warnings。**
+   其中一類係 **Public Can Execute SECURITY DEFINER Function**，
+   包住 tree app 嗰啲 `soft_delete_photo`、`restore_photo`、
+   `cascade_tree_delete_to_photos` —— **未登入都叫得**。
+   **未睇過函數內容，所以唔落判斷。**
+   ⛔ **呢個係 tree app 嗰邊嘅事，唔准喺 quote app 度動手。**
+   已開做 §十二 第 11 項。
+
+---
+
+# 診斷入口 `/selftest`（2026-08-22）—— ✅ 已經刪咗
+
+**呢個入口已經由 `worker/src/worker.mjs` 移除。⛔ 而家冇呢條路。**
+留低呢一節係記住**點解要有過**，唔係話仲有得叫。
+
+## 佢解決咗咩
+
+真機影相出「上傳中斷：Failed to fetch」。喺瀏覽器度，
+**「CORS 冇生效」同「簽名唔啱」係分唔開嘅** ——
+兩樣都會俾你見到同一句 `Failed to fetch`，因為 R2 回 400 / 403 嗰陣冇 CORS 標頭。
+
+所以由 **Worker 自己**（server side，**冇瀏覽器、冇 CORS 呢回事**）
+用**同一個 `presign()`** 寫三個字節上去，一次過分清楚：
+
+- **寫得入** → key 同簽名冇事，剩返 CORS 一個可能
+- **寫唔入** → 係 key 或者簽名，同 CORS 完全無關
+
+**答案係第二個。** 詳情見上面〈真機驗收〉同 `docs/開發紀錄.md` 附錄 A I5。
+
+## ⛔ 嗰一版特登乜都冇修
+
+**未知根因就改 code，係方法論第八、第九條明文禁止嘅。**
+所以加診斷嗰個 commit 入面，`presign()` 同 CORS 邏輯**一個字都冇郁**。
+
+---
+
+# ✅ 三個真機動作全部過晒（2026-08-22）
+
+1. **有網影一張** → **已入 R2**。bucket 入面親眼見到嗰個
+   **412.09 KB** 嘅 jpg。
+2. **飛行模式** → **成功**（Jason 回報）。
+3. **網絡中途出事** → **「有事要人睇」＋ 中文，冇扮成功**。
+   （今日意外驗咗好多次。）
+
+**P3a 功能上收貨。**
+
+---
+
+# ⛔ 「技術上驗收咗」同「可以放上現場」係兩件事
+
+P3a **merge 咗上 `main` 之後，`sylvan-quote.pages.dev` 就會出現影相功能**，
+而**每張相仍然係得 R2 一份雲端副本** ——
+照 `docs/開發紀錄.md` §九 張表，就係 **🔴 契約已破** 嗰格。
+
+**所以 merge 呢個決定要 Jason 拍板，唔係驗收完就自動 merge。**
+
+## 三個選項（等 Jason 揀）
+
+**甲：merge 上 `main`，但 Production 唔加 `VITE_PHOTO_WORKER_URL`**
+功能出現，但畫面會明寫「未設定相片上傳服務」，**相只存部機**。
+
+**乙：merge 埋、加埋設定**
+功能真正開放，但**得一份雲端副本**。
+
+**丙：唔 merge，留喺 branch，直落 P3b 做 Drive 鏡像**
+夠**兩份雲端副本**先一次過上 `main`。
+
+**建議：丙。**
+
+---
+
+# ⛔ Merge 入 `main` 之前一定要做嘅清單
+
+## Code / 部署
+
+1. ~~刪 `/selftest`~~ —— ✅ **做咗**（commit `30afeb4`）。
+2. **重新 deploy Worker**（刪咗 `/selftest` 之後先算數）。
+
+## 🚨 最高優先：Supabase 額度
+
+0. 🚨 **Supabase 面板彈住紅字
+   `Grace period is over — Your projects will not be able to serve requests
+   when you use up your quota`。**
+
+   ⛔ **爆咗 = 兩個 app 一齊停**（tree app 同 quote app 共用同一個 project）。
+   **唔係 quote app 自己嘅事，亦唔係 merge 之後先算。**
+   **要 Jason 睇 billing。** 見 `docs/開發紀錄.md` §十二 第 10 項。
+
+   ⚠️ **佢排喺呢張清單最前，因為佢一爆，下面每一項都做唔到。**
+
+## ⛔ 舊資料（2026-08-22 加）
+
+7. **修好嗰行 `seq = 0` 嘅相，同埋清走 Drive 上面個 `-1` 爛檔**
+   （經過見 `docs/P3b-計劃書.md` I6）
+8. **確認冇其他 `seq < 1` 而又未鏡像嘅行**（SQL 喺 I6）
+
+## ⛔ 環境變數 —— 呢條唔記得就會「功能上到 main 但影唔到相」
+
+**2026-08-22 再實測一次確認：Cloudflare Pages 個 Production 環境
+仍然冇 `VITE_PHOTO_WORKER_URL`，只有 Preview 有**
+（Preview 實測 = `https://quote-photos-sign.jason223hk.workers.dev`）。
+
+（Preview 原本**三個變數都冇**，係今日叫 Jason 加返
+`VITE_SUPABASE_URL`、`VITE_SUPABASE_PUBLISHABLE_KEY`、
+`VITE_PHOTO_WORKER_URL` 三個先行到。）
+
+所以**將來邊一日 merge 上 `main`**：
+
+3. ⛔ **一定要同時喺 Production 環境加 `VITE_PHOTO_WORKER_URL`**
+4. ⛔ **加完要重新 build** —— Vite 係 **build 時 inline** 環境變數，
+   唔重新 build 唔生效
+
+**唔做呢兩步嘅症狀**：功能出現咗，但每個人影相都見到
+「未設定相片上傳服務」。**唔會爆，就係影唔到。**
+
+## Bucket 殘留 —— 要決定清唔清
+
+5. **`__selftest/probe.txt`**（診斷寫落去嗰個三字節檔）
+6. **Jason 今日試影嗰啲相**（`e583a567-…/` 資料夾入面嗰啲）
+   ⚠️ **而家仲係舊參數嘅殘留**：嗰張 412.09 KB 係 **2048 / q85** 出嚟嘅，
+   而現行參數已經改成 **2800 / q85**（見下面）。
+   **佢唔再代表現行畫質**，唔好攞佢做基準去計大細。
+
+**兩樣都係測試殘留，唔係真單。⛔ 但清唔清係 Jason 決定，我唔會自己清。**
+（`quote-photos` 係我哋自己個 bucket，清得；⛔ **`tree-photos` 一個 byte 都唔准掂。**）
+
+---
+
+# 長邊由 2048 改成 2800（2026-08-22，Jason 拍板）
+
+**改一個常數：`src/lib/photoTransport.ts` 嘅 `MAX_EDGE`。**
+`JPEG_QUALITY` **一個字都冇郁**（本身已經同 tree app 一樣係 0.85）。
+
+## 出處（親自讀返實數，唔係靠記憶）
+
+tree app `feature/slice2`：
+
+- `src/lib/imageCompress.ts:110` —— `{ longEdge = 2800, quality = 85 }`
+- 檔頭 —— *Every captured photo is downscaled to a 2800px long edge*
+- `tools/compress-existing` 嘅 `LONG_EDGE = 2800`（特登同上面睇齊）
+- 批次嗰 pass = **2800 / q80 mozjpeg**；capture 嗰 pass = **2800 / q85**
+
+即係**質素本身已經一樣，之前淨係長邊唔同**。
+
+## 點解要一樣（唔止係「因為要一樣」）
+
+1. quote app 影嘅相會**原封不動轉入 tree app 做事前相**（P6 轉工程）。
+   兩個 app 解像度唔同，**同一棵樹嘅事前相同事後相就會一大一細**，
+   **PDF 兩欄擺埋一齊會好明顯**。
+2. 兩個 app 用**同一條規則**，將來改畫質**只需要改一個地方**。
+
+## 實測影響（⚠️ 數字係推算，唔係實測）
+
+- **實測**：Jason 今日試影嗰張，**2048 / q85 = 412.09 KB**
+- **tree app 自己份 `docs/BACKLOG-2026-08-07-R2-之後嘅畫質決定.md`**：
+  **2800 出嚟大約 0.76 – 0.90 MB**
+- 即係**一張大概翻一倍**
+
+用返一單 30 張相：**一單由約 12 MB 變約 24 MB**，
+Drive 剩 6.9 GB → **大約 280 單先滿**。
+（已經寫埋入 `docs/開發紀錄.md` §九同 §十二 第 8 項。）
+
+## 加咗兩個測試（135 → 137）
+
+- ⛔ `MAX_EDGE` 要係 **2800** —— 釘死佢，唔會有人靜靜改返細
+- `JPEG_QUALITY` 要係 **0.85**
+
+⛔ **呢一版淨係改咗一個常數，其他一個字都冇郁。**

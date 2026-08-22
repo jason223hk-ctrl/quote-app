@@ -31,7 +31,13 @@ tree app 全部相、公司檔案、私人檔案，全部。
 
 ## 開始之前
 
-- 用 **Jason 自己個 Google 帳戶**登入（就係而家放住 `Quote App Photos` 嗰個）。
+- ⛔ **一定要用 `sylvantree2026@gmail.com` 登入。**
+
+  **`Quote App Photos` 個資料夾係喺呢個帳戶度**（2026-08-22 Jason 確認）。
+  ⚠️ **唔係 `jason223hk@gmail.com`** —— 呢份文件之前寫錯咗，已經更正。
+
+  **登錯帳戶嘅後果**：條 refresh token 會綁咗第二個 Drive，
+  個 Worker 之後**揾唔到嗰個資料夾**，會**自己開多一個同名嘅**。
 - 用**電腦**做，唔好用手機。
 - 全程大約 **15 分鐘**。
 - 最尾會有**三串字**要抄低（`Client ID`、`Client secret`、`Refresh token`）。
@@ -110,7 +116,7 @@ tree app 全部相、公司檔案、私人檔案，全部。
 
 ⚠️ **唔使諗，一定係 External。**
 `Internal` 只會喺**公司 Google Workspace 機構帳戶**度出現，
-而 `jason223hk@gmail.com` 係**普通 Google 帳戶**，
+而 `sylvantree2026@gmail.com` 係**普通 Google 帳戶**，
 **所以個畫面根本唔會俾你揀 `Internal`**（可能係灰色，可能根本冇）。
 
 #### ⚠️ 「External」唔係「公開畀全世界用」
@@ -128,8 +134,9 @@ tree app 全部相、公司檔案、私人檔案，全部。
 填三格：
 
 - **App name**：打 `quote-app`
-- **User support email**：喺下拉揀你自己個 email
-- **Developer contact information** → **Email addresses**：打返你自己個 email
+- **User support email**：喺下拉揀 **`sylvantree2026@gmail.com`**
+- **Developer contact information** → **Email addresses**：
+  打 **`sylvantree2026@gmail.com`**
 
 ⚠️ 其餘全部**留空**，唔使填。撳 **SAVE AND CONTINUE**。
 
@@ -144,7 +151,7 @@ tree app 全部相、公司檔案、私人檔案，全部。
 
 **見到**：`Test users` 呢一版。
 
-撳 **+ ADD USERS**，打 **`jason223hk@gmail.com`**，撳 **ADD**，
+撳 **+ ADD USERS**，打 **`sylvantree2026@gmail.com`**，撳 **ADD**，
 再撳 **SAVE AND CONTINUE**。
 
 ⛔ **唔加呢一步，步驟 21 授權嗰陣會俾佢擋住，成件事行唔落去。**
@@ -237,7 +244,12 @@ https://www.googleapis.com/auth/drive
 
 ### 步驟 21 —— 揀帳戶
 
-**見到**：Google 登入畫面。**揀返 Jason 自己個帳戶**（放住 `Quote App Photos` 嗰個）。
+**見到**：Google 登入畫面。
+
+⛔ **揀 `sylvantree2026@gmail.com`** —— 就係放住 `Quote App Photos` 嗰個。
+
+⚠️ **如果部機同時登住幾個 Google 帳戶，呢一步最易撳錯。**
+**撳之前睇實個 email。**
 
 ### 步驟 22 —— ⚠️ 「未經驗證」嗰版，你一定會撞到
 
