@@ -224,10 +224,15 @@ Worker 唔會 throw，張表就係一直空。開表嗰陣一齊寫，就唔會�
 ⚠️ **P3a 本身用唔著呢個權限** —— P3a 個 Worker **設計上零 DB 查詢**，
 淨係簽 presigned URL。**開咗係為咗 P3b。**
 
-### SQL 草稿（未跑）
+### SQL 草稿
+
+> ⛔ **呢張係草稿，已經被 Jason 實際跑咗嗰張取代。**
+> **少咗三樣**（`operation_id` unique index、`updated_at` 欄同佢個 trigger、
+> 兩個 index），詳情見文件最後〈實際跑咗嘅係咩〉。
+> **⚠️ 唔准照呢張再跑一次。**
 
 ```sql
--- ⛔ 未跑。由 Jason 本人喺 Supabase SQL editor 貼同跑。
+-- 草稿。實際跑嗰張見文末。
 create table public.quote_photos (
   id            uuid primary key default gen_random_uuid(),
   record_id     uuid not null references quote_records(id),
@@ -369,7 +374,7 @@ grant select, insert, update on public.quote_photos to service_role;
 - [ ] Jason 睇完，批准開工
 - [x] 第六節三個欄（`captured_at` / `remark` / `marks`）—— **2026-08-22 答咗：三個都加**
 - [x] `service_role` —— **2026-08-22 Jason 本人批咗甲**
-- [ ] Jason 自己跑咗張 SQL
+- [x] Jason 本人跑咗張 SQL —— **2026-08-22 跑咗，實測驗證結果見文末**
 
 ---
 
@@ -471,10 +476,62 @@ Jason 喺張 SQL 加咗三樣：**`operation_id` unique index**、**`updated_at`
 ⛔ 唔會插第二行、⛔ 唔會彈英文、揾唔返出中文、
 `permission denied` 唔會扮成功、0 行照樣當被拒絕、順利嗰次照舊。
 
-### ⚠️ 上面第六節張 SQL 未同步
+### ⛔ 第六節張 SQL 係草稿，唔准再跑
 
-**呢份計劃書第六節嗰張 SQL 仲係舊版**，冇 unique index、冇 `updated_at`、
-冇兩個 index。Jason 手上嗰張先係真嗰張。
+已經喺第六節加咗警告。實際跑咗嘅係下面嗰張。
 
-**要唔要我 copy 返落嚟令兩邊一樣，等 Jason 講** ——
-今次特登冇改，因為範圍係 P3a 嘅 code。
+---
+
+# 實際跑咗嘅係咩（2026-08-22，Jason 本人跑）
+
+## 同第六節張草稿差咗三樣
+
+1. **`operation_id` unique index** —— `quote_photos_operation_id_uidx`
+2. **`updated_at timestamptz not null default now()`**，
+   **加埋佢個 trigger** `quote_photos_touch` BEFORE UPDATE 行
+   `quote_touch_updated_at()`
+3. **`record_id` 同 `tree_id` 兩個 index**
+
+## ⚠️ 兩個更正，記低係為咗唔好再中
+
+**一、驗證期望值「delete 權限 = 0」係錯嘅。**
+
+**冇計返 owner。** 正確答案係 **1，而且必須係 `postgres`**。
+⛔ **將來寫驗證查詢要 `group by grantee`，唔好淨係 `count`** ——
+淨係數總數，你分唔出「owner 有」同「`authenticated` 有」，
+而後者先係出事嗰個。
+
+**二、原本張草稿冇 `updated_at` 個 trigger。**
+
+係 Jason 睇 **Supabase Security Advisor** 見到有個 `quote_touch_updated_at`
+函數先發現。**照原本咁跑，`updated_at` 會永遠停喺建立嗰刻** ——
+唔會報錯，就係永遠唔郁。兩樣都補咗。
+
+## 實測驗證結果（原文照錄，唔係推算）
+
+- 張表存在 = **1**
+- policy = **3 條**（`select` / `insert` / `update`）
+- **delete policy = 0**
+- trigger **由 3 行變 4 行**：`quote_photos_touch` BEFORE UPDATE 行
+  `quote_touch_updated_at()`，**同其餘三張表同一個命名同寫法**
+- GRANT 實況：
+  - `anon` —— `REFERENCES`、`TRIGGER`
+  - `authenticated` —— `SELECT INSERT UPDATE`
+  - `service_role` —— `SELECT INSERT UPDATE`
+  - `postgres` —— owner 有齊（**包括 DELETE，四張舊表一樣，正常**）
+
+**即係 `authenticated` 同 `service_role` 兩個都冇 DELETE ——
+兩道閘（冇 delete policy ＋ 冇 delete grant）都關好。**
+
+## 順帶記低嘅兩樣（⛔ 兩樣都唔關 P3a 事）
+
+1. **Supabase 掛住 `Grace period is over`** —— 免費額用完之後 project 會
+   **停止回應**，**tree app 同 quote app 兩個一齊死**。
+   已開做 `docs/開發紀錄.md` §十二 第 10 項。
+2. **Security Advisor：0 errors / 37 warnings。**
+   其中一類係 **Public Can Execute SECURITY DEFINER Function**，
+   包住 tree app 嗰啲 `soft_delete_photo`、`restore_photo`、
+   `cascade_tree_delete_to_photos` —— **未登入都叫得**。
+   **未睇過函數內容，所以唔落判斷。**
+   ⛔ **呢個係 tree app 嗰邊嘅事，唔准喺 quote app 度動手。**
+   已開做 §十二 第 11 項。
