@@ -535,3 +535,67 @@ Jason 喺張 SQL 加咗三樣：**`operation_id` unique index**、**`updated_at`
    **未睇過函數內容，所以唔落判斷。**
    ⛔ **呢個係 tree app 嗰邊嘅事，唔准喺 quote app 度動手。**
    已開做 §十二 第 11 項。
+
+---
+
+# ⛔ 臨時診斷入口 `/selftest`（2026-08-22）—— 用完要刪
+
+## 現況（全部實測，唔係推算）
+
+- 手機喺 preview 影相 → **「有事要人睇」**，紅字
+  **「上傳中斷：Failed to fetch。相仲喺部機度」**
+- 照 `photoTransport.ts`，「上傳中斷」= `putBytes` ——
+  **即係 `sign` 嗰步過咗**
+- Mac Chrome 喺同一個 origin 直接試：
+  - 叫 Worker `/sign` → **HTTP 401**（Worker 正常、有回應、有 CORS，
+    401 只係因為冇 token）
+  - PUT / GET 落 R2 → **全部 Failed to fetch**
+  - 用 `mode: 'no-cors'` → **通到（opaque）**，即係請求真係去到 R2，
+    只係冇 CORS 標頭返嚟
+- R2 實測：**Class A = 0、Bucket Size = 0 B、一個 object 都冇** ——
+  **由頭到尾一個 PUT 都未寫入成功**
+- CORS Jason 設過兩次（`*`，之後明文列 header），
+  AllowedMethods `GET PUT HEAD`，AllowedOrigins 兩條核對過一個字唔差 ——
+  **兩次都仲係唔得**
+
+## ⚠️ 一個更正：「根源係 CORS 冇生效」呢個結論係企唔住嘅
+
+**嗰啲測試證唔到。** 手動發嘅請求**冇簽名**，
+**R2 會喺處理 CORS 之前就拒絕**，所以 CORS 設成點都會 `Failed to fetch`。
+
+同樣道理：**簽名唔啱 → R2 回 403 → 403 冇 CORS 標頭 → 瀏覽器一樣顯示
+`Failed to fetch`**。
+
+⛔ **即係「CORS 唔啱」同「簽名唔啱」，喺瀏覽器度分唔開。**
+
+## 所以加咗一個最窄嘅只讀診斷
+
+`GET /selftest`（`worker/src/worker.mjs`）。
+
+由 **Worker 自己**（server side，**冇瀏覽器、冇 CORS 呢回事**）
+用**同一個 `presign()`** 寫三個字節上 `__selftest/probe.txt`，再讀返出嚟。
+
+**回一個 JSON**：`putStatus`、`putErrorText`（截頭 300 字）、`getStatus`、
+`getBodyLength`、`bucket`、`accountIdLast4`、`accessKeyIdLast4`。
+
+**點樣讀個答案：**
+
+- **寫得入** → key 同簽名冇事，**剩返 CORS 一個可能**
+- **寫唔入** → 係 key 或者簽名，**同 CORS 完全無關**
+
+## ⛔ 呢一版特登乜都冇修
+
+**未知根因就改 code，係方法論第八、第九條明文禁止嘅。**
+
+所以 `presign()` **一個字都冇郁**，CORS 邏輯**一個字都冇郁**。
+呢個 commit 淨係加咗一個診斷入口。
+
+## ⛔ 要刪
+
+- **merge 入 `main` 之前一定要刪 `/selftest`**，
+  `worker/src/worker.mjs` 入面有註解寫死。
+- **佢冇驗身分**（要喺瀏覽器直接叫得到），
+  即係知道網址嘅人**寫得到 `__selftest/probe.txt` 一個 key**、
+  睇到兩個 id 嘅**尾四位**。⛔ **唔會回傳 secret，唔會回傳完整 access key id。**
+- 診斷完之後，`quote-photos` 入面會有一個 `__selftest/probe.txt`，
+  **順手清埋**。
