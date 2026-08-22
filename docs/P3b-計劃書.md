@@ -394,6 +394,32 @@ projectFolderName = safeSegment(`${work_date}_${name}`)
 **今日已批嘅 `service_role` 權限維持原狀** —— 淨係 `quote_photos` 一張表。
 ⛔ **唔准趁機擴大。**
 
+### ✅ 實際寫落去之後：連 `service_role` 都唔使用
+
+**寫 `/mirror` 嗰陣重新對過三個動作，用家自己個 token 全部做得到：**
+
+- **讀相片嗰行** —— `quote_photos_select` 係 `using (true)`
+- **讀工程同棵樹** —— 一樣 `using (true)`
+- **寫返 `drive_file_id` / `drive_synced_at`** ——
+  `quote_photos_update` 係 `using can_edit_quote_record(record_id)`，
+  **佢自己開嗰單就過到**
+
+**所以 Worker 入面一個 `service_role` key 都冇**，
+`worker/wrangler.toml` 寫明 ⛔ **唔准加** ——
+**一個唔使用嘅 `service_role` key 擺喺 Worker 度，就係一個唔應該存在嘅風險。**
+
+⚠️ **RLS 唔會 throw，佢只係令 0 行受影響**，所以寫返之後
+**用 `return=representation` readback 對返有冇行**，
+**0 行當被拒絕**（`CLAUDE.md` §2.6）。
+
+#### ⚠️ 連帶：`quote_photos` 個 `service_role` grant 而家係「批咗但冇用」
+
+2026-08-22 Jason 批咗 `grant select, insert, update ... to service_role`，
+**當時嘅理由就係「Worker 要寫返 Drive 狀態」**，而家證實**唔使**。
+
+**要唔要收返係 Jason 決定**（改權限要佢本人批）。
+⛔ **唔准自己 revoke。**
+
 ### ⛔ 連帶：一張相幾時上 Drive
 
 行用家 token 即係**鏡像只做得到喺用家仲登住入嗰陣**。
@@ -555,6 +581,15 @@ projectFolderName = safeSegment(`${work_date}_${name}`)
 
 **要補嘅**：Jason **親眼開返嗰兩棵樹**，睇實際 render 出嚟嗰句字。
 
+### ⛔ 三、影相上 R2 —— **要重新驗一次**
+
+**2026-08-22 改咗 `seq` 由 0 變 1**（`photoUpload.ts`）——
+**即係掂到今日真機驗收過嗰條路**。
+
+⛔ **唔准當之前驗過就算數。**
+
+**要補**：**有網影一張全景相 → 應該「已入 R2」**，Cloudflare 見到個 object。
+
 ### ✅ 二、新排位 —— 驗咗
 
 **2026-08-22 Jason 真機睇咗，答「啱」**（`bed4046`）：
@@ -608,6 +643,8 @@ projectFolderName = safeSegment(`${work_date}_${name}`)
 - [x] ⛔ 舊樹顯示「修剪（未細分）」—— **2026-08-22 Jason 親眼睇過
       （`Testing01` 樹 #125）**
 - [x] ⛔ 新排位（移除拎出嚟、近景搬入其他）—— **2026-08-22 Jason 睇咗，答「啱」**
+- [ ] ⛔ 改咗 `seq` 之後，影相上 R2 要 Jason 重新驗一次
+- [ ] `quote_photos` 個冇用嘅 `service_role` grant 收唔收返（Jason 決定）
 - [x] 工序重組拆唔拆 —— **2026-08-22 拆咗做獨立一步，已經做完（`654633c`），新樹 case 驗咗**
 - [x] 舊單 mitigation 代號用量 —— **2026-08-22 實測：`pruning` 兩行，其餘冇用過**
 - [x] 舊單「修剪（未細分）」點顯示 —— **2026-08-22 定咗：保留 legacy，唔改舊行**

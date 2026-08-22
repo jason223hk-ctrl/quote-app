@@ -23,4 +23,8 @@ DRIVE_ROOT_FOLDER_NAME = "Quote App Photos"
 #   GOOGLE_CLIENT_ID
 #   GOOGLE_CLIENT_SECRET
 #   GOOGLE_REFRESH_TOKEN
-#   SUPABASE_SERVICE_ROLE_KEY   ⛔ 淨係郁得 quote_photos 一張表（佢本身都只有嗰張）
+#
+# ⛔ 冇 SUPABASE_SERVICE_ROLE_KEY，亦都唔准加。
+#    呢個 Worker 由頭到尾行用家自己個 token（CLAUDE.md §2.9）——
+#    三個動作（讀相片行、讀工程同棵樹、寫返 Drive 狀態）用家自己都做得到。
+#    一個唔使用嘅 service_role key 擺喺度，就係一個唔應該存在嘅風險。

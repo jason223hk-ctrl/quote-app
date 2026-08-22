@@ -129,6 +129,8 @@ export function photoInsertToRow(input: PhotoInsert, userId: string): Record<str
     record_id: input.recordId,
     tree_id: input.treeId,
     mitigation: null,
+    // ⛔ seq 由 1 數起。檔名嗰個 NN = 2 × seq − 1，寫 0 就會計出 -1。
+    // 呢個規矩由寫入呢一個位負責，⛔ 唔准喺砌檔名嗰邊加特例補救。
     seq: input.seq,
     operation_id: input.operationId,
     r2_key: input.r2Key,

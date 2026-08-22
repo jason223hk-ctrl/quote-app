@@ -116,7 +116,8 @@ export async function uploadPending(
       recordId: item.recordId,
       treeId: item.treeId,
       operationId: item.operationId,
-      seq: 0,
+      // P3a 一格得一張全景相，所以永遠係第一張 —— ⛔ 但係 1 唔係 0。
+      seq: 1,
       r2Key: signed.key,
       sizeBytes: item.size,
       sha256: item.sha256,

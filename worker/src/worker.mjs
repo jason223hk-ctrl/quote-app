@@ -120,9 +120,17 @@ async function presign(method, env, key) {
 /* ─────────────────────────────────────────────────────────────────────────────
  * P3b：鏡像上 Google Drive
  *
- * ⛔ 讀 `quote_records` / `quote_trees` **行用家自己個 token**，靠 RLS 攔
- *    （`CLAUDE.md` §2.9）。**唔開新 grant。**
- * ⛔ `service_role` 淨係用嚟郁 `quote_photos` 一張表 —— 佢本身都只有嗰一張。
+ * ⛔ **成條路由頭到尾行用家自己個 token，靠 RLS 攔**（`CLAUDE.md` §2.9）。
+ *    **一個 `service_role` key 都冇。**
+ *
+ *    三個動作用家自己都做得到，所以唔使借權：
+ *      - 讀 `quote_photos` 嗰行 —— `select using (true)`
+ *      - 讀 `quote_records` / `quote_trees` —— 一樣 `select using (true)`
+ *      - 寫返 `drive_file_id` / `drive_synced_at` ——
+ *        `update using can_edit_quote_record(record_id)`，即係佢自己開嗰單就過到
+ *
+ *    ⚠️ RLS 唔會 throw，佢只係令 0 行受影響。所以寫返之後
+ *    **一定要 readback 對返有冇行**（`CLAUDE.md` §2.6）。
  * ⛔ 只寫 `quote-photos` 個 bucket 同 quote app 自己個 Drive 資料夾。
  *    tree app 嘅 `tree-photos`、`tree-drive-mirror`、`Sylvan Tree Photos`
  *    一個 byte 都唔准掂。
@@ -242,7 +250,7 @@ async function driveQuota(token) {
   }
 }
 
-/** PostgREST。`token` 話事係邊個身分 —— 用家 token 就有 RLS，service_role 就冇。 */
+/** PostgREST。⛔ 呢個 Worker 永遠只傳用家個 token 入嚟。 */
 async function pg(env, token, path, init = {}) {
   const res = await fetch(`${env.SUPABASE_URL}/rest/v1/${path}`, {
     ...init,
@@ -273,11 +281,10 @@ async function mirror(request, env, origin) {
   }
 
   const userToken = auth.slice('Bearer '.length)
-  const service = env.SUPABASE_SERVICE_ROLE_KEY
 
   try {
-    // 相片嗰行：service_role（佢淨係有呢一張表）。
-    const rows = await pg(env, service, `quote_photos?id=eq.${body.photoId}&select=*`)
+    // ⛔ 由頭到尾都係用家個 token。
+    const rows = await pg(env, userToken, `quote_photos?id=eq.${body.photoId}&select=*`)
     const photo = rows[0]
     if (!photo) return json({ error: 'not found' }, 404, origin)
 
@@ -289,7 +296,6 @@ async function mirror(request, env, origin) {
       return json({ ok: false, message: '呢張相仲未上到 R2，未輪到抄去 Drive。' }, 409, origin)
     }
 
-    // ⛔ 工程同棵樹：行用家自己個 token，靠 RLS 攔（CLAUDE.md §2.9）。
     const records = await pg(
       env,
       userToken,
@@ -310,7 +316,7 @@ async function mirror(request, env, origin) {
     const filename = photoFilename(treeNo, token, photo.seq)
     if (!filename) {
       // 只有 legacy `pruning` 嘅樹砌唔到工序相檔名 —— 講到明，唔好靜靜跳過。
-      await patchPhoto(env, service, photo.id, {
+      await patchPhoto(env, userToken, photo.id, {
         drive_error: '呢個工序冇對應嘅類別名，砌唔到 Drive 檔名。請喺「修剪」揀返一個細項。',
       })
       return json(
@@ -341,7 +347,7 @@ async function mirror(request, env, origin) {
       fileId = await uploadToDrive(gtoken, filename, folderId, bytes)
     }
 
-    await patchPhoto(env, service, photo.id, {
+    await patchPhoto(env, userToken, photo.id, {
       drive_file_id: fileId,
       drive_synced_at: new Date().toISOString(),
       drive_error: '',
@@ -352,7 +358,7 @@ async function mirror(request, env, origin) {
     const message = String(caught?.message ?? caught).slice(0, 300)
     // ⛔ 失敗一定要留低痕跡，唔准靜靜過骨。
     try {
-      await patchPhoto(env, service, body.photoId, { drive_error: message })
+      await patchPhoto(env, userToken, body.photoId, { drive_error: message })
     } catch {
       /* 連寫錯誤都寫唔入，就只可以靠回覆講 */
     }
@@ -360,17 +366,30 @@ async function mirror(request, env, origin) {
   }
 }
 
-async function patchPhoto(env, service, id, values) {
-  await fetch(`${env.SUPABASE_URL}/rest/v1/quote_photos?id=eq.${id}`, {
+/**
+ * 寫返 `quote_photos`。
+ *
+ * ⛔ 用 `return=representation` 唔用 `return=minimal` ——
+ * RLS 唔會 throw，佢只係令 0 行受影響。攞返行出嚟先知係咪真係寫到
+ * （`CLAUDE.md` §2.6：0 行一定要當被拒絕）。
+ */
+async function patchPhoto(env, token, id, values) {
+  const res = await fetch(`${env.SUPABASE_URL}/rest/v1/quote_photos?id=eq.${id}`, {
     method: 'PATCH',
     headers: {
       apikey: env.SUPABASE_PUBLISHABLE_KEY,
-      authorization: `Bearer ${service}`,
+      authorization: `Bearer ${token}`,
       'content-type': 'application/json',
-      prefer: 'return=minimal',
+      prefer: 'return=representation',
     },
     body: JSON.stringify(values),
   })
+  if (!res.ok) throw new Error(`寫返資料庫失敗（${res.status}）`)
+  const rows = await res.json()
+  if (!rows.length) {
+    throw new Error('資料庫唔俾改呢張相嘅紀錄。可能母單已經鎖定，或者唔係你開嘅單。')
+  }
+  return rows[0]
 }
 
 export default {

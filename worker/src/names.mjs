@@ -21,12 +21,12 @@ export function projectFolderName(workDate, name) {
  * tree app：同一個（樹、類別）入面第 k 對，Before = 2k−1、After = 2k。
  * quote app 全部都係 Before，所以永遠係單數 —— 雙數留返俾中標之後嘅後相。
  *
- * ⚠️ `seq` 由 1 數起。P3a 寫落去嘅係 0（嗰陣一格得一張全景相，冇次序可言），
- * 所以 0 當 1 —— 唔係咁嘅話會計出 `-1`。
+ * ⛔ `seq` 由 **1** 數起，寫入嗰邊負責（`photoInsertToRow`）。
+ * **呢度冇「0 當 1」嘅特例** —— 有特例就會變成兩個地方各有一套講法，
+ * 而今日已經有一次教訓係「文件寫咗但 code 從來冇跟」。
  */
 export function pairedNumber(seq) {
-  const k = Number.isFinite(seq) && seq >= 1 ? Math.floor(seq) : 1
-  return String(2 * k - 1).padStart(2, '0')
+  return String(2 * Math.floor(seq) - 1).padStart(2, '0')
 }
 
 /**

@@ -150,6 +150,15 @@ R2 加 Drive。**未鏡像到 Drive 嗰啲，唔准刪佢嘅 R2 副本**（嗰�
 （2026-08-22 Jason 本人批，為咗 P3b 寫返 Drive 狀態）。
 ⛔ **唔准趁機擴大。**
 
+⚠️ **但 P3b 寫落去嘅時候發現根本唔使用到佢**：
+寫返 `drive_file_id` / `drive_synced_at` 嗰個 update policy 係
+`can_edit_quote_record(record_id)`，**用家自己個 token 就過到**。
+所以 **Worker 入面冇 `service_role` key**，
+`worker/wrangler.toml` 亦寫明**唔准加**。
+
+**即係話張表個 `service_role` grant 而家係「批咗但冇用」。**
+**要唔要收返係 Jason 決定**（改權限要佢本人批），**唔准自己 revoke**。
+
 ⚠️ **連帶後果**：行用家 token 即係**只做得到喺用家仲登住入嗰陣**。
 ⛔ **所以唔可以有一條半夜自己行嘅 cron** —— 嗰陣冇人嘅 token。
 詳情見 `docs/P3b-計劃書.md` §7.5。

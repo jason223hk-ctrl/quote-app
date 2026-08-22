@@ -43,7 +43,7 @@ const insert: PhotoInsert = {
   recordId: 'record-1',
   treeId: 'tree-1',
   operationId: 'op-1',
-  seq: 0,
+  seq: 1,
   r2Key: 'user-1/op-1.jpg',
   sizeBytes: 1234,
   sha256: 'abc',
@@ -141,6 +141,11 @@ describe('photoInsertToRow', () => {
 
   it('寫入嗰刻先算上到 R2', () => {
     expect(typeof values.r2_synced_at).toBe('string')
+  })
+
+  it('seq 照原樣送落去 —— ⛔ 由 1 數起係呼叫嗰邊嘅責任（見 photoUpload）', () => {
+    expect(values.seq).toBe(insert.seq)
+    expect(values.seq).toBeGreaterThanOrEqual(1)
   })
 })
 

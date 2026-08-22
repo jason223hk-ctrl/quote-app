@@ -33,8 +33,8 @@ describe('⛔ NN 係成對編號', () => {
   it('⛔ 全部單數 —— 雙數留返俾 tree app 補後相', () => {
     for (const seq of [1, 2, 3, 4, 5]) expect(Number(pairedNumber(seq)) % 2).toBe(1)
   })
-  it('⚠️ P3a 寫落去嘅 seq 係 0，當 1 —— 唔係咁會計出 -1', () => {
-    expect(pairedNumber(0)).toBe('01')
+  it('⛔ 冇「0 當 1」嘅特例 —— seq 由 1 數起係寫入嗰邊嘅責任', () => {
+    expect(pairedNumber(0)).toBe('-1')
   })
   it('兩位數', () => {
     expect(pairedNumber(1)).toBe('01')

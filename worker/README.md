@@ -26,9 +26,11 @@ P3a 用。部機影完相之後問佢攞一條 R2 上傳網址，跟住**部機�
 
 - **唔中轉 bytes** —— `docs/P3-現場影相-設計.md` 第三章寫死嘅
 - **`/sign` 唔查資料庫** —— P3a 零 DB 查詢
-- **`/mirror` 讀 `quote_records` / `quote_trees` 行用家自己個 token**，靠 RLS 攔
-  （`CLAUDE.md` §2.9）。⛔ **唔開新 grant。**
-  `service_role` 淨係用嚟郁 `quote_photos` —— 佢本身都只有嗰一張表
+- **`/mirror` 由頭到尾行用家自己個 token**，靠 RLS 攔（`CLAUDE.md` §2.9）。
+  ⛔ **唔開新 grant，亦都冇 `service_role` key。**
+  三個動作用家自己都做得到：讀相片嗰行（`select using (true)`）、
+  讀工程同棵樹（一樣）、寫返 Drive 狀態
+  （`update using can_edit_quote_record(record_id)`）
 - ⛔ **`/mirror` 唔會再壓一次啲 bytes** —— 由 R2 讀出嚟原封不動上 Drive，
   再壓 `sha256` 就唔同，「仲剩幾多份」個契約即刻驗唔到
 - **唔信前端俾嘅檔名** —— 前端只講得出影相編號，講唔到自己係邊個
