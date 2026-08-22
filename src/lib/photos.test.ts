@@ -1,9 +1,13 @@
 import { describe, expect, it } from 'vitest'
+import type { SupabaseClient } from '@supabase/supabase-js'
 import {
+  DUPLICATE_NOT_FOUND_MESSAGE,
   PHOTO_STATUS_HINT,
   PHOTO_STATUS_LABEL,
+  createPhotosApi,
   digestMatches,
   digestMismatchMessage,
+  isUniqueViolation,
   newOperationId,
   photoInsertToRow,
   r2KeyFor,
@@ -137,5 +141,137 @@ describe('photoInsertToRow', () => {
 
   it('寫入嗰刻先算上到 R2', () => {
     expect(typeof values.r2_synced_at).toBe('string')
+  })
+})
+
+describe('isUniqueViolation', () => {
+  it('認得 Postgres 個 code', () => {
+    expect(isUniqueViolation({ code: '23505', message: 'whatever' })).toBe(true)
+  })
+
+  it('冇 code 都認得返段字', () => {
+    expect(
+      isUniqueViolation({
+        message: 'duplicate key value violates unique constraint "quote_photos_operation_id_uidx"',
+      }),
+    ).toBe(true)
+  })
+
+  it('唔關事嘅錯唔會當佢係撞 unique', () => {
+    expect(isUniqueViolation({ code: '42501', message: 'permission denied' })).toBe(false)
+  })
+})
+
+/**
+ * 假 Supabase client。只做 create / findByOperationId 兩條路用到嗰幾個 method。
+ * `insertResult` 係 insert 嗰下回咩，`existing` 係跟住 select 揾唔揾到行。
+ */
+function fakeClient(options: {
+  insertResult: { data: unknown; error: { code?: string; message: string } | null }
+  existing: QuotePhoto | null
+}) {
+  const inserts: unknown[] = []
+  const selects: string[] = []
+
+  const client = {
+    from() {
+      return {
+        insert(values: unknown) {
+          inserts.push(values)
+          return {
+            select: () => ({ maybeSingle: async () => options.insertResult }),
+          }
+        },
+        select() {
+          const chain = {
+            eq(_column: string, value: string) {
+              selects.push(value)
+              return chain
+            },
+            is: () => chain,
+            order: () => chain,
+            maybeSingle: async () => ({ data: options.existing, error: null }),
+          }
+          return chain
+        },
+      }
+    },
+  }
+
+  return { client: client as unknown as SupabaseClient, inserts, selects }
+}
+
+const duplicateError = {
+  code: '23505',
+  message: 'duplicate key value violates unique constraint "quote_photos_operation_id_uidx"',
+}
+
+describe('create 撞到 unique（重試、或者兩部機一齊上）', () => {
+  it('當成功，回返本身嗰行', async () => {
+    const existing = { ...row, operation_id: 'op-1' }
+    const { client, selects } = fakeClient({
+      insertResult: { data: null, error: duplicateError },
+      existing,
+    })
+
+    await expect(createPhotosApi(client, 'user-1').create(insert)).resolves.toBe(existing)
+    // 一定要真係揾返嗰行出嚟先算成功，唔准淨係見到 23505 就當然。
+    expect(selects).toContain('op-1')
+  })
+
+  it('⛔ 唔會插第二行', async () => {
+    const { client, inserts } = fakeClient({
+      insertResult: { data: null, error: duplicateError },
+      existing: { ...row },
+    })
+
+    await createPhotosApi(client, 'user-1').create(insert)
+    expect(inserts).toHaveLength(1)
+  })
+
+  it('⛔ 唔會彈英文出嚟 —— 根本唔會 throw', async () => {
+    const { client } = fakeClient({
+      insertResult: { data: null, error: duplicateError },
+      existing: { ...row },
+    })
+
+    await expect(createPhotosApi(client, 'user-1').create(insert)).resolves.toBeTruthy()
+  })
+
+  it('撞咗但揾唔返嗰行：出中文，唔准靜靜過骨', async () => {
+    const { client } = fakeClient({
+      insertResult: { data: null, error: duplicateError },
+      existing: null,
+    })
+
+    await expect(createPhotosApi(client, 'user-1').create(insert)).rejects.toThrow(
+      DUPLICATE_NOT_FOUND_MESSAGE,
+    )
+    // 「Jason」係人名，唔算英文原文；唔准出現嘅係 DB 嗰句原文。
+    expect(DUPLICATE_NOT_FOUND_MESSAGE).not.toMatch(/duplicate|constraint|violates/i)
+  })
+})
+
+describe('create 其他錯誤照舊當出事', () => {
+  it('permission denied 唔會扮成功', async () => {
+    const { client } = fakeClient({
+      insertResult: { data: null, error: { code: '42501', message: 'permission denied for table quote_photos' } },
+      existing: { ...row },
+    })
+
+    await expect(createPhotosApi(client, 'user-1').create(insert)).rejects.toThrow()
+  })
+
+  it('0 行受影響（RLS 擋咗）一樣當被拒絕', async () => {
+    const { client } = fakeClient({ insertResult: { data: null, error: null }, existing: null })
+    await expect(createPhotosApi(client, 'user-1').create(insert)).rejects.toThrow(/資料庫/)
+  })
+})
+
+describe('順利嗰次', () => {
+  it('回返 server 寫低嗰行', async () => {
+    const saved = { ...row, id: 'photo-9' }
+    const { client } = fakeClient({ insertResult: { data: saved, error: null }, existing: null })
+    await expect(createPhotosApi(client, 'user-1').create(insert)).resolves.toBe(saved)
   })
 })

@@ -141,6 +141,24 @@ export function photoInsertToRow(input: PhotoInsert, userId: string): Record<str
   }
 }
 
+/**
+ * 資料庫嗰邊嘅 unique 撞咗。
+ *
+ * `operation_id` 有 unique index，所以「重試唔會多一行」呢件事**係資料庫守住嘅**，
+ * 唔係淨係靠 code 揸住。撞到嗰陣**唔係出事，係「呢張相之前已經寫咗」** ——
+ * 兩部機一齊上、或者網絡抽一抽，都會行到呢一條。
+ */
+export function isUniqueViolation(error: { code?: string; message: string }): boolean {
+  return (
+    error.code === '23505' ||
+    /duplicate key value violates unique constraint/i.test(error.message)
+  )
+}
+
+/** 撞咗 unique 但又揾唔返嗰行 —— 唔常見，但唔准靜靜過骨，要出中文。 */
+export const DUPLICATE_NOT_FOUND_MESSAGE =
+  '資料庫話呢張相已經有紀錄，但即刻揾返出嚟又揾唔到。相仲喺部機度，唔會冇咗。請截圖搵 Jason。'
+
 export type PhotosApi = {
   listByRecord: (recordId: string) => Promise<QuotePhoto[]>
   /** 用影相編號揾返 —— 重試之前查一次，就唔會整兩行出嚟。 */
@@ -157,7 +175,7 @@ const NO_ROW_MESSAGE =
   '相片記錄寫唔入資料庫。可能母單已經鎖定，或者唔係你開嘅單。相仲喺部機度，唔會冇咗。'
 
 export function createPhotosApi(client: SupabaseClient, userId: string): PhotosApi {
-  return {
+  const api: PhotosApi = {
     async listByRecord(recordId) {
       const { data, error } = await client
         .from('quote_photos')
@@ -189,10 +207,21 @@ export function createPhotosApi(client: SupabaseClient, userId: string): PhotosA
         .select()
         .maybeSingle()
 
-      if (error) throw reportError(error.message)
+      if (error) {
+        if (isUniqueViolation(error)) {
+          // 之前已經寫咗一行。當佢成功 —— 但要真係揾返嗰行出嚟先算，唔准當然。
+          console.error('[quote-app] duplicate insert ignored:', error.message)
+          const existing = await api.findByOperationId(input.operationId)
+          if (existing) return existing
+          throw new Error(DUPLICATE_NOT_FOUND_MESSAGE)
+        }
+        throw reportError(error.message)
+      }
       // RLS 唔會 throw，佢只係令 0 行受影響。0 行一定要當被拒絕（CLAUDE.md §2.6）。
       if (!data) throw new Error(NO_ROW_MESSAGE)
       return data as QuotePhoto
     },
   }
+
+  return api
 }
