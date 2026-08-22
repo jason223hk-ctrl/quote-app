@@ -599,3 +599,62 @@ Jason 喺張 SQL 加咗三樣：**`operation_id` unique index**、**`updated_at`
   睇到兩個 id 嘅**尾四位**。⛔ **唔會回傳 secret，唔會回傳完整 access key id。**
 - 診斷完之後，`quote-photos` 入面會有一個 `__selftest/probe.txt`，
   **順手清埋**。
+
+---
+
+# ✅ 真機驗收：第一個動作通咗（2026-08-22）
+
+## `/selftest` 講咗咩
+
+- 第一次：**`putStatus` 400**，錯誤原文
+  **`Credential access key has length 44, should be 32`**，
+  `accessKeyIdLast4` = **`_KEY`**
+- 換咗新 token 之後：**`putStatus` 200、`getStatus` 200、`getBodyLength` 3**
+
+## ⛔ 根因：R2 Access Key ID 貼錯
+
+第一次 `wrangler secret put` 貼咗**標籤名／Token value**落去，
+**唔係真正嘅 Access Key ID**。換成 **32 位 access key id ＋ 64 位 secret** 即刻通。
+
+**唔係 CORS、唔係 Worker、唔係 `presign()` 寫法、唔係手機 ——
+四個懷疑對象全部無辜。**
+
+**點解一個錯扮到三個問題**：R2 回 **400**，而 **400 唔帶 CORS 標頭**，
+瀏覽器就**一律顯示成 `Failed to fetch`**。
+
+⛔ **教訓（已入 `docs/開發紀錄.md` 附錄 A I5）：
+presigned 上傳失敗而瀏覽器只講 `Failed to fetch` 嗰陣，唔好由 CORS 開始查，
+要先由 server side 用同一條簽名網址試一次** ——
+**client 睇到嘅錯誤訊息被 CORS 規則遮蔽咗真相。**
+
+## 真機實測結果（Cloudflare 上親眼核對，唔係推算）
+
+- 手機撳「再試一次」→ 狀態變 **「已入 R2（Drive 未做）」**
+- `quote-photos` 入面出現咗資料夾
+  **`e583a567-e37f-4d97-b344-7d5107739af1/`** —— 即係 **Jason 個 uid**，
+  **證明檔名真係由 Worker 用佢自己驗返嚟嘅 uid 砌，唔係前端講咩就係咩**
+- 入面得一個檔 **`a0315df3-12c9-4a23-b1d2-883649abb67b.jpg`**，
+  **image/jpeg、412.09 KB、2026-08-22 12:0x**
+- **Class A 由 0 變 10**
+
+### ⭐ 重試咗好多次，資料夾入面**得一個檔，冇重複**
+
+即係**影相編號重用**同埋 **`23505` 嗰段處理**，喺真機真 DB 上面**行得**。
+（本機 harness 之前只證到 code 層面，呢次係真嘢。）
+
+## 仲未驗
+
+- **飛行模式嗰個動作**（Jason 做緊）
+- **中途熄 Wi-Fi 嗰個動作**
+
+---
+
+# ⛔ Merge 入 `main` 之前一定要做嘅清單
+
+1. **刪 `/selftest`** —— `worker/src/worker.mjs` 入面
+   由 `/* ───… ⛔⛔ 臨時診斷 …` 開始嗰段（`SELFTEST_KEY`、`last4()`、
+   `selftest()` 三樣），同埋 `fetch()` 入面嗰三行 route。
+   **移除嗰個 commit 已經喺本機準備好，但特登未 push** ——
+   等三個動作全部驗完先，因為飛行模式嗰個可能仲要用到。
+2. **清走 `quote-photos` 入面個 `__selftest/probe.txt`。**
+3. **重新 deploy Worker**（刪咗 `/selftest` 之後）。
