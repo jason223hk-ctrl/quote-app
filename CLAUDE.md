@@ -150,14 +150,37 @@ R2 加 Drive。**未鏡像到 Drive 嗰啲，唔准刪佢嘅 R2 副本**（嗰�
 （2026-08-22 Jason 本人批，為咗 P3b 寫返 Drive 狀態）。
 ⛔ **唔准趁機擴大。**
 
-⚠️ **但 P3b 寫落去嘅時候發現根本唔使用到佢**：
+#### ✅ 2026-08-22 收咗埋：quote app 嗰邊 `service_role` 零權限
+
+P3b 寫落去嗰陣發現**根本唔使用到佢** ——
 寫返 `drive_file_id` / `drive_synced_at` 嗰個 update policy 係
 `can_edit_quote_record(record_id)`，**用家自己個 token 就過到**。
-所以 **Worker 入面冇 `service_role` key**，
-`worker/wrangler.toml` 亦寫明**唔准加**。
 
-**即係話張表個 `service_role` grant 而家係「批咗但冇用」。**
-**要唔要收返係 Jason 決定**（改權限要佢本人批），**唔准自己 revoke**。
+**Jason 拍板收埋**，已經 `revoke all on` 五張 `quote_` 表 `from service_role`。
+**實測驗返**（`information_schema.role_table_grants` 查晒成個 `public` schema）：
+**五張 `quote_` 表一行都冇。**
+
+`worker/wrangler.toml` 亦寫明 ⛔ **唔准加 `SUPABASE_SERVICE_ROLE_KEY`**。
+（2026-08-22 `wrangler secret list` 實測：五個 secret，冇佢。）
+
+#### ⛔ tree app 嗰啲 `service_role` 權限，一句都唔准收
+
+同一份查詢見到 tree app 嘅 `projects` / `photos` / `trees` /
+`pair_counters` / `photo_health` **仲有 `SELECT` / `UPDATE`（／`INSERT`）**。
+
+⛔ **嗰啲係刻意保留，唔准順手清。**
+**點解**：**tree app 個 webhook 冇用家 token** ——
+佢係 Supabase 打過去嘅，嗰陣根本冇人登住入。
+收咗佢個鏡像就會靜靜死。
+
+#### ⚠️ 常設規矩：每開一張新 `quote_` 表，就要 revoke 一次
+
+**Supabase 預設會喺每張新開嘅表再派權限俾 `service_role`。**
+
+⛔ **所以「收 `service_role` 權限」唔係一次性動作，係一條常設規矩** ——
+**每開一張新 `quote_` 表都要做多次。**
+
+**唔寫低嘅話，三個月後冇人記得，而張表會靜靜咁帶住權限。**
 
 ⚠️ **連帶後果**：行用家 token 即係**只做得到喺用家仲登住入嗰陣**。
 ⛔ **所以唔可以有一條半夜自己行嘅 cron** —— 嗰陣冇人嘅 token。
