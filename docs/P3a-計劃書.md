@@ -30,9 +30,11 @@
 ## 你下一步
 
 1. **睇完呢份計劃書，批准或者話我知邊度要改。**
-2. 批咗之後，**你自己喺 Supabase 跑張 SQL**（喺下面第六節，我只可以寫出嚟）。
-   跑之前**留意有三個欄我特登冇加，要你決定加唔加**。
-3. **撳一次 Drive 授權** —— 呢個 P3a 用唔著，但 P3b 要，而且冇人代得，早撳早好。
+2. **揀甲定乙**（`service_role` grant 唔 grant，喺第六節）——
+   **唔擋 P3a 開工**，但要你講一句。
+3. 批咗之後，**你本人喺 Supabase 貼同跑張 SQL**（喺下面第六節，我只可以寫出嚟）。
+   **三個欄已經答咗，張 SQL 冇其他要你揀嘅位。**
+4. **撳一次 Drive 授權** —— 呢個 P3a 用唔著，但 P3b 要，而且冇人代得，早撳早好。
    （留喺 `docs/P3-現場影相-設計.md` 第十章第 3 項。）
 
 ## 我下一步
@@ -163,27 +165,62 @@ readback verify 對 `size` + `sha256` → 寫 `quote_photos` 一行 → UI 出�
 ⚠️ **P3a 用唔晒佢哋**（Drive 那四個欄、`mitigation` 要等後面幾步先寫入），
 **但照開** —— 因為「開嗰陣一次過開齊」係硬規矩，遲啲 ALTER 就係分兩次開。
 
-### ⚠️ 三個欄我特登冇加，要你決定
+### ✅ 三個欄：Jason 2026-08-22 答咗 —— 三個全部加
 
-`docs/P3-現場影相-設計.md` 第七章列嘅欄，同你今次講嗰張清單，**有三個對唔上**：
+`captured_at`、`remark`、`marks` **三個都加**，**一次過開齊，唔留返第二次改表**。
 
-1. **`captured_at`（影相時間）** —— 第七章有，你張清單冇。
-   `created_at` 係**寫入資料庫嗰刻**，唔係**影相嗰刻**。
-   離線影完幾個鐘先有網，兩個時間會差好遠。
-   **我建議加**，但唔加都行得通（P3a 唔靠佢）。
-2. **`remark`** —— 第七章有，P3d 先用到。
-3. **`marks`（標記座標）** —— 第七章有，P3d 先用到。
+- **`captured_at`（影相時間）**：`created_at` 係寫入資料庫嗰刻，唔係影相嗰刻。
+  離線影完幾個鐘先有網，兩個時間會差好遠。
+- **`remark`、`marks`**：P3d 先寫入，但**照開** —— 遲啲 ALTER 就係「分兩次開」。
 
-**唔加嘅後果**：P3d 嗰陣要再開一次表，即係「分兩次開」。
-**加嘅後果**：三個欄空住幾個版本。
+**所以下面張 SQL 冇任何「要你揀」嘅位，可以照跑。**（除咗 `service_role` 嗰條，見下。）
 
-**兩樣我都唔幫你揀。** 下面張 SQL 我寫咗兩個版本嘅分別，你揀完自己刪／留。
+### RLS ——⛔ 逐字抄 `quote_trees`，唔係我寫嘅摘要
+
+**2026-08-22 Jason 喺 Supabase 跑咗查詢，攞到現有 policy 嘅真原文**
+（唔再係摘要）。四張現有表**全部確認冇 DELETE policy**。
+
+`quote_photos` 照 `quote_trees` 逐字抄：
+
+- **select** using `true`
+- **insert** with check `can_edit_quote_record(record_id) and created_by = auth.uid()`
+- **update** using `can_edit_quote_record(record_id)`
+  with check `can_edit_quote_record(record_id)`
+- ⛔ **唔准寫 delete policy**
+
+### ⚠️ 要 Jason 拍板：`service_role` 到底 grant 唔 grant
+
+**⛔ 呢個我唔會自己揀** —— `CLAUDE.md` §3 寫住改權限要 Jason 本人批。
+
+**實測發現咗一件事**：`CLAUDE.md` §2.2 寫住新表要**明文 grant 俾 `service_role`**，
+但 2026-08-22 查實況，**四張現有表（`quote_records`、`quote_trees`、
+`quote_site_form`、`quote_admins`）嘅 `service_role` 全部得 `REFERENCES` 同 `TRIGGER`，
+一個 `SELECT` / `INSERT` / `UPDATE` 都冇。**
+
+即係話**嗰條規矩寫咗，但從來冇執行過**。
+
+**兩條路：**
+
+**甲、而家一次過 grant `select, insert, update` 俾 `service_role`**
+- 慳返 P3b 嗰次 migration
+- **避免重演附錄 A I1 嗰次**：`permission denied` 但表面上乜錯都冇
+- 代價：權限早咗開，P3a 期間用唔著
+
+**乙、等 P3b 先 grant**
+- 守最小權限
+- 代價：P3b 要再改一次權限，而且**唔記得就會喺半夜靜靜失敗**
+
+**我傾向甲**，因為 P3b 個 Drive 鏡像**一定要寫返 `drive_file_id` 同
+`drive_synced_at`**，冇得避。**但要 Jason 拍板。**
+
+⚠️ **P3a 本身唔 grant 都行得** —— P3a 個 Worker **設計上零 DB 查詢**，
+淨係簽 presigned URL。所以呢個決定**唔擋住 P3a 開工**。
 
 ### SQL 草稿（未跑）
 
 ```sql
--- ⛔ 未跑。由 Jason 喺 Supabase SQL editor 執行。
-create table quote_photos (
+-- ⛔ 未跑。由 Jason 本人喺 Supabase SQL editor 貼同跑。
+create table public.quote_photos (
   id            uuid primary key default gen_random_uuid(),
   record_id     uuid not null references quote_records(id),
   tree_id       uuid references quote_trees(id),          -- 留空 = 工程相
@@ -191,43 +228,49 @@ create table quote_photos (
   seq           int  not null default 0,
   operation_id  text not null,                            -- 影相嗰刻定死，重試用返同一個
 
-  r2_key         text not null default '',
-  r2_synced_at   timestamptz,
-  r2_error       text not null default '',
-  drive_file_id  text not null default '',
+  r2_key          text not null default '',
+  r2_synced_at    timestamptz,
+  r2_error        text not null default '',
+  drive_file_id   text not null default '',
   drive_synced_at timestamptz,
-  drive_error    text not null default '',
-  size_bytes     bigint,
-  sha256         text not null default '',
+  drive_error     text not null default '',
+  size_bytes      bigint,
+  sha256          text not null default '',
 
-  -- ⚠️ 以下三行係「要你決定」嗰三個。唔要就成行刪走。
-  captured_at   timestamptz,
-  remark        text not null default '',
-  marks         jsonb,
+  captured_at   timestamptz,                              -- 影相嗰刻，唔係寫入嗰刻
+  remark        text not null default '',                 -- P3d 先寫入
+  marks         jsonb,                                    -- P3d 先寫入，存百分比座標
 
   created_by    uuid not null default auth.uid(),
   created_at    timestamptz not null default now(),
   deleted_at    timestamptz
 );
 
-alter table quote_photos enable row level security;
+alter table public.quote_photos enable row level security;
 
--- RLS：跟現有三張表同一套
--- ⚠️ 我睇唔到現有 policy 嘅原文（只睇到 §七 嘅摘要），
---     所以請照 quote_trees 嗰張抄，唔好照我下面寫嘅字面跑。
---   * 人人 select 到全部
---   * insert 要 created_by = auth.uid()，而且經 can_edit_quote_record()
---   * update 限自己開而且未 locked，或者 admin
---   * ⛔ 故意冇 delete policy
+-- RLS：逐字跟 quote_trees
+create policy quote_photos_select on public.quote_photos
+  for select using (true);
 
-grant select, insert, update on quote_photos to authenticated;
-grant select, insert, update on quote_photos to service_role;   -- Worker 用（P3b）
--- ⛔ 冇 grant delete
--- ⛔ 冇 grant 俾 anon
+create policy quote_photos_insert on public.quote_photos
+  for insert with check (
+    can_edit_quote_record(record_id) and created_by = auth.uid()
+  );
+
+create policy quote_photos_update on public.quote_photos
+  for update using (can_edit_quote_record(record_id))
+  with check (can_edit_quote_record(record_id));
+
+-- ⛔ 冇 delete policy（同現有四張表一樣，已實測確認）
+
+grant select, insert, update on public.quote_photos to authenticated;
+-- ⛔ 唔准 grant delete
+-- ⛔ 唔准 grant 俾 anon
+
+-- ⚠️ service_role 嗰行等 Jason 拍板先加，見上面〈要 Jason 拍板〉。
+-- 揀咗甲就加返呢行：
+-- grant select, insert, update on public.quote_photos to service_role;
 ```
-
-⚠️ **`service_role` 嗰行 P3a 未用到**，但**唔明文寫，佢就會喺 P3b 半夜靜靜失敗**
-（`CLAUDE.md` §2.2）。所以一齊寫。
 
 ## 7. Source of truth
 
@@ -317,5 +360,6 @@ grant select, insert, update on quote_photos to service_role;   -- Worker 用（
 ## 批准欄
 
 - [ ] Jason 睇完，批准開工
-- [ ] 第六節三個欄（`captured_at` / `remark` / `marks`）已經決定
+- [x] 第六節三個欄（`captured_at` / `remark` / `marks`）—— **2026-08-22 答咗：三個都加**
+- [ ] `service_role` 甲定乙已經決定
 - [ ] Jason 自己跑咗張 SQL
