@@ -315,15 +315,13 @@ async function mirror(request, env, origin) {
     const token = photo.mitigation ? MITIGATION_TOKENS[photo.mitigation] : 'Whole View'
     const filename = photoFilename(treeNo, token, photo.seq)
     if (!filename) {
-      // 只有 legacy `pruning` 嘅樹砌唔到工序相檔名 —— 講到明，唔好靜靜跳過。
-      await patchPhoto(env, userToken, photo.id, {
-        drive_error: '呢個工序冇對應嘅類別名，砌唔到 Drive 檔名。請喺「修剪」揀返一個細項。',
-      })
-      return json(
-        { ok: false, message: '呢個工序冇對應嘅類別名，砌唔到 Drive 檔名。' },
-        409,
-        origin,
-      )
+      // 砌唔到檔名有兩個原因，兩個都要講到明，⛔ 唔好靜靜跳過、更加唔准靠估。
+      const why =
+        photo.seq < 1
+          ? `呢張相嘅次序係 ${photo.seq}，唔啱（要由 1 數起），砌唔到 Drive 檔名。請截圖搵 Jason。`
+          : '呢個工序冇對應嘅類別名，砌唔到 Drive 檔名。請喺「修剪」揀返一個細項。'
+      await patchPhoto(env, userToken, photo.id, { drive_error: why })
+      return json({ ok: false, message: why }, 409, origin)
     }
 
     const gtoken = await googleToken(env)

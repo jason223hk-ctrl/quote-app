@@ -700,3 +700,107 @@ projectFolderName = safeSegment(`${work_date}_${name}`)
 
 - **有網影一張** → R2 → Drive → **三份副本齊**
 - **改咗 `seq` 之後嗰項** —— 一齊驗
+
+---
+
+# 🚨 I6：舊行 `seq = 0` 撞新公式，Drive 出咗個 `-1` 檔名（2026-08-22）
+
+## 實況（Drive API 直接攞返，唔係信畫面）
+
+資料夾 `Quote App Photos` → `2026-08-22_彩`，入面兩個檔：
+
+| 檔名 | size | createdTime |
+| --- | --- | --- |
+| `2_Whole View_01_Before.jpg` | 539,904 | 10:54:54 |
+| 🚨 `1_Whole View_-1_Before.jpg` | 412,094 | 10:54:43 |
+
+**新影嗰張 `NN = 01` 完全正確** —— `seq` 由 1 數起真係生效。
+🚨 **舊嗰張 `NN = -1`。**
+
+## 根因 —— ⛔ 係我漏咗
+
+**我改咗寫入側（`seq` 寫 1），但冇處理已經存在嘅舊行。**
+舊行 `seq` 仲係 `0`，鏡像一開就照住 `0` 抄，`2 × 0 − 1 = −1`。
+
+⚠️ **更差嘅係：我當時特登攞走咗 `pairedNumber` 入面「0 當 1」嗰個補救**，
+**知道舊行係 0，但冇講「所以要順手更新舊資料」。**
+攞走補救係啱嘅（唔好兩套講法），**漏咗嗰句先係錯。**
+
+## 已經做咗嘅 code 修正
+
+**`pairedNumber(seq)` 而家 `seq < 1` 就回 `null`，`photoFilename` 跟住回 `null`，
+`/mirror` 出一句中文並且寫入 `drive_error`。**
+
+⛔ **呢個唔係「0 當 1」嘅特例** ——
+**特例會靜靜咁幫你揀一個答案；呢度係拒絕，然後出聲，等人知有嘢要修。**
+**⛔ 唔准再出現一個 `-1` 檔名。**
+
+## 教訓（同 §5 一齊睇）
+
+⛔ **改一條「由邊個數字數起」嘅規矩，一定要同時問：
+「已經寫咗落 DB 嗰啲，跟唔跟新規矩？」**
+
+**寫入側改完 ≠ 改完。** 舊行唔會自己跟。
+呢次代價細（兩張測試相），但**同一個模式落喺真單度就係一堆爛檔名**。
+
+## 修法（⛔ 次序好重要，Jason 自己行 SQL）
+
+### 第一步：查有冇其他中招嘅行
+
+```sql
+-- ⛔ 只讀。數返有幾多張相會砌出 -1（或者更細）嘅檔名。
+select p.id,
+       p.seq,
+       p.record_id,
+       p.tree_id,
+       p.r2_synced_at,
+       p.drive_synced_at,
+       p.created_at
+from quote_photos p
+where p.deleted_at is null
+  and p.seq < 1
+order by p.created_at;
+```
+
+**已經鏡像咗嘅**（`drive_synced_at` 唔係 null）→ **Drive 上面有爛檔名，要清**。
+**未鏡像嘅**（`drive_synced_at` 係 null）→ **一開 app 就會產生 `-1`** ——
+不過而家 code 已經改成**拒絕**，所以佢會出中文錯誤，唔會再整爛檔。
+
+### 第二步：更新舊行
+
+```sql
+-- ⛔ Jason 自己喺 Supabase 跑。P2/P3a 試用期嗰啲 seq = 0 改成 1。
+update quote_photos
+set seq = 1,
+    drive_file_id = '',
+    drive_synced_at = null,
+    drive_error = ''
+where deleted_at is null
+  and seq < 1;
+```
+
+⚠️ **清 `drive_file_id` / `drive_synced_at` 係為咗等佢重新抄一次。**
+⛔ **唔好順手改第二個欄。**
+
+### 第三步：開返 app 等佢自己重抄
+
+用家開返 app → 補鏡像會揀到佢（`drive_synced_at` 係 null）→
+用**新檔名** `1_Whole View_01_Before.jpg` 上一次。
+
+### 第四步：⛔ 確認新檔真係喺 Drive，先至刪個爛檔
+
+**次序唔可以掉轉。**
+`CLAUDE.md` §2.8：**未確認另一份仲喺，唔准刪任何一份。**
+
+確認 `1_Whole View_01_Before.jpg` 出現咗，**先至**去 Drive 刪
+`1_Whole View_-1_Before.jpg`。
+
+## Idempotency 會唔會攞返個爛檔？⛔ 唔會
+
+`findFileInFolder()` 係**用今次要砌嗰個檔名去揾**，
+即係揾 `1_Whole View_01_Before.jpg`。
+
+**個爛檔叫 `1_Whole View_-1_Before.jpg`，名唔同，所以配唔到、唔會被重用。**
+
+⚠️ **但佢亦都唔會自己消失** —— 佢會變成一個**孤兒檔**，
+**要人手刪**（第四步）。

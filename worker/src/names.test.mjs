@@ -33,8 +33,13 @@ describe('⛔ NN 係成對編號', () => {
   it('⛔ 全部單數 —— 雙數留返俾 tree app 補後相', () => {
     for (const seq of [1, 2, 3, 4, 5]) expect(Number(pairedNumber(seq)) % 2).toBe(1)
   })
-  it('⛔ 冇「0 當 1」嘅特例 —— seq 由 1 數起係寫入嗰邊嘅責任', () => {
-    expect(pairedNumber(0)).toBe('-1')
+  it('⛔ seq 0 唔准砌 —— 回 null，唔係補救成 1，亦唔係出 -1', () => {
+    expect(pairedNumber(0)).toBeNull()
+    expect(pairedNumber(-3)).toBeNull()
+  })
+
+  it('⛔ 唔會再出 `-1` 呢種檔名（2026-08-22 真機中過）', () => {
+    expect(photoFilename('1', 'Whole View', 0)).toBeNull()
   })
   it('兩位數', () => {
     expect(pairedNumber(1)).toBe('01')

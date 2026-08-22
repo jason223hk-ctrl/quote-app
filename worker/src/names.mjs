@@ -26,6 +26,13 @@ export function projectFolderName(workDate, name) {
  * 而今日已經有一次教訓係「文件寫咗但 code 從來冇跟」。
  */
 export function pairedNumber(seq) {
+  // ⛔ 唔啱嘅 seq 就唔准砌 —— 回 null，⛔ 唔准靜靜咁補救成 1。
+  //
+  // 呢個唔係「0 當 1」嘅特例：特例會**靜靜咁**幫你揀一個答案，
+  // 呢度係**拒絕**，然後上面會出一句中文，人先知有嘢要修。
+  // 2026-08-22 真機中過：舊行 seq 仲係 0，鏡像照抄，
+  // Drive 上面出咗個 `1_Whole View_-1_Before.jpg`。
+  if (!Number.isFinite(seq) || seq < 1) return null
   return String(2 * Math.floor(seq) - 1).padStart(2, '0')
 }
 
@@ -39,7 +46,9 @@ export function pairedNumber(seq) {
  */
 export function photoFilename(treeNo, token, seq) {
   if (!token) return null
-  return `${safeFilename(treeNo)}_${safeFilename(token)}_${pairedNumber(seq)}_Before.jpg`
+  const nn = pairedNumber(seq)
+  if (nn === null) return null
+  return `${safeFilename(treeNo)}_${safeFilename(token)}_${nn}_Before.jpg`
 }
 
 /**

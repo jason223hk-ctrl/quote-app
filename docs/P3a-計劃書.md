@@ -606,10 +606,17 @@ P3a **merge 咗上 `main` 之後，`sylvan-quote.pages.dev` 就會出現影相�
 1. ~~刪 `/selftest`~~ —— ✅ **做咗**（commit `30afeb4`）。
 2. **重新 deploy Worker**（刪咗 `/selftest` 之後先算數）。
 
+## ⛔ 舊資料（2026-08-22 加）
+
+7. **修好嗰行 `seq = 0` 嘅相，同埋清走 Drive 上面個 `-1` 爛檔**
+   （經過見 `docs/P3b-計劃書.md` I6）
+8. **確認冇其他 `seq < 1` 而又未鏡像嘅行**（SQL 喺 I6）
+
 ## ⛔ 環境變數 —— 呢條唔記得就會「功能上到 main 但影唔到相」
 
-**2026-08-22 實測：Cloudflare Pages 個 Production 環境
-`VITE_PHOTO_WORKER_URL` 係冇嘅，只有 Preview 有。**
+**2026-08-22 再實測一次確認：Cloudflare Pages 個 Production 環境
+仍然冇 `VITE_PHOTO_WORKER_URL`，只有 Preview 有**
+（Preview 實測 = `https://quote-photos-sign.jason223hk.workers.dev`）。
 
 （Preview 原本**三個變數都冇**，係今日叫 Jason 加返
 `VITE_SUPABASE_URL`、`VITE_SUPABASE_PUBLISHABLE_KEY`、
