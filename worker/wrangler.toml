@@ -10,12 +10,17 @@ compatibility_date = "2026-08-22"
 
 [vars]
 R2_BUCKET = "quote-photos"
+DRIVE_ROOT_FOLDER_NAME = "Quote App Photos"
 # 部署嗰陣填返：
 # R2_ACCOUNT_ID = ""
 # SUPABASE_URL = ""
 # SUPABASE_PUBLISHABLE_KEY = ""
 # ALLOWED_ORIGIN = "https://sylvan-quote.pages.dev"
 
-# ⛔ 兩個 secret 用 `wrangler secret put` 放，唔准寫入呢個檔、唔准入 repo：
+# ⛔ 五個 secret 用 `wrangler secret put` 放，唔准寫入呢個檔、唔准入 repo：
 #   R2_ACCESS_KEY_ID
 #   R2_SECRET_ACCESS_KEY
+#   GOOGLE_CLIENT_ID
+#   GOOGLE_CLIENT_SECRET
+#   GOOGLE_REFRESH_TOKEN
+#   SUPABASE_SERVICE_ROLE_KEY   ⛔ 淨係郁得 quote_photos 一張表（佢本身都只有嗰張）

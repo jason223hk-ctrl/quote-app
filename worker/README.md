@@ -9,6 +9,11 @@ P3a 用。部機影完相之後問佢攞一條 R2 上傳網址，跟住**部機�
 **呢個 Worker 仲未部署過。** Code 喺度，但要 Jason 自己部署 ——
 部署 Worker、改 Cloudflare secrets 都係要批准嘅嘢。
 
+## 兩條路
+
+- **`POST /sign`**（P3a）—— 簽 R2 上傳網址
+- **`POST /mirror`**（P3b）—— 抄一份上 Google Drive，寫返 `drive_file_id`
+
 ## 佢做咩、唔做咩
 
 **做：**
@@ -20,7 +25,12 @@ P3a 用。部機影完相之後問佢攞一條 R2 上傳網址，跟住**部機�
 **⛔ 唔做：**
 
 - **唔中轉 bytes** —— `docs/P3-現場影相-設計.md` 第三章寫死嘅
-- **唔查資料庫** —— P3a 零 DB 查詢
+- **`/sign` 唔查資料庫** —— P3a 零 DB 查詢
+- **`/mirror` 讀 `quote_records` / `quote_trees` 行用家自己個 token**，靠 RLS 攔
+  （`CLAUDE.md` §2.9）。⛔ **唔開新 grant。**
+  `service_role` 淨係用嚟郁 `quote_photos` —— 佢本身都只有嗰一張表
+- ⛔ **`/mirror` 唔會再壓一次啲 bytes** —— 由 R2 讀出嚟原封不動上 Drive，
+  再壓 `sha256` 就唔同，「仲剩幾多份」個契約即刻驗唔到
 - **唔信前端俾嘅檔名** —— 前端只講得出影相編號，講唔到自己係邊個
 - **唔掂 `tree-photos`** —— 只寫 `quote-photos`
 
@@ -52,3 +62,10 @@ wrangler secret put R2_SECRET_ACCESS_KEY
 
 未設定嘅話 app **唔會白畫面亦唔會靜靜失敗**：相照影、照存落部機，
 但畫面會明寫「未設定相片上傳服務」。
+
+## ⛔ 冇 cron
+
+`/mirror` 讀嗰兩張表要用家個 token，**即係只做得到喺用家仲登住入嗰陣**。
+
+⛔ **唔可以有一條半夜自己行嘅 cron** —— 嗰陣冇人嘅 token。
+補做係「用家下次開返 app 嗰陣」做，詳情見 `docs/P3b-計劃書.md` §7.5。
