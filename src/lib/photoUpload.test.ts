@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { uploadPending, targetSize, type PendingPhoto, type UploadDeps } from './photoUpload'
-import { JPEG_QUALITY, MAX_EDGE } from './photoTransport'
+import { JPEG_QUALITY, MAX_EDGE, looksBlankBySize } from './photoTransport'
 import type { QuotePhoto } from './photos'
 
 const bytes = new Uint8Array([1, 2, 3, 4, 5])
@@ -130,19 +130,23 @@ describe('uploadPending 出事嗰陣', () => {
 
 describe('targetSize', () => {
   it('長邊縮到 2400，短邊按比例', () => {
-    expect(targetSize(4000, 3000, 2400)).toEqual({ width: 2400, height: 1800 })
+    expect(targetSize(4000, 3000, 2400)).toEqual({ width: 2400, height: 1800, scaled: true })
   })
 
   it('直度相一樣得', () => {
-    expect(targetSize(3000, 4000, 2400)).toEqual({ width: 1800, height: 2400 })
+    expect(targetSize(3000, 4000, 2400)).toEqual({ width: 1800, height: 2400, scaled: true })
   })
 
   it('本身細過就唔放大 —— 放大只會變大份，唔會變清楚', () => {
-    expect(targetSize(800, 600, 2400)).toEqual({ width: 800, height: 600 })
+    expect(targetSize(800, 600, 2400)).toEqual({ width: 800, height: 600, scaled: false })
   })
 
   it('零唔會爆', () => {
-    expect(targetSize(0, 0, 2400)).toEqual({ width: 0, height: 0 })
+    expect(targetSize(0, 0, 2400)).toEqual({ width: 0, height: 0, scaled: false })
+  })
+
+  it('⛔ 縮極都唔會變 0 —— 一條 1px 高嘅相都要留返 1px', () => {
+    expect(targetSize(4000, 1, 2400).height).toBe(1)
   })
 })
 
@@ -164,5 +168,27 @@ describe('⛔ 壓縮參數 —— 改之前要問 Jason', () => {
   it('⚠️ 單位要係 0–1，⛔ 唔可以係 80', () => {
     expect(JPEG_QUALITY).toBeGreaterThan(0)
     expect(JPEG_QUALITY).toBeLessThanOrEqual(1)
+  })
+})
+
+describe('空白 canvas 偵測 #2（`looksBlankBySize`）', () => {
+  it('全白 JPEG 幾乎唔使錢 —— 當佢係空白', () => {
+    // 2400×1800 = 4.32 MP。一張真相至少幾百 KB；20 KB 即係 0.005 B/px。
+    expect(looksBlankBySize(20_000, 2400, 1800)).toBe(true)
+  })
+
+  it('⛔ 唔可以誤殺真相 —— 0.27 B/px 係實測嘅真相密度', () => {
+    expect(looksBlankBySize(Math.round(0.27 * 2400 * 1800), 2400, 1800)).toBe(false)
+  })
+
+  it('⚠️ 界線係 0.02 B/px', () => {
+    const px = 2400 * 1800
+    expect(looksBlankBySize(Math.round(0.019 * px), 2400, 1800)).toBe(true)
+    expect(looksBlankBySize(Math.round(0.021 * px), 2400, 1800)).toBe(false)
+  })
+
+  it('證明唔到就 fail safe —— 尺寸唔啱、零 bytes 都當空白', () => {
+    expect(looksBlankBySize(0, 2400, 1800)).toBe(true)
+    expect(looksBlankBySize(500_000, 0, 0)).toBe(true)
   })
 })

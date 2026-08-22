@@ -1334,3 +1334,152 @@ tree app 原文註解講到明點解：
 
 ⚠️ **但係要 build 完嗰個新 preview 先生效** ——
 **開舊嗰個 preview 網址影相，仍然係 2800。**
+
+---
+
+# 第 8 / 9 / 10 項跟咗（2026-08-22）
+
+## ⚠️ 但要先講一件你可能未為意嘅嘢：8/9/10 同 11 係綁住嘅
+
+**tree app 嗰邊，8、9、10 三項嘅「動作」全部都係 `fallback(...)` —— 即係回原圖。**
+**「偵測到有問題」同「跟住點做」係兩件事，而「跟住點做」就係第 11 項。**
+
+**第 10 項尤其明顯**：「壓完大過原圖就用返原圖」——
+**佢本身就係一個動作，唔係一個偵測。** 喺 throw 嘅世界入面，
+佢會變成「壓完大過原圖 → 掉咗張相」，**呢個講唔通。**
+
+### 所以我點做
+
+**三項嘅偵測全部照跟、照抄埋門檻同理由**，
+**但所有拒絕都行返同一個 function：`refuseToCompress()`。**
+
+**佢而家嘅行為仍然係 throw（＝我哋原本嗰套）。**
+**Jason 一答第 11 項，淨係要改呢一個 function**，唔使周圍搵。
+
+⛔ **我冇偷偷幫佢揀。**
+
+## 改咗之後嘅原文
+
+**第 8 項 EXIF：**
+
+```ts
+// ⛔ 一定要 `imageOrientation: 'from-image'`（跟 tree app）。
+//    ⚠️ 唔准 catch 完就用返一個冇 options 嘅 createImageBitmap ——
+//    咁做會**燒低未轉向嘅像素同時掉咗 EXIF 標記**，
+//    即係靜靜咁存低一張打橫嘅相
+bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' })
+```
+
+**第 9 項 空白檢查（兩重）：**
+
+```ts
+if (samplesLookUniform(samplePixels(context, size.width, size.height))) {
+  return refuseToCompress('張相讀返出嚟係一片空白（可能係部機嘅相片尺寸上限）。', file)
+}
+…
+if (looksBlankBySize(blob.size, size.width, size.height)) {
+  return refuseToCompress('壓完出嚟細到唔似一張真相（可能係一片空白）。', file)
+}
+```
+
+**第 10 項：**
+
+```ts
+if (blob.size >= file.size && !size.scaled) {
+  return refuseToCompress('壓完冇細過原本張相。', file)
+}
+```
+
+## 「空白檢查」實際點檢 —— ⚠️ 呢個檢查錯咗就會誤殺好相，所以講清楚
+
+### 偵測 #1：九點取樣，全部 byte 完全一樣
+
+**取樣點**（相對座標，⛔ 特登分散得好開）：
+
+```
+0.1/0.5/0.9  ×  0.1/0.5/0.9   →  九個點
+```
+
+每點讀 `getImageData(x, y, 1, 1)` 攞 **RGBA 四個 byte**。
+**九點嘅四個 byte 全部逐個一樣，先算白。**
+
+**點解唔會誤殺**：**真相唔會有九個咁散嘅點 RGBA 逐個 byte 一樣。**
+一片天空係**局部**均勻 —— 唔會連四個角同中心都一模一樣。
+
+⚠️ **空輸入當作白** —— 「證明唔到佢係真相」要 fail safe。
+
+### 偵測 #2：每像素少過 `0.02` byte
+
+```
+byteLength / (w × h) < 0.02
+```
+
+**tree app 實測嘅理由（原文）**：真嘅樹葉相喺 q85 度**約 0.27 B/px**
+（實測 2800×2100 = 1.6 MB），而全白 JPEG 幾乎唔使錢。
+**`0.02` 低過真相一個數量級、高過白相一個數量級**，所以分得開。
+
+**測試釘咗三個位**：`0.27 B/px` 唔准當白、`0.019` 當白、`0.021` 唔當白。
+
+### 為咗 #1 要喺編碼之前做
+
+**`samplePixels` 喺 `toBlob` 之前行** —— 唔使花一次編碼落一張白相度，
+亦即係話**捉到就即刻捉到**。
+
+## ⛔ `2400` / `0.8` 喺 code 入面得一個出處
+
+```
+$ grep -rn "2400\|2800\|0\.85" src/ worker/ --include=*.ts --include=*.tsx --include=*.mjs | grep -v test
+src/lib/photoTransport.ts:31:export const MAX_EDGE = 2400
+src/lib/photoTransport.ts:32:export const JPEG_QUALITY = 0.8
+```
+
+**其餘全部係註解引出處。**
+`targetSize()` 個 `maxEdge` 係參數，**唔會自己寫死一個數**；
+`worker/` 完全冇呢兩個數（Worker 唔壓相）。
+
+## preview 幾時先食到新 bundle —— Jason 做得到嘅講法
+
+**條網址唔使換**：照開返 `claude-quote-app-scaffold-de.sylvan-quote.pages.dev`。
+
+### ⛔ 但唔係即刻，要等 build 完
+
+**Pages 收到 push 之後先要 build。** 睇 **Deployments** 見到嗰個
+commit 變咗 **Success** 先好開。**通常一兩分鐘。**
+
+### 冇 service worker
+
+**呢個 app 冇 service worker、冇 PWA、冇 `public/_headers`** —— 實測：
+
+```
+$ grep -rn "serviceWorker|workbox|registerSW" src/ index.html public/
+（冇結果）
+$ ls public/
+（空）
+```
+
+**即係唔會有一個 service worker 死攬住舊 bundle。**
+
+### 但 `index.html` 有機會俾瀏覽器 cache 住
+
+Vite 出嘅 JS 檔名帶住 hash（`index-XXXXXXX.js`），**新 build 一定係新檔名**。
+**問題唔喺 JS，喺 `index.html`** —— 佢個名唔變，
+**手機瀏覽器有機會用返上次嗰版**，於是照舊指去舊 JS。
+
+**所以叫 Jason 咁做（由最輕到最重）：**
+
+1. **喺 Pages 度確認個 deployment 係 Success**（唔好未 build 完就試）
+2. **iPhone Safari：撳住重新整理個掣唔放** → 揀「重新載入而不使用內容封鎖器」；
+   Android Chrome：右上角 ⋮ → **重新載入**
+3. **仲係唔得就：完全熄咗個分頁再開過**（唔係後退，係關咗成個 tab）
+4. **最穩陣**：**Safari → 設定 → 清除瀏覽記錄同網站資料**
+   ⛔ **但呢一步會清埋 IndexedDB，即係清埋未上到雲端嘅相！**
+   **做之前一定要確認所有相都係「已同步，兩份齊」。**
+
+### ⭐ 唔使估：影完睇尺寸就知
+
+**最實在嘅驗法唔係猜 cache**，係**影一張相之後喺 Drive 睇佢尺寸**：
+
+- **1800×2400** → 食咗新 bundle ✅
+- **2100×2800** → 仲係舊 bundle ❌
+
+**一眼分得出，唔使我哋估。**

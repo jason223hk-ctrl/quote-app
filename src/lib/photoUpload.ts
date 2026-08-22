@@ -141,9 +141,14 @@ export function targetSize(
   width: number,
   height: number,
   maxEdge: number,
-): { width: number; height: number } {
+): { width: number; height: number; scaled: boolean } {
   const longest = Math.max(width, height)
-  if (longest <= maxEdge || longest === 0) return { width, height }
+  if (longest <= maxEdge || longest === 0) return { width, height, scaled: false }
   const scale = maxEdge / longest
-  return { width: Math.round(width * scale), height: Math.round(height * scale) }
+  return {
+    // ⛔ 唔准縮到 0 —— 一條 1px 高嘅相都要留返最少 1px（跟 tree app `fitLongEdge`）。
+    width: Math.max(1, Math.round(width * scale)),
+    height: Math.max(1, Math.round(height * scale)),
+    scaled: true,
+  }
 }
