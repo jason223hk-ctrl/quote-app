@@ -35,9 +35,9 @@ Jason 2026-08-22 揀咗**丙**：**唔 merge，做埋 Drive 鏡像夠兩份先�
 2. **答第六節兩條前置** —— 兩條都係**冇咗就開唔到工**：
    - **Drive 存原圖定壓縮版**（有一個實測事實會影響你點揀，見下面）
    - **撳一次 Drive 授權** —— 冇人代得到
-3. **答第七節嗰條工序對應**（六個工序喺 tree app 冇 token，甲定乙）。
-   ⛔ **唔答，工序相嘅檔名砌唔出嚟。**
-   （原本三條，其餘兩條已經讀返 tree app 原始碼查實咗，唔使問。）
+3. **跑嗰句只讀查詢**，數返舊單用咗邊啲 mitigation 代號、幾多行 ——
+   ⛔ **冇呢個數，第七節「舊資料點算」寫唔完，工序改動一行 code 都唔會寫。**
+4. **確認兩個新代號叫 `crown_thinning` 同 `close_up`**（照現有風格推嘅）。
 
 ## 我下一步
 
@@ -209,50 +209,79 @@ projectFolderName = safeSegment(`${work_date}_${name}`)
 **所以 quote app 全部相都係 `Before` → ⛔ 一定要用單數 `01`、`03`、`05`…**
 （之前講「順住數」係錯，已更正。）**雙數個位留返俾中標之後 tree app 影嘅 After。**
 
-### ⛔ 未答：六個工序喺 tree app 冇對應 token —— 要 Jason 揀
+### ✅ 已答三：工序重新分組之後，「對唔上」呢個問題冇咗
 
-**tree app 個類別 token 得五個**（`PRUNING_WORK_TYPES` 原文）：
+**Jason 2026-08-22 重新分咗工序**（新結構見 `docs/開發紀錄.md` §5.4）：
+修剪變成一個**唔可以單獨揀嘅群組**（下面四個細項），
+再加五個平排項目，最後 `other`。
 
-`Crown Cleaning`、`Crown Reduction`、`Crown Thinning`、`Crown Raising`、`Close Up`
-（清理樹冠／縮減樹冠／疏枝／提升樹冠／近景）
+**tree app 五個類別（`Crown Cleaning`、`Crown Reduction`、`Crown Thinning`、
+`Crown Raising`、`Close Up`）全部被我哋包住** ——
+**Drive 檔名 100% 對得返，之前甲／乙嗰條問題自動消失。**
 
-**我哋 §5.4 有九個 mitigation，只有三個對得上：**
+> ⚠️ 呢個**推翻咗 2026-08-14「唔駛改工序名」**嗰個決定。
+> 推翻人 Jason、日期 2026-08-22、理由寫喺 §5.4，
+> ⛔ **舊決定冇被靜靜蓋過。**
 
-- `crown_cleaning` → `Crown Cleaning`
-- `crown_reduction` → `Crown Reduction`
-- `crown_raising` → `Crown Raising`
+### ⛔ 三件事我唔會自己決定
 
-**另外六個喺 tree app 完全冇對應**：
-修剪 `pruning`、斬樹或移除 `removal`、起樹頭 `stump_removal`、
-拉索加固 `cabling`、修根 `root_pruning`、其他 `other`。
-（反過嚟，**tree app 個 `Crown Thinning` 疏枝我哋又冇。**）
+#### 一、舊資料點算 —— ⏳ 等數字先落筆
 
-#### 兩條路（⛔ 我唔會自己揀）
+`quote_trees.mitigations` 存嘅係**代號**，而 Jason **由 P2 開始一直有試用**，
+所以 DB 入面**可能已經有用舊代號存低嘅樹**。
 
-**甲：六個都用我哋自己嘅英文名**
-（`Pruning` / `Removal` / `Stump Removal` / `Cabling` / `Root Pruning` / `Other`）
+**硬規矩（`CLAUDE.md` 零真刪、舊單資料要永遠查得返）：**
 
-- tree app 個 `workTypeFilenameToken` **撞到唔識嘅字串會走 `safeFilename` 分支**，
-  **照樣出到名**
-- 代價：呢六個**唔會入到佢個類別排序**
+- ⛔ **唔准改舊代號嘅語意**
+- ⛔ **唔准 `update` 舊行**
+- ⛔ **唔准令舊單顯示唔到**
 
-**乙：六個一律當 `Close Up`**，工序詳情寫落備註
+**⚠️ 特別注意 `pruning`：**
+**以前佢係一個可揀嘅葉，而家變成一個唔可揀嘅群組標題。**
+舊單如果有**淨係揀咗 `pruning` 冇細分**嘅樹，要顯示成 **「修剪（未細分）」**：
 
-- **最兼容**
-- 代價：**蝕資訊** —— 六個工序喺檔名度全部變成同一個字
+- ⛔ **唔准消失**
+- ⛔ **唔准報錯**
+- ⛔ **唔准自動幫佢揀一個細項**
 
-**傾向甲。** 理由：**報價階段個工序名本身就係要畀客人同同事睇**，
-改成「近景」等於**掉咗最有用嗰個字**。
+**⏳ 呢一節仲未寫得完整** —— Jason 會喺 Supabase 跑一句**只讀**查詢，
+數返舊單實際用咗邊啲代號、幾多行。
+**攞到個數先落筆**，因為「有幾多行受影響」直接決定要唔要做遷移畫面，
+定係一句顯示規則就夠。
 
-#### ⛔ 順帶一個一定要改嘅嘢：大細楷
+⛔ **喺攞到個數之前，一行 code 都唔會寫。**
 
-**我哋 `src/lib/options.ts` 寫住 `Crown cleaning`（細楷 `c`），
-tree app 係 `Crown Cleaning`（大楷 `C`）。**
+#### 二、兩個新代號點命名
 
-⛔ **要改到一個字都唔差，否則對唔上。**
+新增 **疏枝** 同 **近景** 兩個。
 
-**但唔好而家單獨改** —— 呢個同上面甲／乙係同一件事，
-**一次過改，唔好分兩次郁 `options.ts`**。
+**現有風格**：代號係英文名嘅 snake_case（`crown_cleaning` ← `Crown Cleaning`、
+`stump_removal` ← `Stump Removal`、`root_pruning` ← `Root Pruning`）。
+
+**照呢個風格就係 `crown_thinning` 同 `close_up`。**
+⚠️ **但呢個係我照現有規律推出嚟，唔係 Jason 講過。要佢確認一句。**
+
+#### 三、⛔ 只准郁一個模組
+
+§5.4 寫明 `options.ts` **係資料，唔係 UI**，所以呢次改動應該**淨係郁嗰個檔加文件**。
+
+**⛔ 如果做落發現要郁多過一個模組，停返出嚟講。**
+
+⚠️ 我而家已經睇到**一個可能會踩過界嘅位**，先講清楚：
+**「修剪係群組，唔可以單獨揀」呢條規則**，`options.ts` 得一個 `Option[]`
+（`value` / `label` / `en`），**表達唔到「群組同細項」呢個關係**。
+
+即係話**大有可能要動到 `OptionGroup.tsx` 或者 `TreeFormPage.tsx`**。
+⛔ **一發現要郁，我會停返出嚟問，唔會自己擴大範圍。**
+
+### 順帶：`Close Up` 升做工序，同「成棵樹／近景」係兩件事
+
+`docs/P3-現場影相-設計.md` 入面「成棵樹／近景」係**張相入咗邊個格**
+（第七章：`mitigation` 留空 = 全景相）。
+而家 `close_up` 變成**一個真正嘅工序選項**，即係會有一格叫「近景」，
+入面啲相 `mitigation = 'close_up'`，檔名出 `T1_Close Up_01_Before`。
+
+**兩樣唔衝突，但個名一樣，寫 code 嗰陣好易撈亂。** 記低喺度。
 
 ## 8. Source of truth
 
@@ -346,4 +375,6 @@ tree app 係 `Crown Cleaning`（大楷 `C`）。**
 - [ ] Jason 睇完，批准開工
 - [ ] 前置一：Drive 存原圖定壓縮版（甲／乙）已經決定
 - [ ] 前置二：Drive 授權已經撳
-- [ ] 第七節工序對應（甲／乙）已經決定 —— 連埋 `options.ts` 大細楷一次過改
+- [ ] 舊單 mitigation 代號用量數字已經攞到（只讀查詢）
+- [ ] 兩個新代號名（`crown_thinning` / `close_up`）已經確認
+- [ ] 舊單「修剪（未細分）」點顯示已經決定
