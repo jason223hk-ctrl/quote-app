@@ -30,10 +30,8 @@
 ## 你下一步
 
 1. **睇完呢份計劃書，批准或者話我知邊度要改。**
-2. **揀甲定乙**（`service_role` grant 唔 grant，喺第六節）——
-   **唔擋 P3a 開工**，但要你講一句。
-3. 批咗之後，**你本人喺 Supabase 貼同跑張 SQL**（喺下面第六節，我只可以寫出嚟）。
-   **三個欄已經答咗，張 SQL 冇其他要你揀嘅位。**
+2. **你本人喺 Supabase 貼同跑張 SQL**（喺下面第六節，我只可以寫出嚟）。
+   **張 SQL 已經冇任何要你揀嘅位** —— 三個欄同 `service_role` 都答咗。
 4. **撳一次 Drive 授權** —— 呢個 P3a 用唔著，但 P3b 要，而且冇人代得，早撳早好。
    （留喺 `docs/P3-現場影相-設計.md` 第十章第 3 項。）
 
@@ -188,9 +186,33 @@ readback verify 對 `size` + `sha256` → 寫 `quote_photos` 一行 → UI 出�
   with check `can_edit_quote_record(record_id)`
 - ⛔ **唔准寫 delete policy**
 
-### ⚠️ 要 Jason 拍板：`service_role` 到底 grant 唔 grant
+### ✅ `service_role`：Jason 本人批咗甲（2026-08-22）
 
-**⛔ 呢個我唔會自己揀** —— `CLAUDE.md` §3 寫住改權限要 Jason 本人批。
+**`quote_photos` 開嗰陣一次過寫埋：**
+
+```sql
+grant select, insert, update on public.quote_photos to service_role;
+```
+
+⛔ **唔准 grant delete、唔准 grant 俾 `anon`。**
+
+**批准人：Jason 本人**（`CLAUDE.md` §3：改權限要佢本人批，任何人唔准代批）。
+
+**點解要而家開，唔等 P3b：**
+P3b 個 Drive 鏡像**一定要寫返 `drive_file_id` 同 `drive_synced_at`**，冇得避。
+而附錄 A I1 嗰次教訓係：**漏咗 GRANT 會靜靜失敗，表面上一個錯都冇** ——
+Worker 唔會 throw，張表就係一直空。開表嗰陣一齊寫，就唔會有呢個窗口。
+
+### ⛔ 順帶記一筆：現有四張表仍然冇 `service_role` 權限
+
+`quote_records`、`quote_trees`、`quote_site_form`、`quote_admins` ——
+**四張仍然一個 `service_role` 資料權限都冇**（2026-08-22 實測）。
+
+⚠️ **今次批嘅只係 `quote_photos` 一張。**
+**將來如果有 Worker 要掂嗰四張，要另外再攞 Jason 批**，
+**唔可以當今次一齊解決咗。**
+
+### 背景：呢個發現係點嚟嘅
 
 **實測發現咗一件事**：`CLAUDE.md` §2.2 寫住新表要**明文 grant 俾 `service_role`**，
 但 2026-08-22 查實況，**四張現有表（`quote_records`、`quote_trees`、
@@ -199,22 +221,8 @@ readback verify 對 `size` + `sha256` → 寫 `quote_photos` 一行 → UI 出�
 
 即係話**嗰條規矩寫咗，但從來冇執行過**。
 
-**兩條路：**
-
-**甲、而家一次過 grant `select, insert, update` 俾 `service_role`**
-- 慳返 P3b 嗰次 migration
-- **避免重演附錄 A I1 嗰次**：`permission denied` 但表面上乜錯都冇
-- 代價：權限早咗開，P3a 期間用唔著
-
-**乙、等 P3b 先 grant**
-- 守最小權限
-- 代價：P3b 要再改一次權限，而且**唔記得就會喺半夜靜靜失敗**
-
-**我傾向甲**，因為 P3b 個 Drive 鏡像**一定要寫返 `drive_file_id` 同
-`drive_synced_at`**，冇得避。**但要 Jason 拍板。**
-
-⚠️ **P3a 本身唔 grant 都行得** —— P3a 個 Worker **設計上零 DB 查詢**，
-淨係簽 presigned URL。所以呢個決定**唔擋住 P3a 開工**。
+⚠️ **P3a 本身用唔著呢個權限** —— P3a 個 Worker **設計上零 DB 查詢**，
+淨係簽 presigned URL。**開咗係為咗 P3b。**
 
 ### SQL 草稿（未跑）
 
@@ -267,9 +275,8 @@ grant select, insert, update on public.quote_photos to authenticated;
 -- ⛔ 唔准 grant delete
 -- ⛔ 唔准 grant 俾 anon
 
--- ⚠️ service_role 嗰行等 Jason 拍板先加，見上面〈要 Jason 拍板〉。
--- 揀咗甲就加返呢行：
--- grant select, insert, update on public.quote_photos to service_role;
+-- Jason 本人批咗（2026-08-22）：Worker 寫 Drive 狀態要用，見上面。
+grant select, insert, update on public.quote_photos to service_role;
 ```
 
 ## 7. Source of truth
@@ -361,5 +368,5 @@ grant select, insert, update on public.quote_photos to authenticated;
 
 - [ ] Jason 睇完，批准開工
 - [x] 第六節三個欄（`captured_at` / `remark` / `marks`）—— **2026-08-22 答咗：三個都加**
-- [ ] `service_role` 甲定乙已經決定
+- [x] `service_role` —— **2026-08-22 Jason 本人批咗甲**
 - [ ] Jason 自己跑咗張 SQL
