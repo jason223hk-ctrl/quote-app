@@ -12,20 +12,95 @@ export type Option = {
   en: string
 }
 
-/** 樹木處理方法。可多揀；揀咗 other 先彈打字欄。 */
-export const MITIGATION_OPTIONS: Option[] = [
-  { value: 'pruning', label: '修剪', en: 'Pruning' },
-  { value: 'crown_cleaning', label: '清除枯枝', en: 'Crown cleaning' },
-  { value: 'crown_reduction', label: '縮樹冠或修矮', en: 'Crown reduction' },
-  { value: 'crown_raising', label: '提升樹冠', en: 'Crown raising' },
-  { value: 'removal', label: '斬樹或移除', en: 'Removal' },
-  { value: 'stump_removal', label: '起樹頭', en: 'Stump removal' },
+/**
+ * 樹木處理方法。
+ *
+ * ⚠️ 2026-08-22 重新分組（推翻咗 08-14「唔駛改工序名」嗰個決定，理由見
+ * `docs/開發紀錄.md` §5.4）：**啲英文名唔係「PDF 好唔好睇」，
+ * 佢就係 Drive 檔名入面嗰個類別 token** —— 對唔上，張相就入唔到 tree app
+ * 個類別排序，「跟返 tree app 命名格式就可以放返入 tree app 用」就兌現唔到。
+ *
+ * ⛔ 下面五個 token（`Crown Cleaning`、`Crown Thinning`、`Crown Reduction`、
+ * `Crown Raising`、`Close Up`）係 tree app `PRUNING_WORK_TYPES` 嘅**原文**，
+ * **大細楷一個字都唔准差**。
+ */
+
+/** 修剪嗰四個細項。⛔ 「修剪」本身唔係一個揀得嘅代號，係一個群組標題。 */
+export const PRUNING_OPTIONS: Option[] = [
+  { value: 'crown_cleaning', label: '清理樹冠', en: 'Crown Cleaning' },
+  { value: 'crown_thinning', label: '疏枝', en: 'Crown Thinning' },
+  { value: 'crown_reduction', label: '縮減樹冠', en: 'Crown Reduction' },
+  { value: 'crown_raising', label: '提升樹冠', en: 'Crown Raising' },
+]
+
+/** 五個平排項目，同修剪冇從屬關係。 */
+export const OTHER_WORK_OPTIONS: Option[] = [
+  { value: 'removal', label: '移除', en: 'Removal' },
+  { value: 'stump_removal', label: '起樹頭', en: 'Stump Removal' },
   { value: 'cabling', label: '拉索加固', en: 'Cabling' },
-  { value: 'root_pruning', label: '修根', en: 'Root pruning' },
+  { value: 'root_pruning', label: '修根', en: 'Root Pruning' },
+  { value: 'close_up', label: '近景', en: 'Close Up' },
   { value: 'other', label: '其他', en: 'Other' },
 ]
 
 export const MITIGATION_OTHER = 'other'
+
+/**
+ * ⛔ Legacy 代號，**淨係用嚟顯示返舊單，唔可以揀**。
+ *
+ * `pruning` 以前係一個揀得嘅葉，2026-08-22 之後變成群組標題。
+ * 2026-08-22 實測：`quote_trees` 入面有 **2 行**用過佢
+ * （P2 試用期、Jason 本人開嘅測試資料）。
+ *
+ * `CLAUDE.md` 零真刪 + 舊單資料要永遠查得返，所以：
+ * ⛔ 唔准 update 舊行、⛔ 唔准自動幫佢揀細項、⛔ 唔准喺清單度畀人揀返佢。
+ */
+export const MITIGATION_LEGACY = 'pruning'
+
+export const LEGACY_MITIGATION_OPTIONS: Option[] = [
+  { value: MITIGATION_LEGACY, label: '修剪（未細分）', en: 'Pruning (unspecified)' },
+]
+
+/**
+ * 揀得嘅嘢。⛔ **唔包 legacy** —— 新單只可以揀四個細項同五個平排項。
+ */
+export const SELECTABLE_MITIGATIONS: Option[] = [...PRUNING_OPTIONS, ...OTHER_WORK_OPTIONS]
+
+/**
+ * 查名用嘅完整清單。**包埋 legacy**，所以舊單顯示得返「修剪（未細分）」，
+ * 唔會空白、唔會出返個代號。
+ *
+ * ⚠️ 呢個係**顯示**用，唔係揀嘢用。揀嘢要用 `PRUNING_OPTIONS` +
+ * `OTHER_WORK_OPTIONS`（見 `TreeFormPage`）。
+ */
+export const MITIGATION_OPTIONS: Option[] = [
+  ...SELECTABLE_MITIGATIONS,
+  ...LEGACY_MITIGATION_OPTIONS,
+]
+
+/** 揀唔揀得。legacy 一律唔畀揀。 */
+export function isSelectableMitigation(value: string): boolean {
+  return SELECTABLE_MITIGATIONS.some((option) => option.value === value)
+}
+
+/**
+ * 有冇 legacy 代號喺入面 —— 有就代表呢棵樹係舊單，
+ * 畫面要講到明，⛔ 唔准靜靜咁當佢冇嘢揀過。
+ */
+export function hasLegacyMitigation(values: string[]): boolean {
+  return values.includes(MITIGATION_LEGACY)
+}
+
+/**
+ * Drive 檔名用嘅類別 token。
+ *
+ * ⚠️ legacy `pruning` **冇 token** —— 佢係群組標題，唔係一個工序。
+ * 即係話**只有 legacy、冇細分嗰棵樹影唔到工序相**，淨係影得全景相。
+ * 呢件事要喺畫面講清楚，唔好等到現場先發現。
+ */
+export function mitigationToken(value: string): string | null {
+  return SELECTABLE_MITIGATIONS.find((option) => option.value === value)?.en ?? null
+}
 
 /** 垃圾處理。必填，至少揀一個。t24 / t30 揀咗要填架數。 */
 export const WASTE_OPTIONS: Option[] = [

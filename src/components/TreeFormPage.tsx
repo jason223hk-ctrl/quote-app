@@ -1,6 +1,13 @@
 import { useState, type FormEvent, type ReactNode } from 'react'
 import { toggleValue } from '../lib/forms'
-import { MITIGATION_OPTIONS, MITIGATION_OTHER } from '../lib/options'
+import {
+  MITIGATION_OTHER,
+  OTHER_WORK_OPTIONS,
+  PRUNING_OPTIONS,
+  hasLegacyMitigation,
+  optionLabel,
+  LEGACY_MITIGATION_OPTIONS,
+} from '../lib/options'
 import {
   EMPTY_TREE_INPUT,
   treeToInput,
@@ -177,10 +184,24 @@ export default function TreeFormPage({
 
         <p className="hint">未量度就留空。留空係 null，唔會當咗零。</p>
 
+        {/*
+          「修剪」係群組標題，唔係一個揀得嘅選項 —— 所以佢做 legend，
+          真正揀嘅永遠係下面四個細項之一。咁樣就冇可能出現
+          「淨係揀咗修剪、冇細分」呢種新資料。
+        */}
         <OptionGroup
-          legend="處理方法"
+          legend="修剪"
+          hint="揀修剪就要揀返係邊一種"
+          options={PRUNING_OPTIONS}
+          values={input.mitigations}
+          disabled={busy !== null}
+          onToggle={(value) => patch({ mitigations: toggleValue(input.mitigations, value) })}
+        />
+
+        <OptionGroup
+          legend="其他處理方法"
           hint="可以揀多過一個"
-          options={MITIGATION_OPTIONS}
+          options={OTHER_WORK_OPTIONS}
           values={input.mitigations}
           disabled={busy !== null}
           onToggle={(value) => patch({ mitigations: toggleValue(input.mitigations, value) })}
@@ -198,6 +219,20 @@ export default function TreeFormPage({
             ) : null
           }
         />
+
+        {/*
+          舊單專用。⛔ 唔准消失、唔准報錯、唔准自動幫佢揀一個細項 ——
+          呢兩行係 P2 試用期留低嘅真資料（`docs/開發紀錄.md` §5.4）。
+          佢淨係顯示，冇 checkbox，所以撳唔郁亦都刪唔走。
+        */}
+        {hasLegacyMitigation(input.mitigations) && (
+          <p className="notice notice--warning" role="status">
+            呢棵樹記低咗「{optionLabel(LEGACY_MITIGATION_OPTIONS, 'pruning')}」，
+            係舊格式。<strong>照留住，唔會冇咗。</strong>
+            想寫清楚係邊一種修剪，就喺上面「修剪」揀返一個 ——
+            <strong>揀咗之後先影得到嗰個工序嘅相</strong>。
+          </p>
+        )}
 
         <label className="field">
           <span className="field__label">備註</span>
