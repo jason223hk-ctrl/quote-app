@@ -1483,3 +1483,102 @@ Vite 出嘅 JS 檔名帶住 hash（`index-XXXXXXX.js`），**新 build 一定係
 - **2100×2800** → 仲係舊 bundle ❌
 
 **一眼分得出，唔使我哋估。**
+
+---
+
+# 第 11 項跟咗：壓唔到就用返原相（2026-08-22）
+
+## 改咗之後嘅原文 —— ⭐ 係 `return`，唔係 `throw`
+
+```ts
+export type CompressResult = {
+  blob: Blob
+  /** 空 = 正常壓咗。有值 = 壓唔到，上面呢個 `blob` 係原相。 */
+  fallback: string
+}
+
+function keepOriginal(reason: string, original: Blob): CompressResult {
+  console.warn('[quote-app] compress fallback:', reason, `(${original.size} bytes 原相照上)`)
+  return { blob: original, fallback: reason }
+}
+```
+
+**八個分支全部行返佢**（EXIF 唔支援、讀唔到尺寸、冇 2d context、九點全同、
+讀唔到 canvas、`toBlob` 冇嘢、每像素太細、壓完冇細過原本）。
+**⛔ 成個 module 冇一個 `throw`。**
+
+正常嗰次：
+
+```ts
+return { blob, fallback: '' }
+```
+
+⚠️ **`fallback` 係空字串唔係 `undefined`** ——
+咁樣「有冇 fallback」**永遠答得出**，⛔ 唔會靜靜咁唔知。有測試釘住。
+
+## ⚠️ 我同意你，而且我要講明點解你講得啱
+
+**我原本個建議（throw）排錯咗優先次序。**
+成個副本契約嘅存在理由就係**唔可以失相**；
+而「一模一樣」本身亦指向跟返 tree app 個 fallback。
+**兩個理由都指向甲，我畀咗一個唔應該贏嘅理由贏。**
+
+## fallback 唔准靜靜發生 —— 我揀咗 Drive `appProperties`
+
+### 揀咗咩
+
+**上 Drive 嗰陣，喺個檔嘅 `appProperties` 加一個 `compressFallback`，
+入面就係原因。**
+
+```js
+const appProperties = { quotePhotoId: photoId }
+if (compressFallback) appProperties.compressFallback = String(compressFallback).slice(0, 120)
+```
+
+**條路**：`compressToJpeg()` 回個 `fallback` → 存落本機嗰行
+（`PendingPhoto.compressFallback`）→ `/mirror` 帶上去 → Worker 寫落 Drive。
+
+### 對返你三個條件
+
+**(a) 事後查得返，唔使靠估** ✅
+**一句 `files.list` 就數得出**：
+
+```
+q:      '<folder id>' in parents and trashed = false
+fields: files(id,name,size,appProperties)
+```
+
+**有 `compressFallback` 嘅就係 fallback，仲有原因。**
+⛔ **唔使靠「睇尺寸估」** —— 尺寸估唔準（來源本身細過 2400 嗰啲都唔係 2400）。
+
+**(b) 阿耀睇唔到** ✅
+**佢淨係喺 Drive 嘅 metadata 度。**
+畫面上張相照樣行「上緊 → 已入 R2 → 已同步，兩份齊」，
+**冇多一個字、冇黃色、冇紅色**。⛔ 對佢嚟講成功咗就係成功咗。
+（原因喺 `console.warn`，唔喺畫面。）
+
+**(c) 冇新表、冇新欄、⛔ 冇 SQL** ✅
+
+### 點解唔揀你提嗰幾個
+
+- **`remark`** —— ⛔ 唔掂得。**佢係用家自己寫嘅備註**，
+  P3d 會出喺同事版 PDF 度（第十章）。攞佢嚟裝系統訊息＝**污染用家資料**。
+- **`drive_error` / `r2_error`** —— ⛔ 兩個問題。
+  一，fallback **唔係 error**，擺喺 error 欄係講錯嘢。
+  二，**`statusOfRow()` 用 `r2_error` 判斷「有事要人睇」** ——
+  擺落去阿耀就會見到紅字，**直接違反 (b)**。
+- **`marks` jsonb** —— ⛔ 佢係 P3d 畫線座標嘅位。
+  而家搶咗佢，等於**幫 P3d 決定咗個資料格式**，而 P3d 未設計。
+- **開一個新欄** —— 做得到，但**要 Jason 跑 SQL**，
+  而 `appProperties` 已經做到 (a)(b)(c)，**唔值得為咗佢加一次 migration**。
+
+### ⚠️ 一個要講明嘅限制
+
+**張相未上到 Drive 之前，個記號淨係喺部機**（IndexedDB）。
+**即係「只喺部機」同「已入 R2、Drive 未做」嗰兩個階段，server 側查唔到。**
+
+**點解可以接受**：**呢兩個階段張相根本仲未入到共用資料夾**，
+冇人會喺嗰陣去對相。**一上到 Drive，記號就同張相一齊到。**
+
+⛔ **如果 Jason 想連 R2 階段都查得到，就要開個新欄，要佢跑 SQL。**
+**我唔會自己開。**
