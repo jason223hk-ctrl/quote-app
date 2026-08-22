@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { uploadPending, targetSize, type PendingPhoto, type UploadDeps } from './photoUpload'
+import { JPEG_QUALITY, MAX_EDGE } from './photoTransport'
 import type { QuotePhoto } from './photos'
 
 const bytes = new Uint8Array([1, 2, 3, 4, 5])
@@ -128,19 +129,29 @@ describe('uploadPending 出事嗰陣', () => {
 })
 
 describe('targetSize', () => {
-  it('長邊縮到 2048，短邊按比例', () => {
-    expect(targetSize(4096, 3072, 2048)).toEqual({ width: 2048, height: 1536 })
+  it('長邊縮到 2800，短邊按比例', () => {
+    expect(targetSize(4200, 3150, 2800)).toEqual({ width: 2800, height: 2100 })
   })
 
   it('直度相一樣得', () => {
-    expect(targetSize(3072, 4096, 2048)).toEqual({ width: 1536, height: 2048 })
+    expect(targetSize(3150, 4200, 2800)).toEqual({ width: 2100, height: 2800 })
   })
 
   it('本身細過就唔放大 —— 放大只會變大份，唔會變清楚', () => {
-    expect(targetSize(800, 600, 2048)).toEqual({ width: 800, height: 600 })
+    expect(targetSize(800, 600, 2800)).toEqual({ width: 800, height: 600 })
   })
 
   it('零唔會爆', () => {
-    expect(targetSize(0, 0, 2048)).toEqual({ width: 0, height: 0 })
+    expect(targetSize(0, 0, 2800)).toEqual({ width: 0, height: 0 })
+  })
+})
+
+describe('壓縮參數', () => {
+  it('⛔ 長邊要同 tree app 一樣係 2800 —— P6 轉工程之後兩邊相唔可以一大一細', () => {
+    expect(MAX_EDGE).toBe(2800)
+  })
+
+  it('質素維持 0.85，同 tree app capture 嗰 pass 一樣', () => {
+    expect(JPEG_QUALITY).toBe(0.85)
   })
 })

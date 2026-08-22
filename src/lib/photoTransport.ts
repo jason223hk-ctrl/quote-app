@@ -8,7 +8,15 @@ import { targetSize, type SignedUrls, type UploadDeps } from './photoUpload'
  * 一個 145 張相嘅工程應該問一次攞晒，唔係問 145 次
  * （`docs/P3-現場影相-設計.md` 第三章）。P3a 一次得一張，但條路要行得通。
  */
-export const MAX_EDGE = 2048
+/**
+ * 長邊 2800 —— **跟返 tree app**（`src/lib/imageCompress.ts:110`
+ * 嘅 `{ longEdge = 2800, quality = 85 }`）。
+ *
+ * 唔係為咗一樣而一樣：quote app 影嘅相會**原封不動轉入 tree app 做事前相**，
+ * 兩邊解像度唔同，同一棵樹嘅事前相同事後相就會一大一細，
+ * **PDF 兩欄擺埋一齊會好明顯**。同一條規則亦即係將來改畫質只改一個地方。
+ */
+export const MAX_EDGE = 2800
 export const JPEG_QUALITY = 0.85
 
 /** Worker 未設定唔會白畫面，亦唔會靜靜失敗——影相個掣會講到明。 */
