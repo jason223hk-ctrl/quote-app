@@ -1161,3 +1161,102 @@ select.field__input {
   gap: 14px;
   padding: 18px 16px calc(18px + env(safe-area-inset-bottom, 0px));
 }
+
+/* ── P3a 相片（全景格）─────────────────────────────────────────────
+   ⛔ 狀態文字唔准縮到細過內文：現場戴住手套、太陽底下，
+   「上唔到」呢句一定要睇得清楚，否則等於靜靜降級。 */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.photo-slot__title {
+  margin: 0 0 4px;
+  font-size: 16px;
+  color: var(--q-text-primary);
+}
+
+.photo-slot__buttons {
+  display: flex;
+  gap: 10px;
+  margin: 12px 0 4px;
+}
+
+.photo-slot__buttons .button {
+  flex: 1;
+}
+
+.photo-list {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.photo-list__item {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 10px;
+  border-radius: 12px;
+  background: var(--q-card-alt);
+}
+
+.photo-list__thumb {
+  width: 72px;
+  height: 72px;
+  flex: 0 0 72px;
+  object-fit: cover;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.06);
+}
+
+.photo-list__thumb--none {
+  display: block;
+}
+
+.photo-list__text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.photo-list__status {
+  font-size: 15px;
+}
+
+.photo-list__hint,
+.photo-list__error {
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.photo-list__hint {
+  color: var(--q-text-secondary);
+}
+
+.photo-list__error {
+  color: var(--q-danger);
+}
+
+/* 出事嗰張要一眼睇得出，唔可以同其他相一樣咁靜。 */
+.photo-list__item[data-status='error'] {
+  background: var(--q-danger-bg);
+}
+
+.button--small {
+  align-self: flex-start;
+  padding: 8px 14px;
+  font-size: 14px;
+  min-height: 40px;
+}

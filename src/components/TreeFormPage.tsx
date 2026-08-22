@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+import { useState, type FormEvent, type ReactNode } from 'react'
 import { toggleValue } from '../lib/forms'
 import { MITIGATION_OPTIONS, MITIGATION_OTHER } from '../lib/options'
 import {
@@ -24,6 +24,8 @@ type Props = {
   onSave: (input: TreeInput) => Promise<void>
   onDelete: () => Promise<void>
   onBack: () => void
+  /** P3a 嗰格全景相。由上面餵落嚟，呢一版唔洗識得相片係點運作。 */
+  photoSlot?: ReactNode
 }
 
 export default function TreeFormPage({
@@ -34,6 +36,7 @@ export default function TreeFormPage({
   onSave,
   onDelete,
   onBack,
+  photoSlot,
 }: Props) {
   const [input, setInput] = useState<TreeInput>(() =>
     tree ? treeToInput(tree) : { ...EMPTY_TREE_INPUT, tree_no: suggestedTreeNo },
@@ -217,6 +220,8 @@ export default function TreeFormPage({
           {busy === 'save' ? '儲存中…' : '儲存'}
         </button>
       </form>
+
+      {photoSlot}
 
       {tree && (
         <div className="card danger-zone">

@@ -3,6 +3,7 @@ import type { Session, SupabaseClient } from '@supabase/supabase-js'
 import { createRecordsApi, type QuoteRecord, type RecordsApi } from '../lib/records'
 import { createTreesApi, type TreesApi } from '../lib/trees'
 import { createSiteFormApi, type SiteFormApi } from '../lib/siteForm'
+import { createPhotosApi, type PhotosApi } from '../lib/photos'
 import { activeTab, type Nav, type Route } from '../ui/routes'
 import { BottomNav, userInfoFrom, type UserInfo } from '../ui/shell'
 import HomeScreen from './HomeScreen'
@@ -22,6 +23,7 @@ export type QuoteApi = {
   records: RecordsApi
   trees: TreesApi
   siteForm: SiteFormApi
+  photos: PhotosApi
 }
 
 export default function HomePage({ client, session }: Props) {
@@ -30,6 +32,7 @@ export default function HomePage({ client, session }: Props) {
       records: createRecordsApi(client, session.user.id),
       trees: createTreesApi(client, session.user.id),
       siteForm: createSiteFormApi(client, session.user.id),
+      photos: createPhotosApi(client, session.user.id),
     }),
     [client, session.user.id],
   )
@@ -39,6 +42,7 @@ export default function HomePage({ client, session }: Props) {
       api={api}
       user={userInfoFrom(session.user.email ?? '')}
       userId={session.user.id}
+      accessToken={session.access_token}
       onSignOut={() => client.auth.signOut()}
     />
   )
@@ -48,6 +52,8 @@ type ScreenProps = {
   api: QuoteApi
   user: UserInfo
   userId: string
+  /** 攞 R2 簽名網址嗰陣要用嚟證明身分。⛔ 唔會存落任何地方。 */
+  accessToken: string
   onSignOut: () => Promise<unknown>
 }
 
@@ -57,7 +63,7 @@ type ScreenProps = {
  *
  * 資料流冇變（P1 定落）：每次寫入之後由 server 重新攞清單，DB 係唯一 source of truth。
  */
-export function RecordsScreen({ api, user, userId, onSignOut }: ScreenProps) {
+export function RecordsScreen({ api, user, userId, accessToken, onSignOut }: ScreenProps) {
   const [records, setRecords] = useState<QuoteRecord[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -181,6 +187,8 @@ export function RecordsScreen({ api, user, userId, onSignOut }: ScreenProps) {
         return (
           <TreesScreen
             api={api.trees}
+            photos={api.photos}
+            accessToken={accessToken}
             record={record}
             onBack={() => nav.go({ name: 'record', recordId: record.id })}
           />

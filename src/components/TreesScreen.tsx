@@ -8,11 +8,15 @@ import {
   type TreesApi,
 } from '../lib/trees'
 import type { QuoteRecord } from '../lib/records'
+import type { PhotosApi } from '../lib/photos'
+import PhotoSlot from './PhotoSlot'
 import { BackChip, BotanicalHeader, FloatBody, HeaderTitle, StatCard } from '../ui/shell'
 import TreeFormPage from './TreeFormPage'
 
 type Props = {
   api: TreesApi
+  photos: PhotosApi
+  accessToken: string
   record: QuoteRecord
   onBack: () => void
 }
@@ -39,7 +43,7 @@ function mitigationLine(tree: QuoteTree): string {
 }
 
 /** 04 樹木清單。殼照 tree-app-v7 `ProjectDetailScreen` 嘅樹卡清單。 */
-export default function TreesScreen({ api, record, onBack }: Props) {
+export default function TreesScreen({ api, photos, accessToken, record, onBack }: Props) {
   const [trees, setTrees] = useState<QuoteTree[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -94,6 +98,19 @@ export default function TreesScreen({ api, record, onBack }: Props) {
           })
         }
         onBack={() => setView({ kind: 'list' })}
+        photoSlot={
+          // 新樹未有 id，未有 id 就冇嘢可以掛住張相。儲存咗先影得。
+          editing ? (
+            <PhotoSlot
+              api={photos}
+              accessToken={accessToken}
+              recordId={record.id}
+              treeId={editing.id}
+            />
+          ) : (
+            <p className="hint">先儲存呢棵樹，之後就影得全景相。</p>
+          )
+        }
       />
     )
   }

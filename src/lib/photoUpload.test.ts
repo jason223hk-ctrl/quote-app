@@ -1,0 +1,146 @@
+import { describe, expect, it, vi } from 'vitest'
+import { uploadPending, targetSize, type PendingPhoto, type UploadDeps } from './photoUpload'
+import type { QuotePhoto } from './photos'
+
+const bytes = new Uint8Array([1, 2, 3, 4, 5])
+
+function pending(): PendingPhoto {
+  return {
+    operationId: 'op-1',
+    recordId: 'record-1',
+    treeId: 'tree-1',
+    capturedAt: '2026-08-22T01:00:00.000Z',
+    size: bytes.byteLength,
+    sha256: 'sha-good',
+    blob: new Blob([bytes], { type: 'image/jpeg' }),
+    status: 'local',
+    error: '',
+    attempts: 0,
+  }
+}
+
+const savedRow = { id: 'photo-1', operation_id: 'op-1' } as unknown as QuotePhoto
+
+function deps(overrides: Partial<UploadDeps> = {}): UploadDeps {
+  return {
+    sign: vi.fn(async () => ({ key: 'user-1/op-1.jpg', put: 'https://r2/put', get: 'https://r2/get' })),
+    putBytes: vi.fn(async () => {}),
+    getBytes: vi.fn(async () => bytes.buffer.slice(0) as ArrayBuffer),
+    digest: vi.fn(async () => 'sha-good'),
+    findRow: vi.fn(async () => null),
+    saveRow: vi.fn(async () => savedRow),
+    ...overrides,
+  }
+}
+
+describe('uploadPending 順利嗰次', () => {
+  it('簽網址 → 上 bytes → 讀返對數 → 寫一行', async () => {
+    const d = deps()
+    const result = await uploadPending(pending(), d)
+
+    expect(result).toEqual({ ok: true, row: savedRow, alreadyDone: false })
+    expect(d.putBytes).toHaveBeenCalledTimes(1)
+    expect(d.getBytes).toHaveBeenCalledTimes(1)
+    expect(d.saveRow).toHaveBeenCalledTimes(1)
+  })
+
+  it('攞簽名網址嗰陣只俾影相編號，唔俾檔名 —— 檔名由 Worker 自己砌', async () => {
+    const d = deps()
+    await uploadPending(pending(), d)
+    expect(d.sign).toHaveBeenCalledWith('op-1', 'image/jpeg')
+  })
+
+  it('r2_key 用 Worker 回嗰個，唔用前端砌嗰個', async () => {
+    const d = deps({
+      sign: vi.fn(async () => ({ key: '真-user/op-1.jpg', put: 'p', get: 'g' })),
+    })
+    await uploadPending(pending(), d)
+    expect(vi.mocked(d.saveRow).mock.calls[0][0].r2Key).toBe('真-user/op-1.jpg')
+  })
+})
+
+describe('uploadPending 重試', () => {
+  it('已經有行就唔會再上一次，亦唔會多寫一行', async () => {
+    const d = deps({ findRow: vi.fn(async () => savedRow) })
+    const result = await uploadPending(pending(), d)
+
+    expect(result).toEqual({ ok: true, row: savedRow, alreadyDone: true })
+    expect(d.putBytes).not.toHaveBeenCalled()
+    expect(d.saveRow).not.toHaveBeenCalled()
+  })
+})
+
+describe('uploadPending 出事嗰陣', () => {
+  it('攞唔到網址：出中文，而且講明相仲喺部機', async () => {
+    const d = deps({ sign: vi.fn(async () => { throw new Error('offline') }) })
+    const result = await uploadPending(pending(), d)
+
+    expect(result.ok).toBe(false)
+    if (result.ok) return
+    expect(result.message).toContain('相仲喺部機度')
+    expect(d.putBytes).not.toHaveBeenCalled()
+  })
+
+  it('上傳中斷：唔會寫 DB', async () => {
+    const d = deps({ putBytes: vi.fn(async () => { throw new Error('connection reset') }) })
+    const result = await uploadPending(pending(), d)
+
+    expect(result.ok).toBe(false)
+    expect(d.saveRow).not.toHaveBeenCalled()
+  })
+
+  it('讀唔返出嚟核對：⛔ 唔准當成功', async () => {
+    const d = deps({ getBytes: vi.fn(async () => { throw new Error('404') }) })
+    const result = await uploadPending(pending(), d)
+
+    expect(result.ok).toBe(false)
+    expect(d.saveRow).not.toHaveBeenCalled()
+  })
+
+  it('⛔ sha 對唔上：唔准寫「已入 R2」', async () => {
+    const d = deps({ digest: vi.fn(async () => 'sha-bad') })
+    const result = await uploadPending(pending(), d)
+
+    expect(result.ok).toBe(false)
+    if (result.ok) return
+    expect(result.message).toContain('對唔到數')
+    expect(d.saveRow).not.toHaveBeenCalled()
+  })
+
+  it('⛔ size 對唔上：一樣唔准寫', async () => {
+    const d = deps({ getBytes: vi.fn(async () => new Uint8Array([1, 2]).buffer as ArrayBuffer) })
+    const result = await uploadPending(pending(), d)
+
+    expect(result.ok).toBe(false)
+    expect(d.saveRow).not.toHaveBeenCalled()
+  })
+
+  it('寫 DB 被擋（RLS 0 行）：出中文，唔會扮成功', async () => {
+    const d = deps({
+      saveRow: vi.fn(async () => { throw new Error('相片記錄寫唔入資料庫。') }),
+    })
+    const result = await uploadPending(pending(), d)
+
+    expect(result.ok).toBe(false)
+    if (result.ok) return
+    expect(result.message).toContain('資料庫')
+  })
+})
+
+describe('targetSize', () => {
+  it('長邊縮到 2048，短邊按比例', () => {
+    expect(targetSize(4096, 3072, 2048)).toEqual({ width: 2048, height: 1536 })
+  })
+
+  it('直度相一樣得', () => {
+    expect(targetSize(3072, 4096, 2048)).toEqual({ width: 1536, height: 2048 })
+  })
+
+  it('本身細過就唔放大 —— 放大只會變大份，唔會變清楚', () => {
+    expect(targetSize(800, 600, 2048)).toEqual({ width: 800, height: 600 })
+  })
+
+  it('零唔會爆', () => {
+    expect(targetSize(0, 0, 2048)).toEqual({ width: 0, height: 0 })
+  })
+})

@@ -370,3 +370,71 @@ grant select, insert, update on public.quote_photos to service_role;
 - [x] 第六節三個欄（`captured_at` / `remark` / `marks`）—— **2026-08-22 答咗：三個都加**
 - [x] `service_role` —— **2026-08-22 Jason 本人批咗甲**
 - [ ] Jason 自己跑咗張 SQL
+
+---
+
+# 實作紀錄（2026-08-22，branch `claude/quote-app-scaffold-deploy-4yb3pe`）
+
+**⛔ 未 merge 入 `main`。** `main` 仍然係 last-known-good。
+
+## 加咗嘅新檔
+
+- `src/lib/photos.ts` —— `quote_photos` 資料層、四個狀態、對數、`photoInsertToRow`
+- `src/lib/photoUpload.ts` —— 上傳成條路（外部世界全部由外面餵入，所以測得到）
+- `src/lib/photoStore.ts` —— 部機嗰份（IndexedDB，冇加 library）
+- `src/lib/photoTransport.ts` —— 壓縮、同 Worker 攞網址、直接同 R2 講
+- `src/components/PhotoSlot.tsx` —— 全景格
+- `src/lib/photos.test.ts`、`src/lib/photoUpload.test.ts` —— 31 個新測試
+- `worker/` —— 簽網址 Worker（⛔ **未部署**）
+
+## 改咗嘅舊檔（三個核心模組，啱啱到上限）
+
+- `src/components/HomePage.tsx` —— `QuoteApi` 加 `photos`，傳 access token 落去
+- `src/components/TreesScreen.tsx` —— 傳 `photos` 落 `TreeFormPage`
+- `src/components/TreeFormPage.tsx` —— 多咗一個 `photoSlot` prop，**佢自己唔識相片係點運作**
+
+另外加咗 CSS 同 `.env.example` 一行，兩樣都唔算核心模組。
+
+## 跑咗咩、真實結果係咩
+
+**`npm run gate` 全綠**：typecheck → lint → **125 個測試全過** → build。
+**原有 94 個一個都冇跌**（94 + 31 = 125）。
+
+**本機 harness（假 API、假 R2）行咗成條路，五種情況：**
+
+- 順利 → **「已入 R2（Drive 未做）」**
+- 第二張相 → 一樣得，冇撞
+- 攞唔到簽名網址（503）→ **「有事要人睇」** + 紅字
+  「攞唔到上傳網址：上傳服務回覆 503。相仲喺部機度，唔會冇咗。」
+- 上傳中斷（500）→ **「有事要人睇」** + 紅字
+  「上傳中斷：R2 回覆 500。相仲喺部機度，撳『再試一次』就得。」
+- **讀返出嚟對唔到數** → **「有事要人睇」** + 紅字
+  「對唔到數：上傳前 759 bytes，讀返出嚟 3 bytes。呢張相未算上到。」
+  ⛔ **冇寫入資料庫**
+
+**關咗再開嗰個測試：**
+
+1. 上唔到 → 「有事要人睇」
+2. **重新載入成頁** → 相**仲喺**、**縮圖仲喺**、狀態照舊「有事要人睇」
+3. 撳「再試一次」→ **「已入 R2」**，而且**相片行數仍然係 1** ——
+   重試冇整多一行出嚟（用返同一個影相編號）
+
+## ⛔ 未做得到嘅嘢（要人手做）
+
+1. **Worker 未部署。** Code 喺 `worker/`，但部署 Worker 同放 secret 要 Jason 做
+   （方法論第十五條）。**未部署之前，真機影相上唔到 R2。**
+2. **`VITE_PHOTO_WORKER_URL` 未設定。** 未設定唔會白畫面亦唔會靜靜失敗 ——
+   相照影照存落部機，畫面明寫「未設定相片上傳服務」。
+3. **`quote_photos` 未開。** 等 Jason 跑第六節張 SQL。
+4. **preview 未驗過。** 呢個容器出唔到 Cloudflare，
+   所以 preview build 成功與否要 Jason 喺 Pages 面板睇。
+
+## 順手記低嘅兩個實作決定
+
+**一、上到 R2 之後，⛔ 唔會刪部機嗰份。**
+P3a 之後得 R2 一份雲端副本，部機嗰份係「仲剩幾多份」入面實實在在嘅一份。
+（P3b 之後可以再諗，但唔屬 P3a。）
+
+**二、新樹未儲存唔影得相。**
+新樹未有 id，冇嘢可以掛住張相。畫面出「先儲存呢棵樹，之後就影得全景相」。
+呢個係方法論第十六條嗰種**限制**：一句限制，慳返一大堆「未有 id 嘅相點算」嘅邏輯。

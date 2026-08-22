@@ -1,0 +1,21 @@
+# quote-app 相片上傳 Worker。
+#
+# ⛔ 呢個係 quote app 自己嘅 Worker。
+#    同 tree app 個 `tree-drive-mirror` 冇任何關係，亦唔准掂佢。
+# ⛔ 只可以寫 `quote-photos` 呢個 bucket。tree app 個 `tree-photos` 一個 byte 都唔准掂。
+
+name = "quote-photos-sign"
+main = "src/worker.mjs"
+compatibility_date = "2026-08-22"
+
+[vars]
+R2_BUCKET = "quote-photos"
+# 部署嗰陣填返：
+# R2_ACCOUNT_ID = ""
+# SUPABASE_URL = ""
+# SUPABASE_PUBLISHABLE_KEY = ""
+# ALLOWED_ORIGIN = "https://sylvan-quote.pages.dev"
+
+# ⛔ 兩個 secret 用 `wrangler secret put` 放，唔准寫入呢個檔、唔准入 repo：
+#   R2_ACCESS_KEY_ID
+#   R2_SECRET_ACCESS_KEY
