@@ -804,3 +804,74 @@ where deleted_at is null
 
 ⚠️ **但佢亦都唔會自己消失** —— 佢會變成一個**孤兒檔**，
 **要人手刪**（第四步）。
+
+## ⚠️ 如果唔止一行：⛔ 唔准全部改成 `seq = 1`
+
+**`seq` 係「同一格入面第幾張」**（第三章）。
+同一棵樹、同一個工序入面**兩張都叫 `seq = 1`，就會砌出兩個一模一樣嘅檔名**。
+
+### 先睇清楚係咩情況
+
+```sql
+-- 每一組（邊棵樹、邊個工序）有幾多張 seq < 1 嘅相
+select tree_id,
+       coalesce(mitigation, '(全景相)') as 工序,
+       count(*) as 幾多張
+from quote_photos
+where deleted_at is null and seq < 1
+group by tree_id, mitigation
+order by 幾多張 desc;
+```
+
+**每組都係 1 → 用上面第二步嗰句簡單 update 就得。**
+**有組多過 1 → 用下面嗰句。**
+
+### 多過一張嗰陣：按 `created_at` 重新編 1、2、3…
+
+```sql
+-- ⛔ Jason 自己跑。同一組（樹＋工序）入面按影相次序重新編。
+-- 全景相 tree_id 有值、mitigation 係 null；工程相 tree_id 係 null，
+-- 所以分組要兩樣一齊睇。
+with ordered as (
+  select id,
+         row_number() over (
+           partition by coalesce(tree_id::text, 'record:' || record_id::text),
+                        coalesce(mitigation, '')
+           order by created_at, id
+         ) as new_seq
+  from quote_photos
+  where deleted_at is null
+    and seq < 1
+)
+update quote_photos p
+set seq = o.new_seq,
+    drive_file_id = '',
+    drive_synced_at = null,
+    drive_error = ''
+from ordered o
+where p.id = o.id;
+```
+
+### ⛔ 一個要留意嘅位
+
+**呢句只重編 `seq < 1` 嗰啲。**
+如果同一組入面**已經有啱數嘅相**（例如已經有 `seq = 1`），
+**重編出嚟就會撞返佢。**
+
+**驗返有冇撞：**
+
+```sql
+select coalesce(tree_id::text, 'record:' || record_id::text) as 組,
+       coalesce(mitigation, '(全景相)') as 工序,
+       seq, count(*)
+from quote_photos
+where deleted_at is null
+group by 1, 2, 3
+having count(*) > 1;
+```
+
+**有結果 = 有撞，⛔ 停低唔好開 app**，返嚟講，
+要**成組一齊重編**（唔止 `seq < 1` 嗰啲）。
+
+⚠️ **成組重編嘅代價**：**已經上咗 Drive 嗰啲會換檔名**，
+舊檔名嗰個會變孤兒檔，**要人手清**。所以**能夠只動未鏡像嗰啲就最好**。
