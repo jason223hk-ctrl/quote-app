@@ -152,7 +152,7 @@ export default function PhotoSlot({ api, accessToken, recordId, treeId }: Props)
    * ⛔ 失敗要留低痕跡，唔准靜靜過骨。
    */
   const runMirror = useCallback(
-    async (row: QuotePhoto) => {
+    async (row: QuotePhoto, fallbackReason?: string) => {
       // ⛔ 由 store 度讀返最新嗰個，唔用 React state ——
       // state 有機會落後半拍，而「試咗幾多次」數少咗就會無限試落去。
       const before = await photoStore.get(row.operation_id)
@@ -160,7 +160,11 @@ export default function PhotoSlot({ api, accessToken, recordId, treeId }: Props)
         return { ok: false as const, message: before.driveError ?? '' }
       }
 
-      const result = await mirrorPhoto(accessToken, row.id)
+      const result = await mirrorPhoto(
+        accessToken,
+        row.id,
+        fallbackReason ?? before?.compressFallback ?? '',
+      )
       if (before) {
         await photoStore.put({
           ...before,
@@ -216,7 +220,7 @@ export default function PhotoSlot({ api, accessToken, recordId, treeId }: Props)
       await photoStore.put({ ...item, status: 'uploaded', error: '' })
       // 影完即刻試一次鏡像。唔成功就留低狀態，下次開 app 補（§7.5）。
       triedRef.current.add(result.row.id)
-      const mirrored = await runMirror(result.row)
+      const mirrored = await runMirror(result.row, item.compressFallback ?? '')
       if (!mirrored.ok) setError(mirrored.message)
     } else {
       // ⛔ 失敗就係失敗。部機嗰份照留住，唔會刪。
@@ -240,7 +244,7 @@ export default function PhotoSlot({ api, accessToken, recordId, treeId }: Props)
         throw new Error('呢部機嘅瀏覽器唔支援本機儲存，影咗都留唔住。請截圖搵 Jason。')
       }
 
-      const blob = await compressToJpeg(file)
+      const { blob, fallback } = await compressToJpeg(file)
       const buffer = await blob.arrayBuffer()
       const item: PendingPhoto = {
         operationId: newOperationId(),
@@ -253,6 +257,10 @@ export default function PhotoSlot({ api, accessToken, recordId, treeId }: Props)
         status: 'local',
         error: '',
         attempts: 0,
+        // ⛔ 壓唔到就用返原相（第 11 項），但唔准靜靜咁 fallback ——
+        //    留低原因，之後跟住張相上 Drive。⚠️ 阿耀睇唔到呢樣嘢：
+        //    對佢嚟講張相成功咗就係成功咗。
+        compressFallback: fallback,
       }
 
       // 先寫落部機，再讀返出嚟對數 —— 對到先算存到，先至好講上傳。

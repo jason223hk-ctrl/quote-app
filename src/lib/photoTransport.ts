@@ -54,9 +54,26 @@ export const WORKER_MISSING_MESSAGE =
  * 佢一答，**淨係要改呢一個 function**，唔使周圍搵。
  * 詳情見 `docs/P3b-計劃書.md`「由攞到 File 到拎到 Blob」。
  */
-function refuseToCompress(reason: string, original: Blob): never {
-  console.error('[quote-app] compress refused:', reason, `(${original.size} bytes)`)
-  throw new Error(`${reason}請再影一次，或者截圖搵 Jason。`)
+export type CompressResult = {
+  blob: Blob
+  /** 空 = 正常壓咗。有值 = 壓唔到，上面呢個 `blob` 係原相。 */
+  fallback: string
+}
+
+/**
+ * ⛔ 壓唔到嗰陣：**用返原相，唔 throw。**（Jason 2026-08-22 拍板，第 11 項）
+ *
+ * 佢知道代價仍然揀呢個：**相留得住，但嗰張唔係 2400 / 0.80。**
+ * 點解：**唔可以失相** —— 成個副本契約就係為咗呢件事。
+ *
+ * ⛔ **但唔准靜靜咁 fallback。** 一張 fallback 上去嘅相係原相 ——
+ * 可能幾 MB、尺寸唔知、方向未必轉過 —— 佢會同其他 2400/0.80 嘅相
+ * 混埋一齊，**將來冇人知邊張係 fallback**。
+ * 所以每次都留低個原因，見 `PhotoSlot` 同 Worker 個 `compressFallback`。
+ */
+function keepOriginal(reason: string, original: Blob): CompressResult {
+  console.warn('[quote-app] compress fallback:', reason, `(${original.size} bytes 原相照上)`)
+  return { blob: original, fallback: reason }
 }
 
 /**
@@ -109,7 +126,7 @@ export function looksBlankBySize(byteLength: number, w: number, h: number): bool
  * 壓一次：長邊 2400、JPEG 0.80。R2 同 Drive 之後存嘅係同一份 bytes，
  * 所以壓縮只可以喺呢一個位發生，之後唔准再壓第二次（`sha256` 會唔同）。
  */
-export async function compressToJpeg(file: Blob): Promise<Blob> {
+export async function compressToJpeg(file: Blob): Promise<CompressResult> {
   let bitmap: ImageBitmap
   try {
     // ⛔ 一定要 `imageOrientation: 'from-image'`（跟 tree app）。
@@ -119,13 +136,13 @@ export async function compressToJpeg(file: Blob): Promise<Blob> {
     //    "silently save a sideways photo"）。
     bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' })
   } catch {
-    return refuseToCompress('呢部機唔識自動轉正相片方向（EXIF），怕存低一張打橫嘅相。', file)
+    return keepOriginal('呢部機唔識自動轉正相片方向（EXIF）', file)
   }
 
   const size = targetSize(bitmap.width, bitmap.height, MAX_EDGE)
   if (!size.width || !size.height) {
     bitmap.close()
-    return refuseToCompress('讀唔到張相嘅尺寸。', file)
+    return keepOriginal('讀唔到張相嘅尺寸', file)
   }
 
   const canvas = document.createElement('canvas')
@@ -135,7 +152,7 @@ export async function compressToJpeg(file: Blob): Promise<Blob> {
   const context = canvas.getContext('2d')
   if (!context) {
     bitmap.close()
-    return refuseToCompress('部機嘅瀏覽器整唔到縮圖。', file)
+    return keepOriginal('部機嘅瀏覽器整唔到縮圖', file)
   }
   context.drawImage(bitmap, 0, 0, size.width, size.height)
   bitmap.close()
@@ -145,27 +162,27 @@ export async function compressToJpeg(file: Blob): Promise<Blob> {
   //    唔喺呢度捉，就會變成「畫面出綠色勾，返到公司先發現係白相」。
   try {
     if (samplesLookUniform(samplePixels(context, size.width, size.height))) {
-      return refuseToCompress('張相讀返出嚟係一片空白（可能係部機嘅相片尺寸上限）。', file)
+      return keepOriginal('畫出嚟一片空白（可能撞到部機嘅相片尺寸上限）', file)
     }
   } catch {
-    return refuseToCompress('證實唔到張相真係影到嘢。', file)
+    return keepOriginal('證實唔到張相真係影到嘢', file)
   }
 
   const blob = await new Promise<Blob | null>((resolve) =>
     canvas.toBlob(resolve, 'image/jpeg', JPEG_QUALITY),
   )
-  if (!blob || blob.size <= 0) return refuseToCompress('壓縮相片失敗。', file)
+  if (!blob || blob.size <= 0) return keepOriginal('壓縮相片失敗', file)
 
   if (looksBlankBySize(blob.size, size.width, size.height)) {
-    return refuseToCompress('壓完出嚟細到唔似一張真相（可能係一片空白）。', file)
+    return keepOriginal('壓完細到唔似一張真相（可能係一片空白）', file)
   }
 
   // 壓完仲大過原本，而且根本冇縮過 —— 咁就唔值得用壓縮嗰份。
   if (blob.size >= file.size && !size.scaled) {
-    return refuseToCompress('壓完冇細過原本張相。', file)
+    return keepOriginal('壓完冇細過原本張相', file)
   }
 
-  return blob
+  return { blob, fallback: '' }
 }
 
 async function signedFromWorker(
@@ -230,7 +247,11 @@ export type MirrorResult = { ok: true; alreadyDone: boolean } | { ok: false; mes
  * ⛔ bytes 唔會經前端 —— 呢度淨係傳一個相片 id 過去，
  * Worker 自己由 R2 讀返出嚟原封不動上 Drive。
  */
-export async function mirrorPhoto(accessToken: string, photoId: string): Promise<MirrorResult> {
+export async function mirrorPhoto(
+  accessToken: string,
+  photoId: string,
+  compressFallback = '',
+): Promise<MirrorResult> {
   const base = photoWorkerBase()
   if (base === '') return { ok: false, message: WORKER_MISSING_MESSAGE }
 
@@ -238,7 +259,7 @@ export async function mirrorPhoto(accessToken: string, photoId: string): Promise
     const response = await fetch(`${base}/mirror`, {
       method: 'POST',
       headers: { 'content-type': 'application/json', authorization: `Bearer ${accessToken}` },
-      body: JSON.stringify({ photoId }),
+      body: JSON.stringify({ photoId, compressFallback }),
     })
     const body = (await response.json().catch(() => ({}))) as { message?: string }
     if (!response.ok) {

@@ -261,11 +261,18 @@ async function driveFileSize(token, fileId) {
   return size === undefined ? null : size
 }
 
-async function uploadToDrive(token, name, folderId, bytes, photoId) {
+async function uploadToDrive(token, name, folderId, bytes, photoId, compressFallback) {
   const boundary = 'quoteapp' + name.length + bytes.byteLength
   // ⛔ `appProperties.quotePhotoId` 係之後認返「邊張相」嘅唯一根據，
   //    唔可以靠檔名（I7）。
-  const meta = JSON.stringify({ name, parents: [folderId], appProperties: { quotePhotoId: photoId } })
+  //
+  // ⛔ `compressFallback` 有值 = **呢張係原相，唔係 2400/0.80**。
+  //    留低係因為 fallback 唔准靜靜咁發生：張原相會同其他相混埋一齊，
+  //    冇呢個記號就冇人知邊張係。⚠️ 佢淨係喺 Drive metadata 度，
+  //    **阿耀喺現場完全睇唔到**。
+  const appProperties = { quotePhotoId: photoId }
+  if (compressFallback) appProperties.compressFallback = String(compressFallback).slice(0, 120)
+  const meta = JSON.stringify({ name, parents: [folderId], appProperties })
   const head = `--${boundary}\r\ncontent-type: application/json; charset=UTF-8\r\n\r\n${meta}\r\n--${boundary}\r\ncontent-type: image/jpeg\r\n\r\n`
   const tail = `\r\n--${boundary}--`
   const enc = new TextEncoder()
@@ -403,7 +410,14 @@ async function mirror(request, env, origin) {
       const bytes = await r2.arrayBuffer()
       // ⛔ 原封不動上去。唔准喺呢度再壓一次 —— 再壓 sha256 就唔同，
       //    「仲剩幾多份」個契約即刻驗唔到（docs/開發紀錄.md §九）。
-      fileId = await uploadToDrive(gtoken, filename, folderId, bytes, photo.id)
+      fileId = await uploadToDrive(
+        gtoken,
+        filename,
+        folderId,
+        bytes,
+        photo.id,
+        typeof body.compressFallback === 'string' ? body.compressFallback : '',
+      )
 
       // ⛔ 上完即刻讀返出嚟對大細 —— 對唔到就唔准寫「抄咗」。
       const check = await driveFileSize(gtoken, fileId)

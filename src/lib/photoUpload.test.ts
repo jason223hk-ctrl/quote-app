@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { uploadPending, targetSize, type PendingPhoto, type UploadDeps } from './photoUpload'
-import { JPEG_QUALITY, MAX_EDGE, looksBlankBySize } from './photoTransport'
+import { JPEG_QUALITY, MAX_EDGE, looksBlankBySize, type CompressResult } from './photoTransport'
 import type { QuotePhoto } from './photos'
 
 const bytes = new Uint8Array([1, 2, 3, 4, 5])
@@ -190,5 +190,16 @@ describe('空白 canvas 偵測 #2（`looksBlankBySize`）', () => {
   it('證明唔到就 fail safe —— 尺寸唔啱、零 bytes 都當空白', () => {
     expect(looksBlankBySize(0, 2400, 1800)).toBe(true)
     expect(looksBlankBySize(500_000, 0, 0)).toBe(true)
+  })
+})
+
+describe('⛔ 壓唔到嗰陣：用返原相，唔准 throw（第 11 項，Jason 2026-08-22）', () => {
+  it('`CompressResult` 一定有 `fallback` 呢個欄 —— 有值即係嗰張係原相', () => {
+    // 型別層面釘住：正常嗰次係空字串，唔係 undefined，
+    // 咁樣「有冇 fallback」永遠答得出，⛔ 唔會靜靜咁唔知。
+    const ok: CompressResult = { blob: new Blob(['x']), fallback: '' }
+    const fell: CompressResult = { blob: new Blob(['x']), fallback: '呢部機唔識自動轉正相片方向（EXIF）' }
+    expect(ok.fallback).toBe('')
+    expect(fell.fallback).not.toBe('')
   })
 })

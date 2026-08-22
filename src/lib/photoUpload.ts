@@ -21,6 +21,11 @@ export type PendingPhoto = {
   /** Drive 鏡像試咗幾多次。⛔ 夠三次就唔再自動試（`docs/P3b-計劃書.md` §7.5）。 */
   driveAttempts?: number
   driveError?: string
+  /**
+   * 空 = 正常壓咗 2400/0.80。有值 = 壓唔到，張相係**原相**。
+   * ⛔ 留返呢個原因係為咗**事後查得返邊幾張係 fallback**，唔使靠估。
+   */
+  compressFallback?: string
 }
 
 export type SignedUrls = { key: string; put: string; get: string }
