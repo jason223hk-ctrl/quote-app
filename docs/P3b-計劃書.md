@@ -1121,3 +1121,103 @@ order by r2_synced_at;
 而且**第一版淨係出報告，唔郁任何嘢** ——
 今日兩次都係「自動幫你決定」出事（檔名當身分、`0` 當 `1`），
 **盤點呢種掃全世界嘅嘢，更加唔應該自動改。**
+
+---
+
+# 🚨 I8：我引錯咗 tree app 個壓縮值（2026-08-22）
+
+## ⛔ 先講錯咗嘅嘢
+
+**我之前引 `src/lib/imageCompress.ts:110` 嘅 `{ longEdge = 2800, quality = 85 }`
+話「tree app 就係 2800 / q85」——⛔ 引錯咗。**
+
+**嗰行係 default 參數**，而**影相嗰條路根本冇用 default，佢傳咗自己嘅值入去。**
+
+**Jason 就係憑我呢個講法決定「相大小同 tree app 一樣」，
+而我哋跟住把 `MAX_EDGE` 由 2048 改成 2800。**
+**⛔ 即係話而家兩邊唔係一樣，而係反方向差開咗。**
+
+⚠️ 呢個正正就係今日第三次同一形狀嘅錯：**引一個睇落啱嘅位，冇對返實際行嗰條路。**
+
+## (a) quote app 實際值（`src/lib/photoTransport.ts`）
+
+```
+19:export const MAX_EDGE = 2800
+20:export const JPEG_QUALITY = 0.85
+35:  const bitmap = await createImageBitmap(file)
+36:  const size = targetSize(bitmap.width, bitmap.height, MAX_EDGE)
+50:    canvas.toBlob(resolve, 'image/jpeg', JPEG_QUALITY),
+```
+
+**條路：`PhotoSlot.tsx:243` → `compressToJpeg()` → 瀏覽器 `canvas.toBlob`。**
+**得呢一個壓縮點，冇第二個。**
+
+## (b) tree app 實際值 —— **`2400 / q80`，唔係 2800 / q85**
+
+**影相入 Drive 嗰條路係 `src/runtime/uploadPhoto.ts`：**
+
+```
+166:const CAPTURE_LONG_EDGE = 2400
+167:const CAPTURE_QUALITY = 80
+254:  const shrunk = await downscaleToJpeg(input.blob, { longEdge: CAPTURE_LONG_EDGE, quality: CAPTURE_QUALITY })
+```
+
+**`downscaleToJpeg` 個 `2800 / 85` 淨係 default，喺呢度被覆蓋。**
+
+**而且 `quality` 會正規化**（`src/lib/imageCompress.ts:126`）：
+
+```
+const q = quality > 1 ? Math.min(100, quality) / 100 : Math.max(0, quality)
+```
+
+**即係 `80` → `0.80`，真係 q0.80，唔係越界後撞返 default。**
+
+**佢哋個檔頭仲寫低咗點解揀 2400/80（原文）：**
+
+> Measured on real projects 2026-07-30: 2800px/q85 through the BROWSER canvas
+> encoder averaged 2.95 MB a photo … 2400px/q80 lands near 1.2–1.6 MB.
+
+**同你實測到嘅 1.1–2.5 MB 對得返。**
+
+## (c) quality 差幾多？⛔ 解釋唔到，而且方向係反嘅
+
+| | 長邊 | quality | 像素 |
+| --- | --- | --- | --- |
+| tree app | 2400 | **0.80** | 1800×2400 = 4.32 MP |
+| quote app | 2800 | **0.85** | 2100×2800 = 5.88 MP |
+
+**quote app 像素多 36%、quality 高 0.05 —— 兩樣都應該令檔案大，唔係細。**
+**所以 ⛔ quality 解釋唔到 2–4 倍嘅差異，佢指住相反方向。**
+
+### 最可能嘅原因：**影緊嘅嘢唔同**
+
+**JPEG 大細主要係睇畫面有幾多細節，唔係睇像素數。**
+
+- tree app 影嘅係**樹**：樹葉係極高熵嘅紋理，**壓極都細唔到**
+- quote app 呢幾張係室內／簡單場景**嘅機會好大**
+
+**有一個數支持呢個講法**：quote app 三張舊相 **1536×2048（3.1 MP）約 402–454 KB**，
+新嗰張 **2100×2800（5.88 MP）527 KB** ——
+**像素多咗 1.9 倍，bytes 只多咗約 1.2 倍。**
+**細節多嘅相唔會咁**（會接近成比例）。**平滑區域幾多像素都幾乎唔使錢。**
+
+### ⛔ 唯一公平嘅比法
+
+**兩個 app 影同一樣嘢**（同一棵樹、同一個位、最好同一部機），再比 bytes。
+**唔同主體嘅 bytes 冇得比。**
+
+### 其他可能因素（⚠️ 我冇證據，唔當結論）
+
+- **唔同部手機**：sensor、機內處理、HEIC → JPEG 嘅轉換都會影響來源細節
+- **來源相本身已經壓過一次**：兩個 app 都係由相機出嚟嘅 JPEG 再壓，
+  來源已經幾大就影響結果
+
+⛔ **兩樣我都冇量過，唔會當佢係原因。**
+
+## ⛔ 我冇改任何設定
+
+**`MAX_EDGE` / `JPEG_QUALITY` 一個字都冇郁。**
+**改唔改係 Jason 睇完相之後嘅規格決定。**
+
+**如果佢要「真係同 tree app 一樣」**，就係 **`MAX_EDGE = 2400`、
+`JPEG_QUALITY = 0.80`** —— ⚠️ **咁樣張相會細過而家，唔係大過。**
