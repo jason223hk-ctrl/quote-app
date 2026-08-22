@@ -606,6 +606,18 @@ P3a **merge 咗上 `main` 之後，`sylvan-quote.pages.dev` 就會出現影相�
 1. ~~刪 `/selftest`~~ —— ✅ **做咗**（commit `30afeb4`）。
 2. **重新 deploy Worker**（刪咗 `/selftest` 之後先算數）。
 
+## 🚨 最高優先：Supabase 額度
+
+0. 🚨 **Supabase 面板彈住紅字
+   `Grace period is over — Your projects will not be able to serve requests
+   when you use up your quota`。**
+
+   ⛔ **爆咗 = 兩個 app 一齊停**（tree app 同 quote app 共用同一個 project）。
+   **唔係 quote app 自己嘅事，亦唔係 merge 之後先算。**
+   **要 Jason 睇 billing。** 見 `docs/開發紀錄.md` §十二 第 10 項。
+
+   ⚠️ **佢排喺呢張清單最前，因為佢一爆，下面每一項都做唔到。**
+
 ## ⛔ 舊資料（2026-08-22 加）
 
 7. **修好嗰行 `seq = 0` 嘅相，同埋清走 Drive 上面個 `-1` 爛檔**

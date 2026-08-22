@@ -203,10 +203,19 @@ async function ensureFolder(token, name, parentId) {
 }
 
 /** 同名檔已經喺度就用返佢 —— 上到 Drive 但寫唔返 DB 嗰陣，重試唔會整多一份。 */
-async function findFileInFolder(token, name, folderId) {
+/**
+ * 揾返「呢一張相自己」上次抄上去嗰個檔。
+ *
+ * ⛔ **唔准用檔名做判斷。** 2026-08-22 中過（I7）：兩張唔同嘅相算出同一個名，
+ * 第二張就**靜靜咁**被當成「已經喺度」，DB 寫咗 `drive_synced_at`、
+ * 畫面出「兩份齊」，但**Drive 上面根本冇佢嗰份**。
+ *
+ * 而家用 `appProperties.quotePhotoId` —— 即係 `quote_photos` 嗰行嘅 id。
+ * **一張相一個 id，撞唔到。**
+ */
+async function findMirroredFile(token, photoId, folderId) {
   const q = [
-    `name = '${escapeQ(name)}'`,
-    `mimeType != 'application/vnd.google-apps.folder'`,
+    `appProperties has { key='quotePhotoId' and value='${escapeQ(photoId)}' }`,
     'trashed = false',
     `'${folderId}' in parents`,
   ].join(' and ')
@@ -214,9 +223,49 @@ async function findFileInFolder(token, name, folderId) {
   return files.length ? files[0].id : null
 }
 
-async function uploadToDrive(token, name, folderId, bytes) {
+/**
+ * 同名但**唔係同一張相**嘅檔。
+ *
+ * 有嘅話代表兩張相算出同一個檔名 —— ⛔ **唔准當佢係同一張、亦唔准照上**，
+ * 因為 Drive 容許同名，照上就會出兩個一模一樣名嘅檔，之後冇人分得開。
+ * **出聲，等人修。**
+ */
+async function findNameClash(token, name, folderId, photoId, expectedSize) {
+  const q = [
+    `name = '${escapeQ(name)}'`,
+    `mimeType != 'application/vnd.google-apps.folder'`,
+    'trashed = false',
+    `'${folderId}' in parents`,
+  ].join(' and ')
+
+  const url = `${DRIVE}/files?q=${encodeURIComponent(q)}&spaces=drive&fields=files(id,name,size,appProperties)&pageSize=100`
+  const res = await fetch(url, { headers: { authorization: `Bearer ${token}` } })
+  if (!res.ok) throw new Error(`Drive 查詢失敗（${res.status}）`)
+  const files = (await res.json()).files || []
+
+  for (const file of files) {
+    if (file.appProperties?.quotePhotoId === photoId) continue
+    // 連大細都一樣都唔算數 —— 冇 quotePhotoId 就係唔知邊張相，⛔ 唔准當佢係。
+    return { id: file.id, size: file.size, sameSize: String(file.size) === String(expectedSize) }
+  }
+  return null
+}
+
+/** 攞返一個檔嘅大細，用嚟上完之後對數。攞唔到就回 null（⛔ 唔准當佢啱）。 */
+async function driveFileSize(token, fileId) {
+  const res = await fetch(`${DRIVE}/files/${fileId}?fields=size`, {
+    headers: { authorization: `Bearer ${token}` },
+  })
+  if (!res.ok) return null
+  const size = (await res.json()).size
+  return size === undefined ? null : size
+}
+
+async function uploadToDrive(token, name, folderId, bytes, photoId) {
   const boundary = 'quoteapp' + name.length + bytes.byteLength
-  const meta = JSON.stringify({ name, parents: [folderId] })
+  // ⛔ `appProperties.quotePhotoId` 係之後認返「邊張相」嘅唯一根據，
+  //    唔可以靠檔名（I7）。
+  const meta = JSON.stringify({ name, parents: [folderId], appProperties: { quotePhotoId: photoId } })
   const head = `--${boundary}\r\ncontent-type: application/json; charset=UTF-8\r\n\r\n${meta}\r\n--${boundary}\r\ncontent-type: image/jpeg\r\n\r\n`
   const tail = `\r\n--${boundary}--`
   const enc = new TextEncoder()
@@ -334,15 +383,35 @@ async function mirror(request, env, origin) {
       rootId,
     )
 
-    let fileId = await findFileInFolder(gtoken, filename, folderId)
+    // ⛔ 「已經抄咗」淨係認呢一行自己個 id，唔認檔名（I7）。
+    let fileId = await findMirroredFile(gtoken, photo.id, folderId)
+
     if (!fileId) {
+      const clash = await findNameClash(gtoken, filename, folderId, photo.id, photo.size_bytes)
+      if (clash) {
+        const why =
+          `Drive 上面已經有一個叫「${filename}」嘅檔，但佢唔係呢張相` +
+          `（${clash.sameSize ? '大細啱但認唔到係邊張' : '連大細都唔同'}）。` +
+          `唔會覆蓋、亦唔會當佢係同一張。請截圖搵 Jason。`
+        await patchPhoto(env, userToken, photo.id, { drive_error: why })
+        return json({ ok: false, message: why }, 409, origin)
+      }
+
       const getUrl = await presign('GET', env, photo.r2_key)
       const r2 = await fetch(getUrl)
       if (!r2.ok) throw new Error(`R2 讀唔返出嚟（${r2.status}）`)
       const bytes = await r2.arrayBuffer()
       // ⛔ 原封不動上去。唔准喺呢度再壓一次 —— 再壓 sha256 就唔同，
       //    「仲剩幾多份」個契約即刻驗唔到（docs/開發紀錄.md §九）。
-      fileId = await uploadToDrive(gtoken, filename, folderId, bytes)
+      fileId = await uploadToDrive(gtoken, filename, folderId, bytes, photo.id)
+
+      // ⛔ 上完即刻讀返出嚟對大細 —— 對唔到就唔准寫「抄咗」。
+      const check = await driveFileSize(gtoken, fileId)
+      if (check !== null && photo.size_bytes !== null && String(check) !== String(photo.size_bytes)) {
+        const why = `抄上 Drive 之後對唔到數：R2 ${photo.size_bytes} bytes，Drive ${check} bytes。呢張相未算抄到。`
+        await patchPhoto(env, userToken, photo.id, { drive_error: why })
+        return json({ ok: false, message: why }, 502, origin)
+      }
     }
 
     await patchPhoto(env, userToken, photo.id, {

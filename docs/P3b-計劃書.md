@@ -875,3 +875,126 @@ having count(*) > 1;
 
 ⚠️ **成組重編嘅代價**：**已經上咗 Drive 嗰啲會換檔名**，
 舊檔名嗰個會變孤兒檔，**要人手清**。所以**能夠只動未鏡像嗰啲就最好**。
+
+---
+
+# 🚨 I7：用檔名做「已經抄咗」嘅判斷，靜靜食咗一張相（2026-08-22）
+
+## 實況（唯讀 SQL 查出嚟，唔係推測）
+
+`quote_photos`（`deleted_at is null`、`seq < 1`）**三行**，
+**同一單、同一棵樹、`mitigation` 全部 NULL、`seq` 全部 0**：
+
+| | id | `r2_synced_at` | `drive_file_id` | `drive_synced_at` |
+| --- | --- | --- | --- | --- |
+| **A** | `0ecd7165…3597` | 04:00:02 | `10DIlIGth…IA6Nu` | 10:54:45.896 |
+| **B** | `a24197d1…2429` | 04:05:36 | 🚨 `10DIlIGth…IA6Nu`（**同 A 一樣**） | 10:54:47.684 |
+| **C** | `6d19eb38…5b9c` | 04:05:44 | （空） | NULL |
+
+`10DIlIGth…IA6Nu` 就係 Drive 上面嗰個 **`1_Whole View_-1_Before.jpg`**。
+
+## 🚨 即係話
+
+**A 同 B 係兩個唔同嘅 R2 檔案，但指住 Drive 上面同一個檔。**
+
+**B 嘅內容從來冇上過 Drive**，但 DB 寫咗 `drive_synced_at`、
+畫面出**「已同步，兩份齊」**。
+
+⛔ **「兩份齊」講咗大話，實際係一份 —— 而且係靜靜咁失敗，冇 error、冇紅字。**
+
+## 根因
+
+三張相 `seq` 全部 `0` → 三個都算出同一個 `NN` → **同一個檔名**。
+而當時嘅 code **用檔名去判斷「係咪已經抄咗」**：
+
+```js
+async function findFileInFolder(token, name, folderId) {
+  const q = [
+    `name = '${escapeQ(name)}'`,
+    ...
+  ]
+  const files = await driveList(token, q)
+  return files.length ? files[0].id : null
+}
+```
+
+用嘅地方：
+
+```js
+let fileId = await findFileInFolder(gtoken, filename, folderId)
+if (!fileId) { …上傳… }
+```
+
+**A 先抄上去。B 跟住嚟，揾到同名嗰個，就當自己抄咗，攞返 A 個 id 寫落 DB。**
+
+## ⛔ 教訓
+
+**「已經存在」嘅判斷唔可以淨靠一個撞得到嘅 key。**
+
+**個 key 撞得到，系統就會將兩件唔同嘅嘢當成同一件 —— 而且係靜靜咁。**
+
+⚠️ **呢個唔止關今次啲舊資料事。**
+**將來任何一個令兩張相同名嘅情況**（`seq` 重複、同一格重影、並發）
+**都會再中，一樣冇聲出。**
+
+## 已經改咗嘅 code
+
+**一、認 id，唔認名。**
+上傳嗰陣喺 Drive 檔案寫低 `appProperties.quotePhotoId = quote_photos.id`，
+之後用**呢個 id** 去揾。**一張相一個 id，撞唔到。**
+
+**二、同名但唔係同一張 → ⛔ 出聲，唔上、亦唔攞返。**
+Drive 容許同名，照上就會出兩個一樣名嘅檔，之後冇人分得開。
+所以見到同名而 `quotePhotoId` 唔啱（或者冇），
+**寫入 `drive_error` 並且回 409**，⛔ **唔准覆蓋、唔准當佢係同一張** ——
+**連大細一樣都唔算數**，因為冇 `quotePhotoId` 就係唔知邊張相。
+
+**三、上完對返大細。**
+`size` 同 `quote_photos.size_bytes` 唔夾 → **唔准寫「抄咗」**。
+
+## ⛔ 修法（Jason 自己跑，⚠️ 逐行指名，唔用 `seq < 1` 一次過 update）
+
+**三張同一棵樹，所以唔可以全部 `seq = 1`** ——
+咁樣三張都算出 `_01_`，由兩張撞埋變成三張撞埋。
+
+按 `r2_synced_at` 次序：**A = 1（`NN 01`）、B = 2（`NN 03`）、C = 3（`NN 05`）**。
+
+```sql
+-- ⛔ Jason 自己喺 Supabase 跑。逐行指名，改咗咩睇得見。
+-- 三行都清 Drive 三個欄，等佢哋重新抄過。
+update quote_photos set seq = 1, drive_file_id = '', drive_synced_at = null, drive_error = ''
+where id = '0ecd7165-ad13-4422-ac8a-d59531873597';   -- A → NN 01
+
+update quote_photos set seq = 2, drive_file_id = '', drive_synced_at = null, drive_error = ''
+where id = 'a24197d1-bf0d-4f5d-bfeb-45c3ec9e2429';   -- B → NN 03
+
+update quote_photos set seq = 3, drive_file_id = '', drive_synced_at = null, drive_error = ''
+where id = '6d19eb38-530b-44c6-815b-45d66c575b9c';   -- C → NN 05
+```
+
+**驗返：**
+
+```sql
+select id, seq, drive_file_id, drive_synced_at, drive_error
+from quote_photos
+where record_id = '73750f0c-d9ca-4fff-bd2c-b5a709cb2c9a'
+order by r2_synced_at;
+```
+
+**三行都要係 `seq` 1/2/3、`drive_file_id` 空、`drive_synced_at` NULL。**
+
+### ⚠️ A 都要重抄，唔可以當佢 OK
+
+**A 個 `drive_file_id` 指住嗰個檔叫 `…_-1_…`**，
+改完之後 A 應該砌出 `…_01_…` —— **名唔同，所以佢一定要重抄。**
+（而且嗰個舊檔冇 `quotePhotoId`，新 code 亦唔會攞返佢。）
+
+### ⛔ 次序：Drive 個 `-1` 檔，最後先刪
+
+1. 跑上面三句 `update`
+2. **先 deploy 新 Worker**（⛔ 未 deploy 就開 app，會再撞一次同一個問題）
+3. 開返 app，等三張相各自抄上去
+4. **確認 Drive 見到 `…_01_`、`…_03_`、`…_05_` 三個新檔**
+5. **先至**刪 `1_Whole View_-1_Before.jpg`
+
+⛔ 第 5 步唔可以行先 —— `CLAUDE.md` §2.8：**未確認另一份仲喺，唔准刪任何一份。**
