@@ -1221,3 +1221,116 @@ const q = quality > 1 ? Math.min(100, quality) / 100 : Math.max(0, quality)
 
 **如果佢要「真係同 tree app 一樣」**，就係 **`MAX_EDGE = 2400`、
 `JPEG_QUALITY = 0.80`** —— ⚠️ **咁樣張相會細過而家，唔係大過。**
+
+---
+
+# 由「攞到 File」到「拎到 Blob」：逐項對（2026-08-22）
+
+**⛔ 「一模一樣」係 Jason 原話，所以唔止對兩個數字。**
+以下**每項都引返原文**。
+
+**tree app 條路**：`src/runtime/uploadPhoto.ts:254` →
+`downscaleToJpeg()`（`src/lib/imageCompress.ts:109-170`）
+**quote app 條路**：`PhotoSlot.tsx:243` → `compressToJpeg()`
+（`src/lib/photoTransport.ts`）
+
+| # | 項目 | tree app | quote app | |
+| --- | --- | --- | --- | --- |
+| 1 | 長邊 | `2400`（`uploadPhoto.ts:166`） | **已改 `2400`** | ✅ 一樣 |
+| 2 | quality | `80` → 正規化 `0.80`（`imageCompress.ts:126`） | **已改 `0.8`** | ✅ 一樣 |
+| 3 | 輸出 mime | `'image/jpeg'` | `'image/jpeg'` | ✅ 一樣 |
+| 4 | 分階段 downscale | **冇**，一次 `drawImage` | **冇**，一次 `drawImage` | ✅ 一樣 |
+| 5 | canvas smoothing | **冇明文設定**（用瀏覽器預設） | **冇明文設定** | ✅ 一樣 |
+| 6 | 第二次壓縮／bytes 上限重試 | **冇**（全檔搵過，得 `:254` 一次） | **冇** | ✅ 一樣 |
+| 7 | 縮放取整 | `Math.max(1, Math.round(...))` | `Math.round(...)`，**冇 `max(1,…)`** | ⚠️ 唔一樣 |
+| 8 | **EXIF orientation** | `createImageBitmap(blob, { imageOrientation: 'from-image' })` | `createImageBitmap(file)`，**冇個 options** | ⛔ **唔一樣** |
+| 9 | **空白 canvas 檢查** | **有**（`samplesLookUniform` + `looksBlankBySize`） | **冇** | ⛔ **唔一樣** |
+| 10 | **壓完大過原圖** | `if (out.size >= blob.size && !fit.scaled) fallback('no size win')` | **冇** | ⛔ **唔一樣** |
+| 11 | **出事點算** | **回原圖，`compressed = false`，唔 throw** | **`throw`** | ⛔ **唔一樣** |
+
+## 改咗嘅（Jason 明文拍板嗰兩項）
+
+**第 1、2 項** —— `MAX_EDGE 2800 → 2400`、`JPEG_QUALITY 0.85 → 0.8`。
+
+**改咗之後嘅原文：**
+
+```
+export const MAX_EDGE = 2400
+export const JPEG_QUALITY = 0.8
+…
+62:    canvas.toBlob(resolve, 'image/jpeg', JPEG_QUALITY),
+```
+
+⭐ **確認送入 `canvas.toBlob` 嘅係 `0.8`，唔係 `80`。**
+quote app 個常數本身就係 0–1，**冇正規化呢一步，亦唔需要**。
+（tree app 傳 `80` 係因為佢個 API 收 1–100，喺 `imageCompress.ts:126` 先除 100。）
+**測試釘死咗 `0 < JPEG_QUALITY ≤ 1`。**
+
+## ⛔ 冇改嘅四項 —— 等你同 Jason 拍板
+
+**⛔ 我唔會自己決定跟唔跟**，尤其係第 11 項，佢係一個**取態**唔係一個數字。
+
+### 第 8 項：EXIF orientation ——⚠️ 我建議跟
+
+tree app 原文註解講到明點解：
+
+> Do NOT fall back to a bare createImageBitmap here: that would bake the
+> UNROTATED pixels while dropping the EXIF flag, i.e. silently save a sideways
+> photo
+
+**後果**：喺唔會自動轉向嘅瀏覽器度，**張相會打橫存落去，而且冇聲出**。
+**新版瀏覽器多數已經預設 `from-image`**，所以而家**唔一定**睇得出問題 ——
+**但係靠預設，唔係靠寫明。**
+
+**跟嘅代價**：舊引擎唔支援嗰個 options 就要**保留原圖唔壓**（同第 11 項連住）。
+
+### 第 9 項：空白 canvas 檢查 ——⚠️ 我建議跟
+
+**iOS 有 canvas 面積上限**，撞到就會畫出一張**全白但完全合法嘅 JPEG**。
+⛔ **我哋而家嗰個 sha256 對數捉唔到佢** —— 白相都有 sha，對得返數。
+
+### 第 10 項：壓完大過原圖就唔壓
+
+細節位。影響：來源本身已經細過 2400 嗰陣，可能越壓越大。
+
+### 第 11 項：出事點算 ——⛔ 呢個要你哋決定，我唔建議
+
+| | 結果 |
+| --- | --- |
+| **tree app：回原圖** | 相**留得住**，但**唔係 2400/0.80**，而且可能好大 |
+| **quote app：throw** | 相**冇咗**，用家要重影，但**留低嘅一定合規格** |
+
+⚠️ **兩個都有道理，而且撞正 Jason 今次個決定**：
+佢要「**兩個 app 出嚟嘅相一致**」——
+**回原圖就會有唔一致嘅相混入去，正正係佢想避免嗰件事。**
+**但 throw 就係為咗規格而掉咗一張現場影咗嘅相。**
+
+⛔ **呢個要 Jason 揀。**
+
+## ⚠️ 一個資料夾入面會有三種規格
+
+**已經影咗嘅相唔會變。** 同一個 Drive 資料夾入面：
+
+| 相 | 規格 | 尺寸 |
+| --- | --- | --- |
+| 三張舊測試相 | **2048 / q0.85** | 1536×2048 |
+| Jason 2026-08-22 影嗰張 | **2800 / q0.85** | 2100×2800 |
+| **呢個 commit 之後影嘅** | **2400 / q0.80** | 1800×2400 |
+
+**將來睇相會覺得奇怪，所以寫低點解**：
+呢個係 P3a／P3b 開發期間三次規格改動留低嘅痕跡 ——
+**2048 係最初設定；2800 係我引錯咗 tree app 個值（I8）；
+2400 / 0.80 先係對嗰個。**
+
+⛔ **唔會回頭重壓舊相** —— 重壓會令 `sha256` 唔同，
+「仲剩幾多份」個契約即刻驗唔到（§九）。**留低就留低。**
+
+## 影響範圍：⭐ 你講得啱，唔使再 deploy Worker
+
+**呢兩個常數喺 `src/lib/photoTransport.ts`，係前端 bundle 入面。**
+
+- ✅ **Cloudflare Pages 會自動 build branch preview**
+- ✅ **Jason 唔使再 `wrangler deploy`** —— Worker 一個字都冇改
+
+⚠️ **但係要 build 完嗰個新 preview 先生效** ——
+**開舊嗰個 preview 網址影相，仍然係 2800。**
