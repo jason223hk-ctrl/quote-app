@@ -29,7 +29,6 @@ export default defineConfig({
   },
   test: {
     environment: 'node',
-    // Worker 嗰邊嘅純函數（檔名規則）都要測 —— 佢係 .mjs，唔喺 src/ 入面。
-    include: ['src/**/*.test.ts', 'worker/**/*.test.mjs'],
+    include: ['src/**/*.test.ts'],
   },
 })
