@@ -129,29 +129,40 @@ describe('uploadPending 出事嗰陣', () => {
 })
 
 describe('targetSize', () => {
-  it('長邊縮到 2800，短邊按比例', () => {
-    expect(targetSize(4200, 3150, 2800)).toEqual({ width: 2800, height: 2100 })
+  it('長邊縮到 2400，短邊按比例', () => {
+    expect(targetSize(4000, 3000, 2400)).toEqual({ width: 2400, height: 1800 })
   })
 
   it('直度相一樣得', () => {
-    expect(targetSize(3150, 4200, 2800)).toEqual({ width: 2100, height: 2800 })
+    expect(targetSize(3000, 4000, 2400)).toEqual({ width: 1800, height: 2400 })
   })
 
   it('本身細過就唔放大 —— 放大只會變大份，唔會變清楚', () => {
-    expect(targetSize(800, 600, 2800)).toEqual({ width: 800, height: 600 })
+    expect(targetSize(800, 600, 2400)).toEqual({ width: 800, height: 600 })
   })
 
   it('零唔會爆', () => {
-    expect(targetSize(0, 0, 2800)).toEqual({ width: 0, height: 0 })
+    expect(targetSize(0, 0, 2400)).toEqual({ width: 0, height: 0 })
   })
 })
 
-describe('壓縮參數', () => {
-  it('⛔ 長邊要同 tree app 一樣係 2800 —— P6 轉工程之後兩邊相唔可以一大一細', () => {
-    expect(MAX_EDGE).toBe(2800)
+/**
+ * ⛔ 呢兩個數係**規格**，唔係實作細節。
+ * **改之前一定要問 Jason**（2026-08-22 佢本人拍板要同 tree app 一模一樣）。
+ *
+ * 呢兩個測試存在嘅目的就係：**唔准有人靜靜咁改咗佢。**
+ */
+describe('⛔ 壓縮參數 —— 改之前要問 Jason', () => {
+  it('長邊 2400，同 tree app `uploadPhoto.ts:166` CAPTURE_LONG_EDGE 一樣', () => {
+    expect(MAX_EDGE).toBe(2400)
   })
 
-  it('質素維持 0.85，同 tree app capture 嗰 pass 一樣', () => {
-    expect(JPEG_QUALITY).toBe(0.85)
+  it('質素 0.80，同 tree app `uploadPhoto.ts:167` CAPTURE_QUALITY = 80 一樣', () => {
+    expect(JPEG_QUALITY).toBe(0.8)
+  })
+
+  it('⚠️ 單位要係 0–1，⛔ 唔可以係 80', () => {
+    expect(JPEG_QUALITY).toBeGreaterThan(0)
+    expect(JPEG_QUALITY).toBeLessThanOrEqual(1)
   })
 })

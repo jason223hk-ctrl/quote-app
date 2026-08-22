@@ -9,15 +9,27 @@ import { targetSize, type SignedUrls, type UploadDeps } from './photoUpload'
  * （`docs/P3-現場影相-設計.md` 第三章）。P3a 一次得一張，但條路要行得通。
  */
 /**
- * 長邊 2800 —— **跟返 tree app**（`src/lib/imageCompress.ts:110`
- * 嘅 `{ longEdge = 2800, quality = 85 }`）。
+ * ⛔ 呢兩個數係**規格**，唔係實作細節。**改之前一定要問 Jason。**
  *
- * 唔係為咗一樣而一樣：quote app 影嘅相會**原封不動轉入 tree app 做事前相**，
+ * **2400 / 0.80 —— 同 tree app 影相嗰條路一模一樣**（Jason 2026-08-22 拍板）。
+ *
+ * 出處（實際行嗰條路，唔係 default）：
+ *   `tree-app-v7` `src/runtime/uploadPhoto.ts:166`  `CAPTURE_LONG_EDGE = 2400`
+ *   `tree-app-v7` `src/runtime/uploadPhoto.ts:167`  `CAPTURE_QUALITY = 80`
+ *
+ * ⚠️ tree app 個 `80` 係 1–100，喺 `imageCompress.ts:126` 正規化做 `0.80`。
+ * **呢度個 `JPEG_QUALITY` 本身就係 0–1，所以直接寫 `0.80`。**
+ *
+ * ⚠️ **`imageCompress.ts:110` 嗰個 `{ longEdge = 2800, quality = 85 }` 係 default，
+ * 影相嗰條路冇用到。** 之前引錯咗，見 `docs/P3b-計劃書.md` I8。
+ *
+ * **點解要一樣**：quote app 影嘅相會**原封不動轉入 tree app 做事前相**（P6）。
  * 兩邊解像度唔同，同一棵樹嘅事前相同事後相就會一大一細，
- * **PDF 兩欄擺埋一齊會好明顯**。同一條規則亦即係將來改畫質只改一個地方。
+ * **PDF 兩欄擺埋一齊會好明顯**。Jason 原話係**唔想日後對相嗰陣要記住
+ * 「呢張係邊個 app 影」**。
  */
-export const MAX_EDGE = 2800
-export const JPEG_QUALITY = 0.85
+export const MAX_EDGE = 2400
+export const JPEG_QUALITY = 0.8
 
 /** Worker 未設定唔會白畫面，亦唔會靜靜失敗——影相個掣會講到明。 */
 export function photoWorkerBase(): string {
