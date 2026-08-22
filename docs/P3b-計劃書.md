@@ -35,8 +35,9 @@ Jason 2026-08-22 揀咗**丙**：**唔 merge，做埋 Drive 鏡像夠兩份先�
 2. **答第六節兩條前置** —— 兩條都係**冇咗就開唔到工**：
    - **Drive 存原圖定壓縮版**（有一個實測事實會影響你點揀，見下面）
    - **撳一次 Drive 授權** —— 冇人代得到
-3. **答第七節三條檔名未決**（資料夾點命名、全景相個「類別」係咩、序號點派）。
-   ⛔ **呢三條唔答，檔名砌唔出嚟。**
+3. **答第七節嗰條工序對應**（六個工序喺 tree app 冇 token，甲定乙）。
+   ⛔ **唔答，工序相嘅檔名砌唔出嚟。**
+   （原本三條，其餘兩條已經讀返 tree app 原始碼查實咗，唔使問。）
 
 ## 我下一步
 
@@ -180,26 +181,78 @@ Worker 究竟由 R2 讀返嗰份上去，定係要另一份 bytes，係兩條完
 授權攞返嚟嘅 **refresh token 放 Worker secret**。
 ⛔ **唔准入前端、唔准入 repo。**
 
-## 7. ⛔ 三條檔名未決 —— 唔答就砌唔出檔名
+## 7. 檔名 —— 兩條答咗，一條要 Jason 揀
 
-`docs/P3-現場影相-設計.md` 第三章定咗格式
-`{樹編號}_{類別}_{NN}_Before.jpg`，但落到實作仲爭三樣：
+**2026-08-22 讀返 tree app 原始碼查實**（`src/domain/photoFilename.ts`、
+`src/domain/photo.ts`、`worker.mjs`），三條之中**兩條唔使問**：
 
-1. **一個工程嗰個資料夾點命名。**
-   第三章寫「一個工程一個資料夾，同 tree app 一樣」，
-   而 tree app 實際係 `工作日期_工程名`（例：`2026-07-28_香港大學_Order130`）。
-   **我哋冇 Odoo REF#**（P2.5 拿走咗），所以照抄唔到。
-   **要 Jason 定一個。**
+### ✅ 已答一：工程資料夾點命名
 
-2. **全景相個 `{類別}` 段係咩字。**
-   第三章寫「成棵樹 → tree app 嘅全景前」，而 tree app 個真例子係
-   `T1_Whole View_01_Before.jpg`。
-   **睇落應該係 `Whole View`，但呢個係我推嘅，唔係文件寫死嘅。**
-   ⛔ **檔名落咗 Drive 就唔好改，所以要你講一句。**
+```
+projectFolderName = safeSegment(`${work_date}_${name}`)
+```
 
-3. **`{NN}` 序號點派。**
-   同一棵樹同一個類別影兩張，第二張係 `02`。
-   **序號係邊個算？**（`quote_photos` 有個 `seq` 欄，P3a 一律寫 `0`。）
+例：**`2026-08-15_裘錦秋中學`**。
+
+⛔ **冇 Odoo 單號。** 我之前寫「`工作日期_工程名_OrderXXX`」**係錯**，已經更正
+（`docs/P3-現場影相-設計.md` 第三章）。
+**即係我哋冇 Odoo REF# 都照抄得，本來就冇。**
+
+### ✅ 已答二：全景相個類別 token ＋ `NN` 點派
+
+- 全景相個 token 係 **`Whole View`**（原文例子 `T1_Whole View_01_Before`）。
+- ⚠️ **類別 token 喺 `NN` 之前**，原文註解寫明係 Jason 特登要求 ——
+  **Google Drive 字母排序嗰陣可以 BY CATEGORY 分組**。
+- ⛔ **`NN` 係成對編號，唔係順序數**：第 k 對 Before = `2k−1`、After = `2k`。
+  **就算得個 Before 都會霸住 `2k`。**
+
+**所以 quote app 全部相都係 `Before` → ⛔ 一定要用單數 `01`、`03`、`05`…**
+（之前講「順住數」係錯，已更正。）**雙數個位留返俾中標之後 tree app 影嘅 After。**
+
+### ⛔ 未答：六個工序喺 tree app 冇對應 token —— 要 Jason 揀
+
+**tree app 個類別 token 得五個**（`PRUNING_WORK_TYPES` 原文）：
+
+`Crown Cleaning`、`Crown Reduction`、`Crown Thinning`、`Crown Raising`、`Close Up`
+（清理樹冠／縮減樹冠／疏枝／提升樹冠／近景）
+
+**我哋 §5.4 有九個 mitigation，只有三個對得上：**
+
+- `crown_cleaning` → `Crown Cleaning`
+- `crown_reduction` → `Crown Reduction`
+- `crown_raising` → `Crown Raising`
+
+**另外六個喺 tree app 完全冇對應**：
+修剪 `pruning`、斬樹或移除 `removal`、起樹頭 `stump_removal`、
+拉索加固 `cabling`、修根 `root_pruning`、其他 `other`。
+（反過嚟，**tree app 個 `Crown Thinning` 疏枝我哋又冇。**）
+
+#### 兩條路（⛔ 我唔會自己揀）
+
+**甲：六個都用我哋自己嘅英文名**
+（`Pruning` / `Removal` / `Stump Removal` / `Cabling` / `Root Pruning` / `Other`）
+
+- tree app 個 `workTypeFilenameToken` **撞到唔識嘅字串會走 `safeFilename` 分支**，
+  **照樣出到名**
+- 代價：呢六個**唔會入到佢個類別排序**
+
+**乙：六個一律當 `Close Up`**，工序詳情寫落備註
+
+- **最兼容**
+- 代價：**蝕資訊** —— 六個工序喺檔名度全部變成同一個字
+
+**傾向甲。** 理由：**報價階段個工序名本身就係要畀客人同同事睇**，
+改成「近景」等於**掉咗最有用嗰個字**。
+
+#### ⛔ 順帶一個一定要改嘅嘢：大細楷
+
+**我哋 `src/lib/options.ts` 寫住 `Crown cleaning`（細楷 `c`），
+tree app 係 `Crown Cleaning`（大楷 `C`）。**
+
+⛔ **要改到一個字都唔差，否則對唔上。**
+
+**但唔好而家單獨改** —— 呢個同上面甲／乙係同一件事，
+**一次過改，唔好分兩次郁 `options.ts`**。
 
 ## 8. Source of truth
 
@@ -293,4 +346,4 @@ Worker 究竟由 R2 讀返嗰份上去，定係要另一份 bytes，係兩條完
 - [ ] Jason 睇完，批准開工
 - [ ] 前置一：Drive 存原圖定壓縮版（甲／乙）已經決定
 - [ ] 前置二：Drive 授權已經撳
-- [ ] 第七節三條檔名未決已經答
+- [ ] 第七節工序對應（甲／乙）已經決定 —— 連埋 `options.ts` 大細楷一次過改
