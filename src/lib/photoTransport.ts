@@ -88,7 +88,7 @@ function keepOriginal(reason: string, original: Blob): CompressResult {
  *
  * ⚠️ **空輸入當作白** —— 「證明唔到佢係真相」要 fail safe。
  */
-function samplesLookUniform(samples: number[][]): boolean {
+export function samplesLookUniform(samples: number[][]): boolean {
   if (!samples.length) return true
   const first = samples[0]
   return samples.every((s) => s.length === first.length && s.every((v, i) => v === first[i]))

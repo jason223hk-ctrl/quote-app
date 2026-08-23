@@ -1,6 +1,12 @@
 import { describe, expect, it, vi } from 'vitest'
 import { uploadPending, targetSize, type PendingPhoto, type UploadDeps } from './photoUpload'
-import { JPEG_QUALITY, MAX_EDGE, looksBlankBySize, type CompressResult } from './photoTransport'
+import {
+  JPEG_QUALITY,
+  MAX_EDGE,
+  looksBlankBySize,
+  samplesLookUniform,
+  type CompressResult,
+} from './photoTransport'
 import type { QuotePhoto } from './photos'
 
 const bytes = new Uint8Array([1, 2, 3, 4, 5])
@@ -201,5 +207,31 @@ describe('⛔ 壓唔到嗰陣：用返原相，唔准 throw（第 11 項，Jason
     const fell: CompressResult = { blob: new Blob(['x']), fallback: '呢部機唔識自動轉正相片方向（EXIF）' }
     expect(ok.fallback).toBe('')
     expect(fell.fallback).not.toBe('')
+  })
+})
+
+describe('空白 canvas 偵測 #1（`samplesLookUniform`）', () => {
+  const white = [255, 255, 255, 255]
+  const black = [0, 0, 0, 255]
+
+  it('九點完全一樣 = 當佢空白', () => {
+    expect(samplesLookUniform(Array.from({ length: 9 }, () => [...white]))).toBe(true)
+    expect(samplesLookUniform(Array.from({ length: 9 }, () => [...black]))).toBe(true)
+  })
+
+  it('⛔ 一個 byte 唔同都唔算空白 —— 真相唔會九點全同', () => {
+    const samples = Array.from({ length: 9 }, () => [...white])
+    samples[4] = [255, 255, 254, 255]
+    expect(samplesLookUniform(samples)).toBe(false)
+  })
+
+  it('⛔ 淨係 alpha 唔同都唔算空白', () => {
+    const samples = Array.from({ length: 9 }, () => [...white])
+    samples[8] = [255, 255, 255, 254]
+    expect(samplesLookUniform(samples)).toBe(false)
+  })
+
+  it('證明唔到就 fail safe —— 冇取樣點當空白', () => {
+    expect(samplesLookUniform([])).toBe(true)
   })
 })
