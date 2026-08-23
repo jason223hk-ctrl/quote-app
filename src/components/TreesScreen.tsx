@@ -9,7 +9,7 @@ import {
 } from '../lib/trees'
 import type { QuoteRecord } from '../lib/records'
 import type { PhotosApi } from '../lib/photos'
-import PhotoSlot from './PhotoSlot'
+import TreePhotoSlots from './TreePhotoSlots'
 import { BackChip, BotanicalHeader, FloatBody, HeaderTitle, StatCard } from '../ui/shell'
 import TreeFormPage from './TreeFormPage'
 
@@ -101,11 +101,11 @@ export default function TreesScreen({ api, photos, accessToken, record, onBack }
         photoSlot={
           // 新樹未有 id，未有 id 就冇嘢可以掛住張相。儲存咗先影得。
           editing ? (
-            <PhotoSlot
-              api={photos}
+            <TreePhotoSlots
+              photos={photos}
               accessToken={accessToken}
               recordId={record.id}
-              treeId={editing.id}
+              tree={editing}
             />
           ) : (
             <p className="hint">先儲存呢棵樹，之後就影得全景相。</p>

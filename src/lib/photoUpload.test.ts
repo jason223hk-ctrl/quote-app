@@ -1,5 +1,12 @@
 import { describe, expect, it, vi } from 'vitest'
-import { uploadPending, targetSize, type PendingPhoto, type UploadDeps } from './photoUpload'
+import {
+  MAX_SEQ_ATTEMPTS,
+  SEQ_GAVE_UP_MESSAGE,
+  uploadPending,
+  targetSize,
+  type PendingPhoto,
+  type UploadDeps,
+} from './photoUpload'
 import {
   JPEG_QUALITY,
   MAX_EDGE,
@@ -16,6 +23,7 @@ function pending(): PendingPhoto {
     operationId: 'op-1',
     recordId: 'record-1',
     treeId: 'tree-1',
+    mitigation: null,
     capturedAt: '2026-08-22T01:00:00.000Z',
     size: bytes.byteLength,
     sha256: 'sha-good',
@@ -36,6 +44,8 @@ function deps(overrides: Partial<UploadDeps> = {}): UploadDeps {
     digest: vi.fn(async () => 'sha-good'),
     findRow: vi.fn(async () => null),
     saveRow: vi.fn(async () => savedRow),
+    allocateSeq: vi.fn(async () => 1),
+    wait: vi.fn(async () => {}),
     ...overrides,
   }
 }
@@ -233,5 +243,56 @@ describe('空白 canvas 偵測 #1（`samplesLookUniform`）', () => {
 
   it('證明唔到就 fail safe —— 冇取樣點當空白', () => {
     expect(samplesLookUniform([])).toBe(true)
+  })
+})
+
+describe('⛔ 派號撞咗：有上限、有終點（Jason 工作指引第三節第三點）', () => {
+  function seqConflict() {
+    const e = new Error('quote_photos_slot_seq_uidx')
+    e.name = 'SeqConflict'
+    return e
+  }
+
+  it('撞一次就攞過個新號再試，唔會出錯', async () => {
+    let n = 0
+    const d = deps({
+      allocateSeq: vi.fn(async () => ++n),
+      saveRow: vi.fn(async () => {
+        if (n === 1) throw seqConflict()
+        return savedRow
+      }),
+    })
+    const result = await uploadPending(pending(), d)
+    expect(result.ok).toBe(true)
+    expect(d.allocateSeq).toHaveBeenCalledTimes(2)
+  })
+
+  it('⛔ 最多試三次 —— 唔會無限試落去', async () => {
+    const d = deps({ saveRow: vi.fn(async () => { throw seqConflict() }) })
+    const result = await uploadPending(pending(), d)
+    expect(result.ok).toBe(false)
+    expect(d.allocateSeq).toHaveBeenCalledTimes(MAX_SEQ_ATTEMPTS)
+  })
+
+  it('到頂之後出終點文案 —— 一個具體動作加一個具體對象', async () => {
+    const d = deps({ saveRow: vi.fn(async () => { throw seqConflict() }) })
+    const result = await uploadPending(pending(), d)
+    if (result.ok) throw new Error('應該失敗')
+    expect(result.message).toBe(SEQ_GAVE_UP_MESSAGE)
+    expect(SEQ_GAVE_UP_MESSAGE).toContain('再試一次')
+    expect(SEQ_GAVE_UP_MESSAGE).toContain('同一格')
+  })
+
+  it('⛔ 每次之間要等一等，唔准連環撞', async () => {
+    const d = deps({ saveRow: vi.fn(async () => { throw seqConflict() }) })
+    await uploadPending(pending(), d)
+    expect(d.wait).toHaveBeenCalledTimes(MAX_SEQ_ATTEMPTS - 1)
+  })
+
+  it('⛔ 派唔到號就唔會亂寫一行 —— 唔會叫 saveRow', async () => {
+    const d = deps({ allocateSeq: vi.fn(async () => { throw new Error('冇網') }) })
+    const result = await uploadPending(pending(), d)
+    expect(result.ok).toBe(false)
+    expect(d.saveRow).not.toHaveBeenCalled()
   })
 })

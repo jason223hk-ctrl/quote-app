@@ -145,6 +145,8 @@ export async function sha256Hex(bytes: ArrayBuffer): Promise<string> {
 export type PhotoInsert = {
   recordId: string
   treeId: string
+  /** 留空 = 全景格。有值 = 嗰個工序格（`docs/P3-現場影相-設計.md` 第七章）。 */
+  mitigation: string | null
   operationId: string
   seq: number
   r2Key: string
@@ -164,7 +166,7 @@ export function photoInsertToRow(input: PhotoInsert, userId: string): Record<str
   return {
     record_id: input.recordId,
     tree_id: input.treeId,
-    mitigation: null,
+    mitigation: input.mitigation,
     // ⛔ seq 由 1 數起。檔名嗰個 NN = 2 × seq − 1，寫 0 就會計出 -1。
     // 呢個規矩由寫入呢一個位負責，⛔ 唔准喺砌檔名嗰邊加特例補救。
     seq: input.seq,
@@ -193,12 +195,30 @@ export function isUniqueViolation(error: { code?: string; message: string }): bo
   )
 }
 
+/**
+ * ⛔ 撞咗**同一格同一個號**（`quote_photos_slot_seq_uidx`）。
+ *
+ * 同 `operation_id` 撞完全兩回事：嗰個代表「呢張相之前已經寫咗」，
+ * **呢個代表「個號俾人搶咗」，要攞過一個新號再試**。
+ * ⛔ 兩者唔可以撈亂 —— 撈亂就會變成「揾唔返嗰行」然後掉咗張相。
+ */
+export const SLOT_SEQ_INDEX = 'quote_photos_slot_seq_uidx'
+
+export function isSeqConflict(error: { code?: string; message: string }): boolean {
+  return isUniqueViolation(error) && error.message.includes(SLOT_SEQ_INDEX)
+}
+
 /** 撞咗 unique 但又揾唔返嗰行 —— 唔常見，但唔准靜靜過骨，要出中文。 */
 export const DUPLICATE_NOT_FOUND_MESSAGE =
   '資料庫話呢張相已經有紀錄，但即刻揾返出嚟又揾唔到。相仲喺部機度，唔會冇咗。請截圖搵 Jason。'
 
 export type PhotosApi = {
   listByRecord: (recordId: string) => Promise<QuotePhoto[]>
+  /**
+   * 由 DB 派一個 `seq`（`allocate_quote_photo_seq`）。
+   * ⛔ 前端唔准自己數 —— 兩部機同時影就會派到同一個號。
+   */
+  allocateSeq: (recordId: string, treeId: string | null, mitigation: string | null) => Promise<number>
   /** 用影相編號揾返 —— 重試之前查一次，就唔會整兩行出嚟。 */
   findByOperationId: (operationId: string) => Promise<QuotePhoto | null>
   create: (input: PhotoInsert) => Promise<QuotePhoto>
@@ -214,6 +234,21 @@ const NO_ROW_MESSAGE =
 
 export function createPhotosApi(client: SupabaseClient, userId: string): PhotosApi {
   const api: PhotosApi = {
+    async allocateSeq(recordId, treeId, mitigation) {
+      const { data, error } = await client.rpc('allocate_quote_photo_seq', {
+        p_record_id: recordId,
+        p_tree_id: treeId,
+        p_mitigation: mitigation,
+      })
+      if (error) throw reportError(error.message)
+      const seq = Number(data)
+      // ⛔ 派唔到就係派唔到，唔准自己填一個號頂住。
+      if (!Number.isFinite(seq) || seq < 1) {
+        throw new Error('資料庫派唔到相片編號。請撳「再試一次」，或者截圖搵 Jason。')
+      }
+      return seq
+    },
+
     async listByRecord(recordId) {
       const { data, error } = await client
         .from('quote_photos')
@@ -246,6 +281,12 @@ export function createPhotosApi(client: SupabaseClient, userId: string): PhotosA
         .maybeSingle()
 
       if (error) {
+        // ⛔ 個號俾人搶咗 —— 唔係「已經寫咗」，係要攞過個號再試。
+        if (isSeqConflict(error)) {
+          const conflict = new Error(SLOT_SEQ_INDEX)
+          conflict.name = 'SeqConflict'
+          throw conflict
+        }
         if (isUniqueViolation(error)) {
           // 之前已經寫咗一行。當佢成功 —— 但要真係揾返嗰行出嚟先算，唔准當然。
           console.error('[quote-app] duplicate insert ignored:', error.message)

@@ -26,6 +26,12 @@ type Props = {
   accessToken: string
   recordId: string
   treeId: string
+  /** 留空 = 全景格。有值 = 嗰個工序格。 */
+  mitigation?: string | null
+  /** 格嘅標題，例如「全景相（成棵樹）」或者「清理樹冠」。 */
+  title: string
+  /** 標題下面嗰句提示。 */
+  hint: string
 }
 
 /** 畫面上一格相：本機嗰份（有縮圖）加雲端嗰行（有狀態）。 */
@@ -37,17 +43,22 @@ type SlotItem = {
   capturedAt: string
 }
 
+function sameSlot(a: string | null | undefined, b: string | null | undefined): boolean {
+  return (a ?? null) === (b ?? null)
+}
+
 function mergeItems(
   pending: PendingPhoto[],
   rows: QuotePhoto[],
   treeId: string,
+  mitigation: string | null,
   attempts: (photoId: string) => number,
 ): SlotItem[] {
   const byOperation = new Map(rows.map((row) => [row.operation_id, row]))
   const seen = new Set<string>()
 
   const fromLocal = pending
-    .filter((item) => item.treeId === treeId)
+    .filter((item) => item.treeId === treeId && sameSlot(item.mitigation, mitigation))
     .map((item) => {
       seen.add(item.operationId)
       const row = byOperation.get(item.operationId)
@@ -68,7 +79,12 @@ function mergeItems(
 
   // 第二部機影嘅相：得 DB 一行，冇本機副本，一樣要見到。
   const fromRows = rows
-    .filter((row) => row.tree_id === treeId && !seen.has(row.operation_id))
+    .filter(
+      (row) =>
+        row.tree_id === treeId &&
+        sameSlot(row.mitigation, mitigation) &&
+        !seen.has(row.operation_id),
+    )
     .map((row) => ({
       operationId: row.operation_id,
       status: statusOfRow(row, attempts(row.id)),
@@ -86,7 +102,15 @@ function mergeItems(
  * 條路：撳「拍攝／相簿」→ 壓一次 → 寫落部機 → 上 R2 → 讀返出嚟對數 → 寫一行。
  * ⛔ 每一步失敗都要有一句寫得出嘅中文，唔准靜靜過骨。
  */
-export default function PhotoSlot({ api, accessToken, recordId, treeId }: Props) {
+export default function PhotoSlot({
+  api,
+  accessToken,
+  recordId,
+  treeId,
+  mitigation = null,
+  title,
+  hint,
+}: Props) {
   const [pending, setPending] = useState<PendingPhoto[]>([])
   const [rows, setRows] = useState<QuotePhoto[]>([])
   const [busy, setBusy] = useState(false)
@@ -117,13 +141,15 @@ export default function PhotoSlot({ api, accessToken, recordId, treeId }: Props)
 
     const next: Record<string, string> = {}
     for (const item of localItems) {
-      if (item.treeId === treeId) next[item.operationId] = URL.createObjectURL(item.blob)
+      if (item.treeId === treeId && sameSlot(item.mitigation, mitigation)) {
+        next[item.operationId] = URL.createObjectURL(item.blob)
+      }
     }
     setThumbs((current) => {
       for (const url of Object.values(current)) URL.revokeObjectURL(url)
       return next
     })
-  }, [api, recordId, treeId, storeReady])
+  }, [api, recordId, treeId, mitigation, storeReady])
 
   useEffect(() => {
     void reload().catch((caught: unknown) => {
@@ -143,8 +169,8 @@ export default function PhotoSlot({ api, accessToken, recordId, treeId }: Props)
   )
 
   const items = useMemo(
-    () => mergeItems(pending, rows, treeId, attemptsOf),
-    [pending, rows, treeId, attemptsOf],
+    () => mergeItems(pending, rows, treeId, mitigation, attemptsOf),
+    [pending, rows, treeId, mitigation, attemptsOf],
   )
 
   /**
@@ -250,6 +276,7 @@ export default function PhotoSlot({ api, accessToken, recordId, treeId }: Props)
         operationId: newOperationId(),
         recordId,
         treeId,
+        mitigation,
         capturedAt: new Date().toISOString(),
         size: buffer.byteLength,
         sha256: await sha256Hex(buffer),
@@ -310,8 +337,8 @@ export default function PhotoSlot({ api, accessToken, recordId, treeId }: Props)
 
   return (
     <section className="card photo-slot" data-testid="photo-slot">
-      <h3 className="photo-slot__title">全景相（成棵樹）</h3>
-      <p className="hint">P3a 只做呢一格。近景、工程相、畫線係之後嘅階段。</p>
+      <h3 className="photo-slot__title">{title}</h3>
+      <p className="hint">{hint}</p>
 
       {!workerReady && (
         <p className="notice notice--warning" role="status">

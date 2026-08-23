@@ -236,6 +236,7 @@ export function createUploadDeps(accessToken: string, photos: PhotosApi): Upload
     digest: sha256Hex,
     findRow: photos.findByOperationId,
     saveRow: photos.create,
+    allocateSeq: photos.allocateSeq,
   }
 }
 

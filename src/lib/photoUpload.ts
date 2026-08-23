@@ -11,6 +11,8 @@ export type PendingPhoto = {
   operationId: string
   recordId: string
   treeId: string
+  /** 留空 = 全景格。有值 = 嗰個工序格。 */
+  mitigation: string | null
   capturedAt: string
   size: number
   sha256: string
@@ -45,6 +47,10 @@ export type UploadDeps = {
   digest: (bytes: ArrayBuffer) => Promise<string>
   findRow: (operationId: string) => Promise<QuotePhoto | null>
   saveRow: (input: PhotoInsert) => Promise<QuotePhoto>
+  /** 由 DB 派號。⛔ 前端唔准自己數。 */
+  allocateSeq: (recordId: string, treeId: string | null, mitigation: string | null) => Promise<number>
+  /** 重試之間等一等。抽出嚟係為咗測試唔使真係等。 */
+  wait?: (ms: number) => Promise<void>
 }
 
 export type UploadResult =
@@ -52,6 +58,17 @@ export type UploadResult =
   | { ok: false; message: string }
 
 const CONTENT_TYPE = 'image/jpeg'
+
+/** ⛔ 派號最多試三次。三次唔得就落終點狀態，唔會一路試落去。 */
+export const MAX_SEQ_ATTEMPTS = 3
+
+/**
+ * 到頂之後嘅終點文案。
+ * ⛔ 一個具體動作（撳「再試一次」）＋ 一個具體對象（同一格有人同時影緊）。
+ * ⚠️ 相唔會冇咗 —— 佢已經喺部機同 R2，淨係未排到號。
+ */
+export const SEQ_GAVE_UP_MESSAGE =
+  '呢張相排唔到號，可能有人同時影緊同一格。請撳「再試一次」，或者截圖搵 Jason。'
 
 function failureMessage(step: string, caught: unknown): string {
   const detail = caught instanceof Error ? caught.message : String(caught)
@@ -119,23 +136,47 @@ export async function uploadPending(
     return { ok: false, message: digestMismatchMessage(expected, actual) }
   }
 
-  try {
-    const row = await deps.saveRow({
-      recordId: item.recordId,
-      treeId: item.treeId,
-      operationId: item.operationId,
-      // P3a 一格得一張全景相，所以永遠係第一張 —— ⛔ 但係 1 唔係 0。
-      seq: 1,
-      r2Key: signed.key,
-      sizeBytes: item.size,
-      sha256: item.sha256,
-      capturedAt: item.capturedAt,
-    })
-    return { ok: true, row, alreadyDone: false }
-  } catch (caught) {
-    // R2 已經有 bytes，但 DB 冇行。相唔會冇咗，重試會用返同一個編號蓋返同一個 key。
-    return { ok: false, message: failureMessage('saveRow', caught) }
+  // ⛔ 派號 → 寫行。撞到「個號俾人搶咗」就攞過一個新號再試。
+  //    有上限、有終點 —— ⛔ 唔准無限重試（Jason 工作指引第三節第三點）。
+  const wait = deps.wait ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)))
+
+  for (let attempt = 1; attempt <= MAX_SEQ_ATTEMPTS; attempt += 1) {
+    let seq: number
+    try {
+      seq = await deps.allocateSeq(item.recordId, item.treeId, item.mitigation)
+    } catch (caught) {
+      return { ok: false, message: failureMessage('allocateSeq', caught) }
+    }
+
+    try {
+      const row = await deps.saveRow({
+        recordId: item.recordId,
+        treeId: item.treeId,
+        mitigation: item.mitigation,
+        operationId: item.operationId,
+        seq,
+        r2Key: signed.key,
+        sizeBytes: item.size,
+        sha256: item.sha256,
+        capturedAt: item.capturedAt,
+      })
+      return { ok: true, row, alreadyDone: false }
+    } catch (caught) {
+      if ((caught as Error)?.name === 'SeqConflict' && attempt < MAX_SEQ_ATTEMPTS) {
+        // 讓一讓，唔好連環撞。
+        await wait(attempt * 200)
+        continue
+      }
+      if ((caught as Error)?.name === 'SeqConflict') {
+        console.error('[quote-app] seq conflict, gave up after', MAX_SEQ_ATTEMPTS)
+        return { ok: false, message: SEQ_GAVE_UP_MESSAGE }
+      }
+      // R2 已經有 bytes，但 DB 冇行。相唔會冇咗，重試會用返同一個編號蓋返同一個 key。
+      return { ok: false, message: failureMessage('saveRow', caught) }
+    }
   }
+
+  return { ok: false, message: SEQ_GAVE_UP_MESSAGE }
 }
 
 /**
