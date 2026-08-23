@@ -127,30 +127,91 @@ P3c-1 出事最多係「影唔到新相」；**P3c-2 出事係「已經好咗嘅
 
 畫線標記（P3d）、揀相頁（P4.5）、PDF（P5）、對數 cron、轉工程（P6）。
 
-## 5. D1 要跑嘅 SQL（⛔ Jason 親手跑）
+## 5. D1 SQL —— 最終版（⛔ Jason 親手跑，四段順住嚟）
 
-⚠️ **我建議唔跟 tree app 開 `pair_counters` 表，理由喺下面。**
-**如果 Jason 要照跟 tree app 開表，話我知，我改返。**
+### ⚠️ 先答你第二件：`quote_photos` 個 SELECT policy 我證明唔到
+
+**⛔ 我跑唔到 SQL**（呢個容器連唔到 Supabase），所以**我唔會扮貼一個結果出嚟**。
+
+**手上有幾多證據，講實：**
+
+- **有**：2026-08-22 開表嗰張 SQL 入面寫住
+  `create policy quote_photos_select … for select using (true);`
+  （`docs/P3a-計劃書.md:265`）
+- **有**：Jason 跑完之後驗返 **「policy = 3 條（select / insert / update）」**
+- ⛔ **冇**：`quote_photos_select` 嘅**逐字原文**冇 dump 返出嚟過
+  （四張舊表就有逐字原文，呢張淨係有數量）
+
+**即係「應該係 `using (true)`」有好強嘅證據，但唔係實測原文。**
+
+**你叫嗰句唯讀檢查照放咗喺下面第 0 段。**
+
+### ⛔ 所以我改咗做 `security definer`，唔靠 policy 猜
+
+**理由**：`security invoker` 嘅失效模式**正正就係你指出嗰個** ——
+SELECT 一收窄，阿耀數唔到聰嗰行 → **永遠算返同一個號 → 撞 `23505` → 重試 →
+又係同一個號**。**呢個唔係報錯，係死循環。**
+
+**`security definer` 之下**：個 function **一定數到成格所有 live 行**，
+所以**永遠派得出一個未用過嘅號**，⛔ **死循環喺根源度冇咗**。
+
+**代價**：佢繞過 RLS。**但佢淨係回一個 `int`** ——
+唔會 select 任何一行內容出嚟，**漏唔到相片資料**。
+**而且 `search_path` 鎖死**（`set search_path = public, pg_temp`），
+唔會被人用一張同名嘅表騙走。
+
+⚠️ **如果第 0 段跑返出嚟真係 `using (true)`，`security invoker` 一樣安全** ——
+**要唔要改返 invoker，Jason 決定。⛔ 我唔會自己揀，但我唔建議賭。**
+
+---
+
+### 第 0 段：⛔ 唯讀檢查，兩句都要係零行／確認咗先好行落去
+
+```sql
+-- 0a. 睇實 quote_photos 三條 policy 嘅逐字原文（尤其 SELECT 係咪 using (true)）
+select policyname, cmd, qual, with_check
+  from pg_policies
+ where schemaname = 'public' and tablename = 'quote_photos'
+ order by policyname;
+
+-- 0b. ⛔ 建 unique index 之前一定要跑：同一格有冇兩行同號？
+--     有嘅話下面 create unique index 會直接失敗。
+--     ⚠️ 預期：零行。唔係零行就停低，返嚟講，⛔ 唔好自己改資料。
+select record_id,
+       tree_id,
+       mitigation,
+       seq,
+       count(*) as 幾多行
+  from public.quote_photos
+ where deleted_at is null
+ group by record_id, tree_id, mitigation, seq
+having count(*) > 1
+ order by 幾多行 desc;
+```
+
+### 第 1 段：派號 function
 
 ```sql
 -- ⛔ 未跑。由 Jason 本人喺 Supabase SQL editor 貼同跑。
 --
--- 派一個 seq 俾（樹、工序）呢一格。
+-- 派一個 seq 俾（單、樹、工序）呢一格。
 --   * 攞行鎖 → 兩部電話同時影唔會攞到同一個號
 --   * 數 live 行（deleted_at is null）→ D2 壓縮之後永遠連續，所以 max+1 就啱
---   * 工程相（tree_id 係 null）用 record_id 分組
+--   * 工程相 tree_id 係 null、全景相 mitigation 係 null，所以用 is not distinct from
+--   * security definer：唔靠呼叫者睇唔睇到人哋嗰行 —— 睇唔到就會派返同一個號，死循環
+--   * search_path 鎖死：唔會被同名嘅表騙走
 create or replace function public.allocate_quote_photo_seq(
-  p_record_id uuid,
-  p_tree_id   uuid,
+  p_record_id  uuid,
+  p_tree_id    uuid,
   p_mitigation text
 ) returns int
 language plpgsql
-security invoker
+security definer
+set search_path = public, pg_temp
 as $$
 declare
   v_next int;
 begin
-  -- 鎖住呢一格現有嘅行；冇行就鎖唔到嘢，靠 unique index 兜底（見下面）
   perform 1
     from public.quote_photos
    where record_id = p_record_id
@@ -171,11 +232,18 @@ begin
 end;
 $$;
 
+revoke all on function public.allocate_quote_photo_seq(uuid, uuid, text) from public;
 grant execute on function public.allocate_quote_photo_seq(uuid, uuid, text) to authenticated;
+```
 
--- ⛔ 最後一道閘：同一格唔可以有兩行同號。
---    tree app 承認咗個 race 有界，靠 worker 撞名守衛兜底；
---    我哋喺 DB 直接封死，撞到就係 23505，前端重試攞下一個號。
+⚠️ **`revoke … from public` 唔可以漏** ——
+`security definer` 嘅 function 預設 `public` 執行得，
+即係**未登入都叫得**（`docs/開發紀錄.md` §十二 第 11 項就係呢一類 warning）。
+
+### 第 2 段：最後一道閘
+
+```sql
+-- ⛔ 跑之前第 0b 段一定要係零行。
 create unique index quote_photos_slot_seq_uidx
   on public.quote_photos (
     record_id,
@@ -186,25 +254,35 @@ create unique index quote_photos_slot_seq_uidx
   where deleted_at is null;
 ```
 
-### Rollback SQL
+### 第 3 段：Rollback
 
 ```sql
 drop index if exists public.quote_photos_slot_seq_uidx;
 drop function if exists public.allocate_quote_photo_seq(uuid, uuid, text);
 ```
 
-⛔ **兩句都唔會郁任何一行資料**，所以 rollback 之後啲相原封不動。
+⛔ **三句都唔會郁任何一行資料**，rollback 之後啲相原封不動。
 
-### ⚠️ 我同 tree app 唔同嘅一處，要 Jason 知
+## 5.5 ⛔ 重試要有上限同終點（第一件）
 
-**tree app 有一張 `pair_counters` 表，`last` 只加不減，再加「回收冇人用嘅號」。**
+**上一版寫「撞 `23505` 就重試攞下一個號」，冇上限、冇終點 —— ⛔ 錯。**
+Jason 工作指引第三節第三點：**唔准無限重試，要有上限，到頂要落入一個
+明確終點狀態，而且嗰個狀態要有地方睇得到。**
 
-**我建議唔開呢張表**，理由：**D2 揀咗全壓縮遞補** ——
-號碼**永遠連續冇窿**，所以**根本冇「冇人用嘅號」可以回收**，
-一張只加不減嘅 counter 亦會同壓縮之後嘅實況對唔上。
-**`max(seq) + 1` 直接由 live 行數出嚟先係同 D2 一致。**
+| | |
+| --- | --- |
+| **上限** | **同一張相最多試 3 次派號** |
+| **每次之間** | 短暫等一等（0.2s / 0.4s），⛔ 唔係連環撞 |
+| **到頂之後** | 狀態變 **「有事要人睇」** |
+| **睇得到嘅地方** | ①張相自己個狀態行 ②**車上補嘢清單**（佢係真失敗，唔係過渡） |
+| **⛔ 唔會發生嘅事** | 相**唔會冇咗** —— 佢已經喺部機同 R2，淨係未排到號 |
 
-⛔ **如果 Jason 要照跟 tree app 開表，話我知。**
+**文案（一個具體動作 ＋ 一個具體對象）：**
+
+> 呢張相排唔到號，可能有人同時影緊同一格。請撳「再試一次」，或者截圖搵 Jason。
+
+⚠️ **3 次係按「同一格同時有兩部機」呢個情境計** ——
+兩部機互相讓一次就夠。**如果真機見到三次都唔夠，返嚟講，⛔ 唔好自己加大個數。**
 
 ## 6. Source of truth
 
@@ -262,6 +340,8 @@ drop function if exists public.allocate_quote_photo_seq(uuid, uuid, text);
 ## 批准欄
 
 - [ ] Jason 睇完，批准開工
-- [ ] 拆唔拆做 P3c-1 / P3c-2 已經決定
-- [ ] `pair_counters` 開唔開（我建議唔開）已經決定
+- [x] 拆兩步 —— **2026-08-23 批咗**（P3c-1 一格多張／P3c-2 重編同改名）
+- [x] `pair_counters` 唔開 —— **2026-08-23 批咗**（tree app SPEC §10.2 自己都要收窄佢）
+- [ ] 第 0 段兩句唯讀檢查跑咗，結果貼返
+- [ ] `security definer` 定 `invoker`（睇第 0a 段結果）已經決定
 - [ ] Jason 本人跑咗第五節張 SQL
