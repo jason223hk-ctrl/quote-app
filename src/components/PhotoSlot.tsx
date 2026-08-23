@@ -4,7 +4,6 @@ import {
   PHOTO_STATUS_HINT,
   PHOTO_STATUS_LABEL,
   newOperationId,
-  pickMirrorBatch,
   sha256Hex,
   statusOfRow,
   type PhotoStatus,
@@ -28,6 +27,12 @@ type Props = {
   treeId: string
   /** 留空 = 全景格。有值 = 嗰個工序格。 */
   mitigation?: string | null
+  /**
+   * 影完一張相、寫咗 DB 之後叫一次。
+   * ⛔ 補鏡像唔喺呢度做 —— 由 `TreePhotoSlots` 一個擁有者統一做，
+   *    唔係每格各自一個迴圈（2026-08-23 出事嘅原因）。
+   */
+  onChanged?: () => void
   /** 格嘅標題，例如「全景相（成棵樹）」或者「清理樹冠」。 */
   title: string
   /** 標題下面嗰句提示。 */
@@ -110,21 +115,13 @@ export default function PhotoSlot({
   mitigation = null,
   title,
   hint,
+  onChanged,
 }: Props) {
   const [pending, setPending] = useState<PendingPhoto[]>([])
   const [rows, setRows] = useState<QuotePhoto[]>([])
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [thumbs, setThumbs] = useState<Record<string, string>>({})
-  /**
-   * ⛔ 今次開 app 已經試過補鏡像嘅相。
-   *
-   * 冇呢個就會炒車：補完 → `reload()` → `rows` 換咗個新 array →
-   * useEffect 再行 → 再補一次…… 一次開 app 就燒晒三次配額，
-   * 而且變成連環重試，正正係「一次三張」想避免嗰件事。
-   * 「下次開 app 補做」＝**一次開 app 一張相試一次**。
-   */
-  const triedRef = useRef<Set<string>>(new Set())
   const cameraRef = useRef<HTMLInputElement>(null)
   const albumRef = useRef<HTMLInputElement>(null)
 
@@ -203,34 +200,6 @@ export default function PhotoSlot({
     [accessToken],
   )
 
-  /**
-   * 開返 app 嗰陣補鏡像。
-   *
-   * ⛔ 一次三張，唔准一次過發成個工程嘅請求 —— 地盤網絡差，三十個會一齊死。
-   * ⛔ 試夠三次嘅唔會再自動試，要人手撳。
-   */
-  useEffect(() => {
-    if (!workerReady || rows.length === 0) return
-    const batch = pickMirrorBatch(rows, attemptsOf).filter(
-      (row) => !triedRef.current.has(row.id),
-    )
-    if (batch.length === 0) return
-    for (const row of batch) triedRef.current.add(row.id)
-
-    let live = true
-    void (async () => {
-      for (const row of batch) {
-        if (!live) return
-        await runMirror(row)
-      }
-      if (live) await reload()
-    })()
-    return () => {
-      live = false
-    }
-    // rows 一變就再睇有冇嘢要補；補完 reload 會令 rows 再變，
-    // 但嗰陣 pickMirrorBatch 會回空，所以唔會無限行落去。
-  }, [rows, workerReady, attemptsOf, runMirror, reload])
 
   async function send(item: PendingPhoto) {
     await photoStore.put({ ...item, status: 'uploading', error: '' })
@@ -245,9 +214,9 @@ export default function PhotoSlot({
     if (result.ok) {
       await photoStore.put({ ...item, status: 'uploaded', error: '' })
       // 影完即刻試一次鏡像。唔成功就留低狀態，下次開 app 補（§7.5）。
-      triedRef.current.add(result.row.id)
       const mirrored = await runMirror(result.row, item.compressFallback ?? '')
       if (!mirrored.ok) setError(mirrored.message)
+      onChanged?.()
     } else {
       // ⛔ 失敗就係失敗。部機嗰份照留住，唔會刪。
       await photoStore.put({

@@ -102,33 +102,52 @@ describe('statusOfRow', () => {
 
 describe('pickMirrorBatch', () => {
   function make(id: string, created: string, r2 = 'x', drive: string | null = null): QuotePhoto {
-    return { ...row, id, created_at: created, r2_synced_at: r2, drive_synced_at: drive }
+    return { ...row, id, created_at: created, r2_synced_at: r2, drive_synced_at: drive, tree_id: 'tree-1' }
   }
 
   it('⛔ 一次最多三張 —— 唔准一次過發成個工程', () => {
     const rows = ['1', '2', '3', '4', '5'].map((n) => make(n, `2026-08-22T0${n}:00:00Z`))
-    expect(pickMirrorBatch(rows, () => 0).map((r) => r.id)).toEqual(['1', '2', '3'])
+    expect(pickMirrorBatch(rows, () => 0, 'tree-1').map((r) => r.id)).toEqual(['1', '2', '3'])
   })
 
   it('舊嘅行先', () => {
     const rows = [make('b', '2026-08-22T02:00:00Z'), make('a', '2026-08-22T01:00:00Z')]
-    expect(pickMirrorBatch(rows, () => 0).map((r) => r.id)).toEqual(['a', 'b'])
+    expect(pickMirrorBatch(rows, () => 0, 'tree-1').map((r) => r.id)).toEqual(['a', 'b'])
   })
 
   it('已經上咗 Drive 嘅唔會再揀', () => {
-    expect(pickMirrorBatch([make('a', 'x', 'x', 'done')], () => 0)).toHaveLength(0)
+    expect(pickMirrorBatch([make('a', 'x', 'x', 'done')], () => 0, 'tree-1')).toHaveLength(0)
   })
 
   it('仲未入 R2 嘅唔會揀 —— 未輪到佢', () => {
-    expect(pickMirrorBatch([{ ...make('a', 'x'), r2_synced_at: null }], () => 0)).toHaveLength(0)
+    expect(pickMirrorBatch([{ ...make('a', 'x'), r2_synced_at: null }], () => 0, 'tree-1')).toHaveLength(0)
   })
 
   it('⛔ 試夠三次嘅唔會再自動試', () => {
-    expect(pickMirrorBatch([make('a', 'x')], () => MAX_DRIVE_ATTEMPTS)).toHaveLength(0)
+    expect(pickMirrorBatch([make('a', 'x')], () => MAX_DRIVE_ATTEMPTS, 'tree-1')).toHaveLength(0)
+  })
+
+  it('⛔ 只揀返自己棵樹 —— 唔准靠「而家一次淨係 render 一棵樹」', () => {
+    const mine = { ...make('mine', '2026-08-23T01:00:00Z'), tree_id: 'tree-1' }
+    const other = { ...make('other', '2026-08-23T00:00:00Z'), tree_id: 'tree-2' }
+    // `other` 舊過 `mine`，如果冇按樹篩就會揀咗佢先。
+    expect(pickMirrorBatch([other, mine], () => 0, 'tree-1').map((r) => r.id)).toEqual(['mine'])
+  })
+
+  it('⛔ 兩棵樹各自補，唔會爭同一行（2026-08-23 出事嗰個形狀）', () => {
+    const a = { ...make('a', 'x'), tree_id: 'tree-1' }
+    const b = { ...make('b', 'x'), tree_id: 'tree-2' }
+    expect(pickMirrorBatch([a, b], () => 0, 'tree-1').map((r) => r.id)).toEqual(['a'])
+    expect(pickMirrorBatch([a, b], () => 0, 'tree-2').map((r) => r.id)).toEqual(['b'])
+  })
+
+  it('工程相（`tree_id` 係 null）唔會被任何一棵樹撿走', () => {
+    const none = { ...make('none', 'x'), tree_id: null }
+    expect(pickMirrorBatch([none], () => 0, 'tree-1')).toHaveLength(0)
   })
 
   it('試過但未夠三次嘅照試', () => {
-    expect(pickMirrorBatch([make('a', 'x')], () => 2)).toHaveLength(1)
+    expect(pickMirrorBatch([make('a', 'x')], () => 2, 'tree-1')).toHaveLength(1)
   })
 })
 

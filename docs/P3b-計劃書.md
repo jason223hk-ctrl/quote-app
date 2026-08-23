@@ -1709,3 +1709,93 @@ fields: files(id,name,size,appProperties)
 
 **有 `compressFallback` = fallback 咗，入面就係原因。**
 ⚠️ 畫面上**乜都唔會顯示**（條件 (b)），所以**唔好喺 app 度揾**。
+
+---
+
+# 🚨 I9：兩個工序格同時補鏡像，Drive 出咗兩個同名檔（2026-08-23）
+
+## 現場見到咩
+
+真機驗收，三個功能全部行到，**但兩邊對數對唔上**：
+
+```
+Drive  10 個檔
+DB      9 行
+```
+
+多出嗰個係 `4_Whole View_01_Before.jpg` —— **同名、兩個唔同 file id**。
+
+## 根因：⛔ 唔係 I7 失效，係 I7 俾人跑贏咗
+
+補鏡像嗰個迴圈**本來住喺 `PhotoSlot` 入面**。每個 `PhotoSlot`：
+
+- 各自叫 `photos.listByRecord(recordId)` —— **攞返成單所有 rows，冇篩過**
+- 各自有一個 `triedRef` —— **只係擋自己，擋唔到隔籬**
+
+P3a／P3b 嗰陣**一棵樹得一個格**，所以「一個 owner」係**啱嘅，但係靠彩數啱**。
+P3c-1 一加咗工序格，**同一棵樹同時有幾個格**，
+每個都撿走同一張未鏡像嘅相，**同時**叫 `/mirror`。
+
+Worker 兩道保護（`findMirroredFile` 查 `appProperties.quotePhotoId`、
+`findNameClash` 查同名）**兩道都係查 Drive**，
+而 **Drive `files.list` 係最終一致（eventually consistent）** ——
+兩個請求同時查，兩個都見到「未有」，兩個都上。
+
+⭐ **講清楚：I7 個保護冇壞、冇被繞過。佢係「讀完先決定」，
+而「讀完先決定」由定義上就擋唔到「同時」。**
+
+## 改咗咩（2026-08-23）
+
+**三個核心模組，冇再多：**
+
+| 檔 | 改咗乜 |
+| --- | --- |
+| `src/lib/photos.ts` | `pickMirrorBatch()` 加 `treeId` 參數，**只揀 `row.tree_id === treeId`** |
+| `src/components/PhotoSlot.tsx` | **拆走**補鏡像迴圈同 `triedRef`；改為上載成功之後叫 `onChanged()` |
+| `src/components/TreePhotoSlots.tsx` | **變成唯一一個 owner**：一棵樹一個迴圈、一個 `triedRef` |
+
+⛔ `TreesScreen`、`TreeFormPage`、Worker **一個字都冇郁**。
+
+### ⛔ 唔准再靠「而家一次淨係 render 一棵樹」
+
+`pickMirrorBatch` 入面特登寫低咗呢句。
+**今晚件事就係由「當時啱」變唔啱** —— 當時真係一棵樹一個格，
+所以冇人覺得篩樹係必要。**篩樹係必要嘅，唔係優化。**
+
+## ⚠️ 個 belt 係「收窄個窗口」，⛔ 唔係互斥
+
+上載之前再問一次 DB（`findByOperationId`，見到 `drive_synced_at` 就跳過）。
+
+⛔ **佢閂唔死個窗口**：兩個請求真係同一刻讀到 `null`，一樣兩邊都會上。
+佢做到嘅係**由「幾秒」收窄到「一次網絡來回」**。
+
+**寫落嚟係為咗以後有人睇到呢段 code，唔會以為已經安全。**
+
+## 丙（CAS claim）：⭐ 已知下一步，⛔ 而家唔做
+
+真正閂死個窗口係**喺 DB 度 claim**：
+用一句 `update ... where drive_synced_at is null` 嘅條件寫入，
+**邊個 update 到 1 行邊個先有權上**，0 行就係輸咗、唔好上。
+
+⛔ **今日唔做**，因為佢要**新 SQL**（Jason 本人跑，見 CLAUDE.md 第三節），
+而今晚要做嘅係**止血**。
+
+⭐ **但佢係已知下一步，唔係「將來可能會考慮」。**
+⛔ **唔准喺清單度當佢消失**（CLAUDE.md 2.10）。
+
+## 孤兒檔清理：排喺修好之後
+
+**未做。** 做嘅時候：
+
+- ⛔ **唔准用檔名認佢** —— 兩個檔同名，用名一定認錯（呢個正正就係 I7 個教訓）
+- ✅ **用** `fields: files(id,appProperties,createdTime)`，
+  對 `appProperties.quotePhotoId`，**再對 DB 嗰行實際指住邊個 `drive_file_id`**
+- **DB 冇指住嗰個**先係孤兒
+
+## 教訓（同 I7 唔同，要分開記）
+
+**I7 = 認錯身份。I9 = 認得啱，但同時有兩個人喺度認。**
+
+⛔ **凡係「讀完先決定」嘅保護，都擋唔到並發。**
+要擋並發，個決定要**同寫入係同一句**（CAS）。
+喺嗰句寫出嚟之前，**唯一擋得住嘅方法係：由頭就唔准有第二個人入場**（一個 owner）。

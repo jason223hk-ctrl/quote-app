@@ -108,9 +108,14 @@ export const MIRROR_BATCH_SIZE = 3
 export function pickMirrorBatch(
   rows: QuotePhoto[],
   attempts: (photoId: string) => number,
+  treeId: string,
   batchSize = MIRROR_BATCH_SIZE,
 ): QuotePhoto[] {
   return rows
+    // ⛔ 只揀返自己棵樹。⚠️ 唔准靠「而家一次淨係 render 一棵樹」——
+    //    2026-08-23 出事嗰次就係「當時啱」：得一個格嗰陣冇人爭，
+    //    P3c-1 加多兩個格之後即刻兩個迴圈搶同一行，Drive 出咗兩個同名檔。
+    .filter((row) => row.tree_id === treeId)
     .filter((row) => row.r2_synced_at !== null && row.drive_synced_at === null)
     .filter((row) => attempts(row.id) < MAX_DRIVE_ATTEMPTS)
     .sort((a, b) => a.created_at.localeCompare(b.created_at))
