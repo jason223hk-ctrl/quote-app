@@ -129,7 +129,32 @@ P3c-1 出事最多係「影唔到新相」；**P3c-2 出事係「已經好咗嘅
 
 ## 5. D1 SQL —— 最終版（⛔ Jason 親手跑，四段順住嚟）
 
-### ⚠️ 先答你第二件：`quote_photos` 個 SELECT policy 我證明唔到
+### ✅ 第 0 段跑咗，實測結果（2026-08-23）
+
+**0a —— `quote_photos` 三條 policy 嘅逐字原文：**
+
+| policy | cmd | `qual` | `with_check` |
+| --- | --- | --- | --- |
+| `quote_photos_insert` | INSERT | NULL | `can_edit_quote_record(record_id) AND (created_by is auth.uid())` |
+| `quote_photos_select` | SELECT | **`true`** | NULL |
+| `quote_photos_update` | UPDATE | `can_edit_quote_record(record_id)` | `can_edit_quote_record(record_id)` |
+
+⭐ **`SELECT` 個 `qual` 真係 `true`** —— 即係「數唔到人哋嗰行」嗰個死循環
+**喺實況上唔會發生**。
+
+**0b —— 撞號檢查：零行**（`Success. No rows returned`）。
+⛔ **即係 unique index 建得成。**
+
+### `security definer` 照用（Jason 2026-08-23 定）
+
+**唔係因為賭** —— 係因為 **tree app 同一支 function 就係咁寫**
+（`supabase/allocate-photo-number.sql`：`SECURITY DEFINER` ＋ `set search_path`
+＋ `grant execute` 俾 `authenticated`），而 **Jason 定咗規矩：同類問題照跟 tree app**。
+
+⭐ **我多咗嗰句 `revoke all … from public` 保留** ——
+tree app 冇，**我哋比佢嚴，方向啱**。
+
+### 舊嗰段記錄（我當時證明唔到，留低）
 
 **⛔ 我跑唔到 SQL**（呢個容器連唔到 Supabase），所以**我唔會扮貼一個結果出嚟**。
 
@@ -144,7 +169,7 @@ P3c-1 出事最多係「影唔到新相」；**P3c-2 出事係「已經好咗嘅
 
 **即係「應該係 `using (true)`」有好強嘅證據，但唔係實測原文。**
 
-**你叫嗰句唯讀檢查照放咗喺下面第 0 段。**
+**你叫嗰句唯讀檢查照放咗喺下面第 0 段 —— 而家已經跑咗，結果喺上面。**
 
 ### ⛔ 所以我改咗做 `security definer`，唔靠 policy 猜
 
@@ -176,7 +201,7 @@ select policyname, cmd, qual, with_check
 
 -- 0b. ⛔ 建 unique index 之前一定要跑：同一格有冇兩行同號？
 --     有嘅話下面 create unique index 會直接失敗。
---     ⚠️ 預期：零行。唔係零行就停低，返嚟講，⛔ 唔好自己改資料。
+--     ✅ 2026-08-23 跑咗：零行。
 select record_id,
        tree_id,
        mitigation,
@@ -243,7 +268,7 @@ grant execute on function public.allocate_quote_photo_seq(uuid, uuid, text) to a
 ### 第 2 段：最後一道閘
 
 ```sql
--- ⛔ 跑之前第 0b 段一定要係零行。
+-- ✅ 第 0b 段 2026-08-23 跑咗，零行，所以呢句建得成。
 create unique index quote_photos_slot_seq_uidx
   on public.quote_photos (
     record_id,
@@ -342,6 +367,50 @@ Jason 工作指引第三節第三點：**唔准無限重試，要有上限，到
 - [ ] Jason 睇完，批准開工
 - [x] 拆兩步 —— **2026-08-23 批咗**（P3c-1 一格多張／P3c-2 重編同改名）
 - [x] `pair_counters` 唔開 —— **2026-08-23 批咗**（tree app SPEC §10.2 自己都要收窄佢）
-- [ ] 第 0 段兩句唯讀檢查跑咗，結果貼返
-- [ ] `security definer` 定 `invoker`（睇第 0a 段結果）已經決定
+- [x] 第 0 段兩句唯讀檢查 —— **2026-08-23 跑咗：SELECT `qual` = `true`；撞號零行**
+- [x] `security definer` —— **2026-08-23 定咗照用**（tree app 同一支 function 就係咁寫）
+- [ ] Jason 本人跑咗第 1、2 段
+- [ ] `can_edit_quote_record()` 個內容攞到（P3c-2 先需要）
 - [ ] Jason 本人跑咗第五節張 SQL
+
+---
+
+# ⚠️ 0a 帶出嚟兩件事，P3c-2 之前要處理
+
+## 一、全壓縮遞補會 UPDATE 到同事嗰行
+
+**`quote_photos_update` 個 `qual` 係 `can_edit_quote_record(record_id)`** ——
+**注意佢係睇「邊一單」，唔係睇「邊個影嗰張相」。**
+
+**所以 D2 壓縮遞補（改人哋嗰行嘅 `seq`）過唔過到，
+完全取決於 `can_edit_quote_record()` 入面寫咗咩。** ⛔ **我未見過佢個內容。**
+
+## ⚠️ 二、同一個問題其實更大：兩個人可能根本唔可以影同一單
+
+**`quote_photos_insert` 都係要 `can_edit_quote_record(record_id)`。**
+
+**如果 `can_edit_quote_record()` 係「淨係開單嗰個（或者 admin）先改得」**，
+咁**聰根本 insert 唔到相入阿耀開嗰單** —— ⛔ **連 P3a 都行唔到，唔止 P3c。**
+
+**而如果係咁**，D1 嗰個「兩部電話同時影同一格」嘅前提就唔成立，
+**P3c-2 嗰個「樹級鎖」亦都冇嘢好鎖。**
+
+⚠️ **兩個方向都有可能，我唔會估。**
+
+## ⛔ 要跑嘅唯讀查詢（一句，Jason 或者你跑）
+
+```sql
+select pg_get_functiondef(oid)
+  from pg_proc
+ where proname = 'can_edit_quote_record'
+   and pronamespace = 'public'::regnamespace;
+```
+
+**攞到之後兩件事即刻答得到：**
+
+1. **壓縮遞補改唔改得到同事嗰行**（P3c-2 blocker）
+2. **兩個人到底可唔可以影同一單**（決定 D1 個 race 同樹級鎖係咪真嘅需要）
+
+⛔ **未見到之前，P3c-2 唔好開工。**
+⚠️ **但 P3c-1 唔受影響** —— 佢淨係 insert 自己影嘅相，
+`with_check` 有 `created_by is auth.uid()`，本來就係自己嗰行。
