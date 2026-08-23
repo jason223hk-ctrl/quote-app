@@ -67,5 +67,11 @@ export const MITIGATION_TOKENS = {
   cabling: 'Cabling',
   root_pruning: 'Root Pruning',
   close_up: 'Close Up',
-  other: 'Other',
+  // ⚠️ `Other-1`，唔係 `Other`（D6 丙，Jason 2026-08-23 拍板，⛔ 唔重開）。
+  // ⛔ 點解唔用用家打嗰段字：`safeFilename` 唔會擋中文，中文入得到檔名，
+  //    但 tree app 個類別排序認唔到佢。`Other-N` 純英文，兩邊都安全。
+  // ⚠️ 而家硬寫 `-1`：DB `mitigation` 得一個 `other` 代號，
+  //    分唔到第幾個「其他」。前端 `otherToken(n)` 已經支援 `Other-N`，
+  //    要真係分得到嗰日先接返佢。
+  other: 'Other-1',
 }

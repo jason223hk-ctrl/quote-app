@@ -54,7 +54,10 @@ export const OTHER_WORK_OPTIONS: Option[] = [
   { value: 'cabling', label: '拉索加固', en: 'Cabling' },
   { value: 'root_pruning', label: '修根', en: 'Root Pruning' },
   { value: 'close_up', label: '近景', en: 'Close Up' },
-  { value: 'other', label: '其他', en: 'Other' },
+  // ⚠️ `Other-1`，唔係 `Other`（D6 丙，Jason 2026-08-23 拍板，⛔ 唔重開）。
+  // ⛔ 呢個 `en` 同 Worker `MITIGATION_TOKENS` 要一個字都唔差 ——
+  //    `worker/src/tokens.test.mjs` 就係唔准佢哋分家。
+  { value: 'other', label: '其他', en: 'Other-1' },
 ]
 
 export const MITIGATION_OTHER = 'other'
