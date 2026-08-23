@@ -370,7 +370,8 @@ Jason 工作指引第三節第三點：**唔准無限重試，要有上限，到
 - [x] 第 0 段兩句唯讀檢查 —— **2026-08-23 跑咗：SELECT `qual` = `true`；撞號零行**
 - [x] `security definer` —— **2026-08-23 定咗照用**（tree app 同一支 function 就係咁寫）
 - [ ] Jason 本人跑咗第 1、2 段
-- [ ] `can_edit_quote_record()` 個內容攞到（P3c-2 先需要）
+- [x] `can_edit_quote_record()` 個內容 —— **2026-08-23 攞到逐字原文**
+- [ ] `locked` 同鏡像／重編號嘅衝突點處理（P3c-2 先需要）
 - [ ] Jason 本人跑咗第五節張 SQL
 
 ---
@@ -397,7 +398,89 @@ Jason 工作指引第三節第三點：**唔准無限重試，要有上限，到
 
 ⚠️ **兩個方向都有可能，我唔會估。**
 
-## ⛔ 要跑嘅唯讀查詢（一句，Jason 或者你跑）
+## ✅ 2026-08-23 攞到咗，逐字原文
+
+```sql
+-- can_edit_quote_record(rid uuid)
+-- LANGUAGE sql, STABLE SECURITY DEFINER
+select exists (
+  select 1
+    from public.quote_records r
+   where r.id = rid
+     and r.deleted_at is null
+     and (
+       (r.created_by = auth.uid() and r.locked = false)
+       or public.is_quote_admin()
+     )
+);
+```
+
+**即係：淨係開單嗰個人（而且張單未鎖）或者 quote admin 先改得。**
+
+### 一、P3c-2 唔係 blocker
+
+**一張單入面所有相都係同一個人開嗰張單先入到** ——
+⛔ **根本冇「同事嗰行」呢回事。**
+**全壓縮遞補 UPDATE 得到自己嗰啲行。**
+
+### 二、D1 個 race 收窄咗，但⛔ 唔取消
+
+**兩個唔同同事唔可能同時影同一單**（第二個 `insert` 根本過唔到 `with_check`）。
+
+**剩返真嘅情況得兩個**：**同一個帳號兩部機**、或者**兩個 admin**。
+
+⛔ **決定唔變：D1 乙照做，unique index 照落。**
+**保險係平嘅**，而且 0b 已經證咗建得成。
+
+⚠️ **但樹級鎖嗰句文案要改** ——
+實際觸發機會比之前估嘅**低好多**，
+⛔ **唔好令人以為成日有人搶**：
+
+| | |
+| --- | --- |
+| ⛔ 舊 | 「其他同事正在整理呢棵樹，請稍後」 |
+| ✅ 新 | **「呢棵樹而家有另一部機喺度改緊，請等一等再試。」** |
+
+**⛔ 個鎖唔准拆走**，淨係改個講法。
+
+### 三、⚠️ 新嘢：`locked` 會令重編號靜靜雞失敗
+
+**`quote_records` 有個 `locked` 欄，`locked = true` 之後非 admin 就改唔到。**
+
+**而 `quote_photos_update` 個 `qual` 就係 `can_edit_quote_record(record_id)`** ——
+**張單一鎖，非 admin 連改一行相片紀錄都改唔到。**
+
+⛔ **呢個正正就係「靜靜雞失敗」嗰種**：
+**RLS 唔會 throw，佢只係令 0 行受影響。**
+
+**要入 P3c-2 失敗矩陣嘅三個情況：**
+
+| 情況 | 後果 | ⛔ 要點做 |
+| --- | --- | --- |
+| 鎖咗之後改工序／刪相 → 重編號 | **UPDATE 0 行** | **⛔ 唔准當做咗** —— 要出中文，講明張單鎖咗 |
+| 重編號改到一半先撞 `locked` | **半截狀態** | ⛔ **違反原子規矩** —— 要**一開始就檢查**，唔係做到一半先發現 |
+| Drive 改名成功但 DB 改唔到 | **檔名同 DB 對唔上** | ⛔ **所以一定要先確認改得到 DB，先至 PATCH Drive** |
+
+**⛔ 次序寫死**：**先驗 `can_edit_quote_record`（試一次 `update … returning`）→
+確認改得到 → 先至郁 Drive。**
+
+### ⚠️ 順帶：`locked` 唔止影響 P3c-2，佢而家已經影響緊 P3b
+
+**P3b 個鏡像寫返 `drive_file_id` / `drive_synced_at` 都係行同一條 update policy。**
+
+**即係話：張單一旦 `locked = true`，未鏡像嘅相就永遠鏡像唔到**
+（非 admin）—— 每次補做都係 0 行。
+
+⭐ **好消息：唔會靜靜死。** `patchPhoto()` 已經用
+`return=representation` readback，0 行就 throw，
+出「資料庫唔俾改呢張相嘅紀錄。可能母單已經鎖定，或者唔係你開嗰單。」
+
+⚠️ **但佢會撞正第六章嗰條規矩**：**未上齊之前唔准出 PDF**。
+**鎖咗 → 上唔齊 → 出唔到 PDF → 要解鎖先得。**
+
+⛔ **呢個唔喺 P3c 範圍，但要記低**，唔好等到 Anna 鎖咗單先發現。
+
+## （已答，留返做紀錄）要跑嘅唯讀查詢
 
 ```sql
 select pg_get_functiondef(oid)
