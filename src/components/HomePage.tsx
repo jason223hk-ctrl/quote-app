@@ -4,6 +4,8 @@ import { createRecordsApi, type QuoteRecord, type RecordsApi } from '../lib/reco
 import { createTreesApi, type TreesApi } from '../lib/trees'
 import { createSiteFormApi, type SiteFormApi } from '../lib/siteForm'
 import { createPhotosApi, type PhotosApi } from '../lib/photos'
+import { createPriceApi, type PriceApi } from '../lib/prices'
+import { isOffice } from '../lib/office'
 import { activeTab, type Nav, type Route } from '../ui/routes'
 import { BottomNav, userInfoFrom, type UserInfo } from '../ui/shell'
 import HomeScreen from './HomeScreen'
@@ -24,6 +26,7 @@ export type QuoteApi = {
   trees: TreesApi
   siteForm: SiteFormApi
   photos: PhotosApi
+  prices: PriceApi
 }
 
 export default function HomePage({ client, session }: Props) {
@@ -33,13 +36,27 @@ export default function HomePage({ client, session }: Props) {
       trees: createTreesApi(client, session.user.id),
       siteForm: createSiteFormApi(client, session.user.id),
       photos: createPhotosApi(client, session.user.id),
+      prices: createPriceApi(client, session.user.id),
     }),
     [client, session.user.id],
   )
 
+  // 加成％ 淨係辦公室改得。⛔ 查唔到一律當唔係 —— 寧願見到但改唔到。
+  const [office, setOffice] = useState(false)
+  useEffect(() => {
+    let active = true
+    void isOffice(client, session.user.id).then((yes) => {
+      if (active) setOffice(yes)
+    })
+    return () => {
+      active = false
+    }
+  }, [client, session.user.id])
+
   return (
     <RecordsScreen
       api={api}
+      office={office}
       user={userInfoFrom(session.user.email ?? '')}
       userId={session.user.id}
       accessToken={session.access_token}
@@ -50,6 +67,8 @@ export default function HomePage({ client, session }: Props) {
 
 type ScreenProps = {
   api: QuoteApi
+  /** 係咪辦公室（quote_admins）。而家淨係用嚟決定加成％ 改唔改得。 */
+  office: boolean
   user: UserInfo
   userId: string
   /** 攞 R2 簽名網址嗰陣要用嚟證明身分。⛔ 唔會存落任何地方。 */
@@ -63,7 +82,7 @@ type ScreenProps = {
  *
  * 資料流冇變（P1 定落）：每次寫入之後由 server 重新攞清單，DB 係唯一 source of truth。
  */
-export function RecordsScreen({ api, user, userId, accessToken, onSignOut }: ScreenProps) {
+export function RecordsScreen({ api, office, user, userId, accessToken, onSignOut }: ScreenProps) {
   const [records, setRecords] = useState<QuoteRecord[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -139,7 +158,20 @@ export function RecordsScreen({ api, user, userId, accessToken, onSignOut }: Scr
       case 'record': {
         const record = findRecord(route.recordId)
         if (!record) return loading ? <div className="content"><p className="loading">載入中…</p></div> : missingRecord()
-        return <RecordHubScreen api={api.trees} record={record} nav={nav} />
+        return (
+          <RecordHubScreen
+            api={api.trees}
+            siteFormApi={api.siteForm}
+            priceApi={api.prices}
+            record={record}
+            canEditMarkup={office}
+            onMarkupSave={async (pct) => {
+              await api.records.setMarkup(record.id, pct)
+              await reload()
+            }}
+            nav={nav}
+          />
+        )
       }
 
       case 'record-form': {

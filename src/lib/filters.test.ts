@@ -25,6 +25,8 @@ function makeRecord(overrides: Partial<QuoteRecord>): QuoteRecord {
     odoo_ref: null,
     status: 'site',
     markup_pct: null,
+    price_snapshot: null,
+    price_snapshot_at: null,
     archived: false,
     locked: false,
     transferred_project_id: null,

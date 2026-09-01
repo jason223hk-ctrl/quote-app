@@ -11,11 +11,10 @@ compatibility_date = "2026-08-22"
 [vars]
 R2_BUCKET = "quote-photos"
 DRIVE_ROOT_FOLDER_NAME = "Quote App Photos"
-# 部署嗰陣填返：
-# R2_ACCOUNT_ID = ""
-# SUPABASE_URL = ""
-# SUPABASE_PUBLISHABLE_KEY = ""
-# ALLOWED_ORIGIN = "https://sylvan-quote.pages.dev"
+R2_ACCOUNT_ID = "8dde223cca0a2c876f495840feb3a539"
+SUPABASE_URL = "https://osdvsatbhaukejiwptyz.supabase.co"
+SUPABASE_PUBLISHABLE_KEY = "sb_publishable_4BwMX-nGOGPvQeOJ750aJA_DWSlsqCa"
+ALLOWED_ORIGIN = "https://sylvan-quote.pages.dev,https://claude-quote-app-scaffold-de.sylvan-quote.pages.dev"
 
 # ⛔ 五個 secret 用 `wrangler secret put` 放，唔准寫入呢個檔、唔准入 repo：
 #   R2_ACCESS_KEY_ID

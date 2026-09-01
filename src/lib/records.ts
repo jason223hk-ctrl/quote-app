@@ -35,6 +35,15 @@ export type QuoteRecord = {
   odoo_ref: string | null
   status: QuoteStatus
   markup_pct: number | null
+  /**
+   * 轉「已報價」嗰刻影低嘅單價表副本（quote_prices 全表）。
+   * null ＝ 仲係待報價，用全 app 現價。
+   * ⛔ 有咗就唔可以再跟現價 —— 個價已經俾咗客戶，公司之後加價唔可以追溯改人哋張單。
+   * ⚠️ 特登唔 import PriceSnapshot：prices.ts 反過嚟 import 呢個檔（translateDbError），
+   *    寫死型別會做成循環引用。用嗰邊自己 cast。
+   */
+  price_snapshot: unknown
+  price_snapshot_at: string | null
   archived: boolean
   locked: boolean
   transferred_project_id: string | null
@@ -93,6 +102,8 @@ export type RecordsApi = {
   create: (input: RecordInput) => Promise<QuoteRecord>
   update: (id: string, input: RecordInput) => Promise<QuoteRecord>
   setArchived: (id: string, archived: boolean) => Promise<QuoteRecord>
+  /** 加成％。⛔ 只有辦公室改得（RLS 把關），畫面嗰層淨係決定畀唔畀你㩒。 */
+  setMarkup: (id: string, pct: number | null) => Promise<QuoteRecord>
   softDelete: (id: string) => Promise<QuoteRecord>
 }
 
@@ -302,6 +313,10 @@ export function createRecordsApi(client: SupabaseClient, userId: string): Record
 
     setArchived(id, archived) {
       return writeBack(patch(id, { archived }))
+    },
+
+    setMarkup(id, pct) {
+      return writeBack(patch(id, { markup_pct: pct }))
     },
 
     softDelete(id) {
