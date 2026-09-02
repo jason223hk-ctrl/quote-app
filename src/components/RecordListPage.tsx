@@ -9,7 +9,7 @@ import {
   UserPill,
   type UserInfo,
 } from '../ui/shell'
-import { ICONS } from '../ui/Icon'
+import { Icon, ICONS } from '../ui/Icon'
 import RecordCard from './RecordCard'
 
 type Props = {
@@ -107,8 +107,15 @@ export default function RecordListPage({
         </ul>
       </FloatBody>
 
-      <button className="fab" data-testid="fab-new-record" onClick={onCreate}>
-        ＋ 新增工程
+      {/* 圓形 FAB，同首頁同一個 —— 原型全 app 只有一款加掣。
+          ⛔ 之前係一個長條「＋ 新增工程」，位同形狀都同原型對唔上。 */}
+      <button
+        className="fab fab--round"
+        data-testid="fab-new-record"
+        aria-label="新增工程"
+        onClick={onCreate}
+      >
+        <Icon name={ICONS.add} />
       </button>
 
       {popover && (

@@ -2,57 +2,88 @@ import { useMemo } from 'react'
 import { EMPTY_FILTERS, filterRecords } from '../lib/filters'
 import type { QuoteRecord } from '../lib/records'
 import type { Nav } from '../ui/routes'
-import { BotanicalHeader, BrandBlock, FloatBody, SectionHead, StatCard, UserPill, type UserInfo } from '../ui/shell'
+import { Icon, ICONS } from '../ui/Icon'
+import brandMark from '../assets/brand-lockup.png'
 import RecordCard from './RecordCard'
 
 type Props = {
   records: QuoteRecord[]
   loading: boolean
-  user: UserInfo
   nav: Nav
 }
 
-/** 01 首頁。照 tree-app-v7 `HomeScreen`：三張統計卡浮喺波浪頂 + 最近幾單。 */
-export default function HomeScreen({ records, loading, user, nav }: Props) {
+/**
+ * 01 首頁。版面照已批准嘅原型 `stage57-autoupload.html` `#screenHome`。
+ *
+ * ⛔ 冇波浪 header、⛔ 冇 user pill、⛔ 冇版本號 —— 原型首頁一樣都冇，
+ *    最頂就係品牌字，主角係下面三個數同待報價清單。
+ *    （帳號同版本號喺「設定」入面照樣睇得返，⛔ 冇整走。）
+ *
+ * ⚠️ 原型嗰句「你好，Jason」同「今日有 N 個工程待報價」喺 stage57 度係
+ *    `display:none` —— 即係最後決定咗唔出。⛔ 所以呢度都唔做，唔係漏咗。
+ */
+export default function HomeScreen({ records, loading, nav }: Props) {
   const live = useMemo(() => filterRecords(records, EMPTY_FILTERS), [records])
 
   const counts = useMemo(
     () => ({
-      site: live.filter((r) => r.status === 'site').length,
       pending: live.filter((r) => r.status === 'pending').length,
       quoted: live.filter((r) => r.status === 'quoted').length,
+      won: live.filter((r) => r.status === 'won').length,
     }),
     [live],
   )
 
-  const recent = live.slice(0, 5)
+  // 首頁淨係出待報價 —— 原型個標題就係「待報價工程」，⛔ 唔係「最近工程」。
+  const pending = useMemo(() => live.filter((r) => r.status === 'pending'), [live])
+
+  const goRecords = () => nav.go({ name: 'records' })
 
   return (
     <>
-      <BotanicalHeader left={<BrandBlock />} right={<UserPill user={user} />} />
-      <FloatBody
-        testid="home-scroll"
-        pills={
-          <div className="stat-row">
-            <StatCard value={counts.site} label="現場中" onClick={() => nav.go({ name: 'records' })} />
-            <StatCard value={counts.pending} label="待報價" tone="amber" onClick={() => nav.go({ name: 'records' })} />
-            <StatCard value={counts.quoted} label="已報價" onClick={() => nav.go({ name: 'records' })} />
-          </div>
-        }
-      >
-        <SectionHead
-          title="最近工程"
-          action={
-            <button className="link" onClick={() => nav.go({ name: 'records' })}>
-              查看全部 ›
-            </button>
-          }
-        />
+      <section className="hhero">
+        <div className="hbrand">
+          <img className="hmark" src={brandMark} alt="森伝報價 SYLVAN QUOTATION" />
+        </div>
+      </section>
+
+      <div className="stats hstats" data-testid="home-stats">
+        <button className="stat" onClick={goRecords} data-testid="stat-pending">
+          <span className="sic">
+            <Icon name={ICONS.statusPending} />
+          </span>
+          <span className="k">待報價</span>
+          <span className="v gold">{counts.pending}</span>
+        </button>
+        <button className="stat" onClick={goRecords} data-testid="stat-quoted">
+          <span className="sic">
+            <Icon name={ICONS.statusQuoted} />
+          </span>
+          <span className="k">已報價</span>
+          <span className="v">{counts.quoted}</span>
+        </button>
+        <button className="stat" onClick={goRecords} data-testid="stat-won">
+          <span className="sic">
+            <Icon name={ICONS.statusWon} />
+          </span>
+          <span className="k">已中標</span>
+          <span className="v">{counts.won}</span>
+        </button>
+      </div>
+
+      <main className="hmain" data-testid="home-scroll">
+        <div className="sect">
+          <h3>待報價工程</h3>
+          <button className="link sect-more" onClick={goRecords}>
+            查看全部
+            <Icon name={ICONS.chevron} className="chev" />
+          </button>
+        </div>
 
         {loading && <div className="muted empty">載入中…</div>}
 
         <ul className="list" data-testid="home-list">
-          {recent.map((record) => (
+          {pending.map((record) => (
             <li key={record.id}>
               <RecordCard
                 record={record}
@@ -62,8 +93,18 @@ export default function HomeScreen({ records, loading, user, nav }: Props) {
           ))}
         </ul>
 
-        {!loading && recent.length === 0 && <div className="muted empty">未有工程</div>}
-      </FloatBody>
+        {!loading && pending.length === 0 && <div className="muted empty">冇工程待報價</div>}
+      </main>
+
+      {/* ⭐ 圓形 FAB（原型 58px）。⛔ 唔係工程列表嗰個長條掣 —— 嗰版下一輪先改。 */}
+      <button
+        className="fab fab--round"
+        data-testid="home-add"
+        aria-label="加工程"
+        onClick={() => nav.go({ name: 'record-form', recordId: null })}
+      >
+        <Icon name={ICONS.add} />
+      </button>
     </>
   )
 }

@@ -236,7 +236,7 @@ describe('rowToInput', () => {
 
 describe('clientAddressLine', () => {
   it('兩邊都有就用「-」駁埋', () => {
-    expect(clientAddressLine('碧瑤', '荃灣海濱花園')).toBe('碧瑤 - 荃灣海濱花園')
+    expect(clientAddressLine('碧瑤', '荃灣海濱花園')).toBe('碧瑤，荃灣海濱花園')
   })
 
   it('一邊冇就唔會留低多餘嘅「-」', () => {

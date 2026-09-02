@@ -1592,7 +1592,7 @@ h2,
 }
 
 /* ⚠️ 三欄（icon｜文字｜箭嘴）＋ space-between 之下，中間欄唔會自己撐開 ——
-   文字就會浮咗喺卡中間。要 flex:1 迫佢由 icon 右邊一路排到箭嘴。 */
+   文字就會浮喺卡中間。要 flex:1 迫佢由 icon 右邊一路排到箭嘴。 */
 .hub-main {
   flex: 1;
   align-items: flex-start;
@@ -1681,4 +1681,359 @@ h2,
   font-variant-numeric: tabular-nums;
   display: flex;
   align-items: center;
+}
+
+/* ── 首頁對返 stage57 ────────────────────────────────────────────
+   ⭐ 尺寸全部由 stage57 `#screenHome` 度返（已計埋佢後面嗰幾層覆寫）。
+   ⛔ 首頁唔再用波浪 header ＋ 浮卡層 —— 原型首頁根本冇波浪。 */
+
+.hhero {
+  flex: none;
+  position: relative;
+  padding: 22px 18px 6px;
+}
+
+/* 右上角一團好淡嘅橄欖光。⛔ 唔可以濃 —— 濃咗就變咗一嚿污糟嘢。 */
+.hhero::after {
+  content: '';
+  position: absolute;
+  right: -60px;
+  top: -70px;
+  width: 260px;
+  height: 260px;
+  pointer-events: none;
+  background: radial-gradient(
+    50% 50% at 50% 50%,
+    rgba(132, 148, 93, 0.16) 0%,
+    rgba(132, 148, 93, 0) 72%
+  );
+}
+
+.hbrand {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+}
+
+.hmark {
+  flex: none;
+  height: 49px;
+  width: auto;
+  max-width: 100%;
+  display: block;
+  object-fit: contain;
+}
+
+/* ── 三個數 ─────────────────────────────────────────────────── */
+.stats.hstats {
+  flex: none;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 11px;
+  margin: 22px 18px 0;
+}
+
+.hstats .stat {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-areas: 'ic k' 'ic v';
+  align-items: center;
+  column-gap: 8px;
+  padding: 9px 10px 10px;
+  text-align: left;
+  background: var(--q-card-bg);
+  border: 1px solid var(--q-border);
+  border-radius: 16px;
+  box-shadow: var(--q-shadow-card);
+}
+
+.hstats .sic {
+  grid-area: ic;
+  align-self: center;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  color: var(--q-accent);
+}
+
+.hstats .sic .ico {
+  width: 28px;
+  height: 28px;
+}
+
+.hstats .k {
+  grid-area: k;
+  align-self: end;
+  min-width: 0;
+  font-size: 13px;
+  line-height: 1.15;
+  white-space: nowrap;
+  letter-spacing: 0.04em;
+  color: var(--q-text-secondary);
+}
+
+/* 數字用襯線，同標題一套。⛔ tabular-nums 唔可以少 —— 0/1 闊度唔同會跳。 */
+.hstats .v {
+  grid-area: v;
+  align-self: start;
+  margin-top: 2px;
+  font-family: var(--q-font-serif);
+  font-size: 26px;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 待報價嗰個先要突出 —— 佢先係要跟進嘅嘢。 */
+.hstats .v.gold {
+  color: var(--q-accent);
+}
+
+/* ── 待報價清單 ─────────────────────────────────────────────── */
+.hmain {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 8px 18px var(--q-fab-clear);
+  /* 上邊界溶開，內容捲上去唔會硬生生俾切一刀。 */
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, rgba(0, 0, 0, 0.55) 3px, #000 6px);
+  mask-image: linear-gradient(to bottom, transparent 0, rgba(0, 0, 0, 0.55) 3px, #000 6px);
+}
+
+.sect {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 0 2px 2px;
+}
+
+.sect h3 {
+  margin: 0;
+  padding-left: 0.5em;
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.sect-more {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 13.5px;
+  color: var(--q-accent);
+}
+
+.sect-more .chev {
+  width: 17px;
+  height: 17px;
+}
+
+/* ── 圓形 FAB ───────────────────────────────────────────────── */
+.fab--round {
+  width: 58px;
+  height: 58px;
+  min-height: 58px;
+  padding: 0;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(160deg, #8b9c60 0%, #68794d 100%);
+  color: #f1ebdd;
+  border: 1px solid rgba(190, 178, 139, 0.22);
+  box-shadow: 0 12px 26px -10px rgba(0, 0, 0, 0.5);
+}
+
+.app--float .fab--round {
+  bottom: calc(102px + env(safe-area-inset-bottom, 0px));
+}
+
+.fab--round .ico {
+  width: 26px;
+  height: 26px;
+  stroke-width: 2;
+}
+
+.fab--round:active {
+  background: linear-gradient(160deg, #7d8d56 0%, #5b6b44 100%);
+}
+
+/* ── 工程卡對返 stage57（.pcard）────────────────────────────────
+   ⭐ 呢張卡首頁同工程列表共用，兩版一齊變。 */
+.proj-card {
+  align-items: center;
+  padding: 18px 20px;
+  min-height: 96px;
+}
+
+.proj-title {
+  font-family: var(--q-font-serif);
+  font-size: 19px;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.proj-meta {
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+/* 第二行（客戶 ／ 地址）比第一行再暗一級 —— 三層資訊層次。 */
+.proj-meta + .proj-meta {
+  font-size: 12.5px;
+}
+
+/* 分隔由一條直間改做一點，同原型「2026-08-22 · 九龍 · 日更」對返。 */
+.meta-divider {
+  width: auto;
+  height: auto;
+  background: none;
+}
+
+.meta-divider::before {
+  content: '·';
+  color: var(--q-text-secondary);
+}
+
+/* 狀態由淨字改做膠囊。⛔ 只喺工程卡入面 ——
+   工程詳情頂部嗰三格入面嘅狀態係另一個位，唔可以一齊變。 */
+.proj-side .status {
+  gap: 7px;
+  padding: 6px 13px;
+  border: 1px solid rgba(157, 169, 105, 0.26);
+  border-radius: 999px;
+  background: rgba(120, 138, 86, 0.16);
+  font-size: 12.5px;
+  letter-spacing: 0.02em;
+}
+
+.proj-side .status__dot {
+  width: 6px;
+  height: 6px;
+}
+
+/* 卡由「左內容｜右狀態」兩直行，改成原型嘅「上一行名＋狀態，下面兩行資料」。 */
+.proj-card {
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: center;
+  gap: 0;
+}
+
+.proj-top {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.proj-top .proj-title {
+  flex: 1;
+  min-width: 0;
+}
+
+.proj-side {
+  margin-left: auto;
+  flex: none;
+  flex-direction: row;
+  align-items: center;
+  gap: 7px;
+}
+
+.proj-meta {
+  margin-top: 7px;
+}
+
+.proj-meta + .proj-meta {
+  margin-top: 4px;
+}
+
+/* ── 底部導覽對返 stage57 ────────────────────────────────────── */
+.bottom-nav {
+  border-radius: 16px;
+  padding: 11px 0 9px;
+  background: linear-gradient(180deg, rgba(28, 36, 29, 0.96), rgba(19, 26, 20, 0.96));
+  border: 1px solid var(--q-border);
+  box-shadow: 0 12px 30px -12px rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.nav-item {
+  position: relative;
+  gap: 5px;
+  color: var(--q-text-secondary);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.nav-ic .ico {
+  width: 27px;
+  height: 27px;
+}
+
+.nav-item.active,
+.nav-item.active .nav-ic {
+  color: var(--q-accent);
+}
+
+/* 亮起嘅記號係頂上一條短橫，⛔ 唔係下面一粒點。 */
+.nav-dot {
+  display: none;
+}
+
+.nav-item.active::before {
+  content: '';
+  position: absolute;
+  top: -6px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 26px;
+  height: 3px;
+  border-radius: 3px;
+  background: var(--q-accent);
+}
+
+/* nav 條本身嘅位。實測 stage57：左右各 16px、距底 16px、內距 11／9。
+   ⛔ 真 app 之前係左右 14、距底 26 —— 三個數都對唔正，成條 bar 位置唔同。 */
+.app--float .bottom-nav {
+  left: 16px;
+  right: 16px;
+  bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+}
+
+.bottom-nav {
+  padding: 11px 0 9px;
+}
+
+.nav-item {
+  min-height: 0;
+}
+
+/* ⚠️ 條 nav bar 高咗 11px —— 唔係 FAB 郁咗位，係 bar 頂升高咗，
+   FAB 同 nav 之間條罅由 24.5px 迫到剩 13.5px。
+   原因：個字用緊 line-height 1.5，一行 13px 字佔咗 19.5px。
+   原型 `nav b{line-height:1}`，所以要跟返。 */
+.nav-item {
+  line-height: 1;
+}
+
+.nav-ic {
+  line-height: 0;
+}
+
+/* ⚠️ 仲爭 6px：`.nav-item` 四邊各 4px 內距，上下就多咗 8px。
+   原型係 `padding:2px 0 0` —— 淨係頂 2px。跟返之後條 bar 高 69px，同原型一樣。
+   `.ico` 亦都要 display:block，否則 svg 底下會留返一條字腳位。 */
+.nav-item {
+  padding: 2px 0 0;
+}
+
+.nav-ic .ico {
+  display: block;
 }

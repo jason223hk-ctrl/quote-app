@@ -140,7 +140,7 @@ export function RecordsScreen({ api, office, user, userId, accessToken, onSignOu
   function renderRoute() {
     switch (route.name) {
       case 'home':
-        return <HomeScreen records={records} loading={loading} user={user} nav={nav} />
+        return <HomeScreen records={records} loading={loading} nav={nav} />
 
       case 'records':
         return (

@@ -35,7 +35,7 @@ export function shiftLabel(shift: Shift | null): string {
 
 /** 卡上面「客戶 - 地址」嗰行。任何一邊冇填都唔可以出多餘嘅「-」。 */
 export function clientAddressLine(client: string | null, address: string | null): string {
-  return [client, address].filter((part) => part && part.trim() !== '').join(' - ')
+  return [client, address].filter((part) => part && part.trim() !== '').join('，')
 }
 
 export function todayIso(now: Date): string {

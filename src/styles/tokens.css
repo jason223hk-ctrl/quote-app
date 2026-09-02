@@ -90,5 +90,9 @@
 
   --q-tap-target: 48px;
 
+  /* 清單底部要留返 FAB 佔嘅位：FAB 距底 102 ＋ 高 58 ＋ 12 呼吸位。
+     ⛔ 唔准喺個別畫面寫死一個數 —— 尾張卡會俾 FAB 遮到。 */
+  --q-fab-clear: calc(102px + 58px + 12px + env(safe-area-inset-bottom, 0px));
+
   --q-card-lift: clamp(-46px, calc(6px - 9vw), -18px);
 }
