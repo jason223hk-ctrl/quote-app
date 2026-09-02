@@ -1904,7 +1904,8 @@ h2,
 /* 狀態由淨字改做膠囊。⛔ 只喺工程卡入面 ——
    工程詳情頂部嗰三格入面嘅狀態係另一個位，唔可以一齊變。 */
 .proj-side .status {
-  gap: 7px;
+  /* ⚠️ 原型 `.pcard .st` 係 6px。我寫過 7px，個膠囊就闊咗 1px（對數捉到）。 */
+  gap: 6px;
   padding: 6px 13px;
   border: 1px solid rgba(157, 169, 105, 0.26);
   border-radius: 999px;
@@ -2036,4 +2037,77 @@ h2,
 
 .nav-ic .ico {
   display: block;
+}
+
+/* ══ 對數修正（2026-09-02，tools/ui-check）══════════════════════
+   以下每一條都係量出嚟嘅差異，⛔ 唔係我覺得靚啲。 */
+
+/* 底字級 15 → 16px（原型 `.quote-app-ui{font-size:16px}`）。
+   ⚠️ 呢個影響全 app 所有冇寫死字級嘅嘢同埋 line-height。 */
+body {
+  font-size: 16px;
+}
+
+/* h3 漏咗襯線 —— 首頁「待報價工程」實測 serif=false。 */
+h3 {
+  font-family: var(--q-font-serif);
+  letter-spacing: 0.01em;
+}
+
+/* 版面左右內距 16 → 18px（原型 main padding）。 */
+.float-cards-scroll {
+  padding-left: 18px;
+  padding-right: 18px;
+}
+
+/* 成本卡四邊 18px（原型 #costCard padding:18px）。 */
+.cost-card {
+  padding: 18px;
+}
+
+/* 第二層文字色：卡入面嘅狀態膠囊同提示格。實測原型係 #BDB6A6，
+   真 app 用咗 #96978E（第三層），暗咗一級。 */
+.proj-side .status,
+.cost-note {
+  color: var(--q-text-2);
+}
+
+/* ⚠️⚠️ 真 bug，唔止樣衰：`.float-cards-scroll` 係 flex 直行，
+   子元素預設 `flex-shrink:1`。內容一長過個框，每張卡就會俾壓扁到
+   佢自己嘅 min-height —— 實測工程詳情頭一張入口卡由應有嘅 99.6px
+   壓成 62px，副標第二行直接俾切走。
+   ⭐ `flex:none` 之後每張卡先會保持返自己嘅高度。 */
+.float-cards-scroll > * {
+  flex: none;
+}
+
+/* 入口 icon 要企喺一個 40px 闊嘅位入面（原型 .ric），
+   icon 本身 30px 居中 —— 唔係就成行字左移咗 5px。 */
+.hub-ic {
+  width: 40px;
+}
+
+/* 提示格行高 1.55（原型 .note2）。 */
+.cost-note {
+  line-height: 1.55;
+}
+
+/* 加成格：原型 input 內距 11px、字 16px（唔係 18px）。 */
+.cost-input input {
+  padding: 11px 0;
+  font-size: 16px;
+}
+
+/* 報價價錢：原型 `.gain` 冇特別放大 —— 16px、weight 650、內距 11／12、最矮 44px。
+   ⛔ 我之前用咗 22px + weight 700，大咗成級。 */
+.cost-asking {
+  padding: 11px 12px;
+  font-size: 16px;
+  font-weight: 650;
+}
+
+/* nav 個字：原型 weight 600，亮起嗰個都係 600 —— ⛔ 唔會變粗。 */
+.nav-item,
+.nav-item.active {
+  font-weight: 600;
 }

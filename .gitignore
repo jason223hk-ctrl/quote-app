@@ -18,3 +18,6 @@ npm-debug.log*
 
 # build 快取
 *.tsbuildinfo
+
+# UI 對數用嘅 build，⛔ 唔入 repo
+tools/ui-check/dist

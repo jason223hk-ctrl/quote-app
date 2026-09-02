@@ -47,6 +47,9 @@
 
   /* 文字 */
   --q-text-primary: #f1ebdd;
+  /* 三層文字：主 → 第二層 → 第三層。⛔ 之前只有兩層，
+     所以第二層嗰啲字（卡入面嘅資料、提示格）一律用咗最暗嗰隻，暗過原型。 */
+  --q-text-2: #bdb6a6;
   --q-text-secondary: #96978e;
   --q-on-header: #f1ebdd;
 
@@ -78,11 +81,14 @@
   --q-space-5: 24px;
   --q-space-6: 32px;
 
-  --q-font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
-    'PingFang HK', 'Microsoft JhengHei', sans-serif;
-  /* 標題襯線體（stage57 VFINAL.1 §8）。Noto Serif TC 由 Google Fonts 非同步載，
-     ⚠️ 冇網／載唔到就跌落 Songti TC（iOS／Mac 內建）—— 樣會樸素啲，⛔ 但唔會爛版。 */
+  /* 內文字體。⭐ 同 stage57 `--mq-sans` 一模一樣，⛔ 唔准自己加減。
+     第一次開 app 未載完就用返電話自己嗰隻（display=swap），
+     載完之後存喺電話度，⛔ 唔會每次都要網。 */
+  --q-font-sans: 'Noto Sans TC', 'PingFang TC', 'Microsoft JhengHei', sans-serif;
+
+  /* 標題襯線體（stage57 VFINAL.1 §8）。⛔ 唔可以剷 —— 剷咗全部標題會變返無襯線。 */
   --q-font-serif: 'Noto Serif TC', 'Source Han Serif TC', 'Songti TC', 'STSong', serif;
+
   --q-text-sm: 13px;
   --q-text-base: 15px;
   --q-text-lg: 18px;
