@@ -1260,3 +1260,425 @@ select.field__input {
   font-size: 14px;
   min-height: 40px;
 }
+
+/* ── 成本卡（2026-09-01）───────────────────────────────────────────
+   工程詳情最底。⛔ 呢度啲數係成本，唔係收客價，⛔ 永遠唔會上 PDF。
+   殼跟 .card，⛔ 冇自己另一套顏色 —— 全部用返 --q-* token。 */
+.cost-card {
+  background: var(--q-card-bg);
+  border: 1px solid var(--q-border);
+  border-radius: var(--q-radius-md);
+  box-shadow: var(--q-shadow-card);
+  padding: 14px 16px 16px;
+}
+
+.cost-title {
+  margin: 0;
+  font-size: var(--q-text-lg);
+  font-weight: 700;
+}
+
+.cost-note {
+  margin: 2px 0 12px;
+  font-size: var(--q-text-sm);
+  color: var(--q-text-secondary);
+}
+
+.cost-rows {
+  display: flex;
+  flex-direction: column;
+}
+
+.cost-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 7px 0;
+  font-size: var(--q-text-base);
+}
+
+.cost-label {
+  min-width: 0;
+}
+
+.cost-value {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 逐次報價（Jason 2026-09-02：⛔ 唔要灰身）——
+   同其他行一樣色，只係右邊出字唔出數、字細啲。 */
+.cost-row--ask .cost-value {
+  font-size: var(--q-text-sm);
+}
+
+.cost-row--total {
+  border-top: 1px solid var(--q-border);
+  margin-top: 4px;
+  padding-top: 11px;
+  font-weight: 700;
+  font-size: var(--q-text-lg);
+}
+
+.cost-foot {
+  display: flex;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.cost-field {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.cost-field-label {
+  font-size: var(--q-text-sm);
+  color: var(--q-text-secondary);
+}
+
+.cost-field input {
+  width: 100%;
+  min-height: var(--q-tap-target);
+  padding: 0 12px;
+  font: inherit;
+  font-size: var(--q-text-lg);
+  font-variant-numeric: tabular-nums;
+  color: var(--q-text-primary);
+  background: #fff;
+  border: 1px solid var(--q-border);
+  border-radius: var(--q-radius-sm);
+}
+
+/* 冇權限：⛔ 唔准收埋，要見到但改唔到 —— 所以係灰底虛線，唔係消失。 */
+.cost-field input.locked {
+  background: var(--q-card-alt);
+  color: var(--q-text-secondary);
+  border-style: dashed;
+}
+
+.cost-asking {
+  min-height: var(--q-tap-target);
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-size: var(--q-text-xl);
+  font-weight: 700;
+  color: var(--q-complete);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 「成本 × 1.5（加成 50%）」。⛔ 唔好靠人心算。 */
+.cost-how {
+  font-size: var(--q-text-sm);
+  color: var(--q-text-secondary);
+  line-height: 1.45;
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   深色修正（2026-09-02）
+   app.css 有 219 處用 --q-* token，換 tokens.css 就跟住變。
+   淨係以下呢啲寫死咗顏色嘅位要另外執——⛔ 全部只係換色，
+   ⛔ 冇郁 layout、圓角、間距、字級、DOM。
+   ⭐ 寫喺檔尾做覆蓋而唔係改原句：diff 細、睇得明、要還原就整段剷。
+   ══════════════════════════════════════════════════════════════════ */
+
+/* 深啡陰影喺近黑底上面睇唔到 —— 換返純黑。 */
+.bottom-nav {
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.5);
+}
+.fab {
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.55);
+}
+.popover {
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.55);
+}
+
+/* header 上面嘅膠囊：黑底 α 喺深色 header 上面等於冇 —— 反轉做白底 α。 */
+.version-pill {
+  background: rgba(255, 255, 255, 0.08);
+}
+.user-pill {
+  background: rgba(255, 255, 255, 0.07);
+}
+
+/* 遮光層要夠深先遮到 —— 淺色時代嗰個 .34 喺深底上面幾乎透明。 */
+.search-overlay {
+  background: rgba(0, 0, 0, 0.58);
+}
+
+/* ⛔ 輸入格唔可以留白底：一格白喺全深色版面度會刺眼過所有嘢。
+   跟原型 Stage 10B 審計 D1 嘅做法 —— 極淡白膜，靠條邊界定個格。 */
+.field__input,
+.cost-field input {
+  background: rgba(255, 255, 255, 0.04);
+}
+.field__input::placeholder {
+  color: var(--q-text-secondary);
+}
+.cost-field input.locked {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+/* 狀態點：四個寫死嘅色喺深底上面偏暗，逐個提亮。
+   ⭐ 色相一個都冇轉 —— 藍仍然係藍，紫仍然係紫，⛔ 唔准同事重新學一次。 */
+.status--site {
+  --status-color: #7fa7c7;
+}
+.status--quoted {
+  --status-color: #6fb5ac;
+}
+.status--sent {
+  --status-color: #9e92d0;
+}
+.status--lost {
+  --status-color: #a9a196;
+}
+
+/* 提示條：底色 α 同深啡字都係淺色時代嘅嘢。 */
+.notice--error {
+  background: rgba(179, 93, 74, 0.18);
+  color: #d78975;
+}
+.notice--warning {
+  background: rgba(182, 138, 69, 0.18);
+  color: var(--q-incomplete);
+}
+.notice--ok {
+  background: rgba(143, 162, 93, 0.16);
+  color: var(--q-complete);
+}
+.config-warning {
+  background: rgba(179, 93, 74, 0.16);
+  color: #d78975;
+}
+.tag--warning {
+  background: rgba(182, 138, 69, 0.18);
+  color: var(--q-incomplete);
+}
+
+/* 相未載入嗰陣個灰底：黑 α 喺深底上面等於冇個框。 */
+.photo-list__thumb {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+/* ⚠️ 最重要嗰個：`--q-header` 喺淺色時代一色兩用 ——
+   佢又係頂部啡帶，又係**所有掣同連結嘅顏色**（.button／.primary／.filter.active／
+   .link／.link-button／nav 亮起／checkbox accent-color 全部用緊佢）。
+   深色之後佢變咗接近黑，⛔ 唔override 嘅話成 app 啲掣同連結會消失。
+   ⭐ 拆返兩個角色：頂帶照用 --q-header，動作一律用 --q-accent（原型嘅橄欖綠）。 */
+.button,
+.primary,
+.filter.active,
+.fab {
+  background: var(--q-accent);
+  border-color: var(--q-accent);
+  color: #0f140f;
+}
+.button:active,
+.primary:active {
+  background: #68794d;
+}
+.link,
+.link-button,
+.nav-item.active {
+  color: var(--q-accent);
+}
+.nav-dot {
+  background: var(--q-accent);
+}
+.option input,
+.checkbox input {
+  accent-color: var(--q-accent);
+}
+
+/* ⭐ 頂帶都要係綠 —— 平色 #16201A 對住 #0D120E 個底幾乎無分別，
+   所以同卡一樣用漸變：上面綠，落到波浪位收埋入個底色。 */
+.bheader-bg {
+  background: linear-gradient(180deg, #1e2a20 0%, #131a14 100%);
+}
+.fab:active {
+  background: #68794d;
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   對返 stage57 個樣（2026-09-02）
+   ⭐ 尺寸、字級、色全部由 stage57 度量返嚟，⛔ 冇一個係我自己揀。
+   ⛔ 只係樣 —— DOM 結構加咗 icon，其餘 JS／邏輯／測試零改動。
+   ══════════════════════════════════════════════════════════════════ */
+
+/* icon 基礎。抄 stage57 `.ico`：24px、線 1.8、跟 currentColor。
+   ⛔ 唔准喺個別 icon 度寫死色 —— 換皮就要逐個揾。 */
+.ico {
+  width: 24px;
+  height: 24px;
+  display: inline-block;
+  vertical-align: middle;
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+/* 襯線標題（stage57 VFINAL.1 §8）。
+   ⛔ 只落喺標題 —— 內文、數字、副標唔可以跟，否則成版似張告示。 */
+h1,
+h2,
+.head-name,
+.hub-title,
+.cost-title,
+.page-title {
+  font-family: var(--q-font-serif);
+  letter-spacing: 0.01em;
+}
+
+/* ── 工程詳情：五個入口 ─────────────────────────────────────────
+   stage57 實測值：卡內距 17/18、icon 30px 橄欖綠、標題襯線 17px、
+   副標 12.5px 第三層色、右邊 chevron 19px。 */
+.hub-row {
+  padding: 17px 18px;
+  gap: 14px;
+}
+
+.hub-ic {
+  flex: none;
+  display: grid;
+  place-items: center;
+  color: var(--q-accent, var(--q-header));
+}
+
+.hub-ic .ico {
+  width: 30px;
+  height: 30px;
+}
+
+.hub-title {
+  font-size: 17px;
+  line-height: 1.3;
+}
+
+.hub-sub {
+  font-size: 12.5px;
+  margin-top: 3px;
+}
+
+.hub-chev {
+  display: grid;
+  place-items: center;
+}
+
+.hub-chev .ico {
+  width: 19px;
+  height: 19px;
+}
+
+/* header 上面圓形嘅返回／刪除掣：入面由文字符號換成真 icon。 */
+.chip-btn .ico {
+  width: 18px;
+  height: 18px;
+}
+
+/* 底部導覽 icon */
+.nav-ic .ico {
+  width: 24px;
+  height: 24px;
+}
+
+/* ⚠️ 三欄（icon｜文字｜箭嘴）＋ space-between 之下，中間欄唔會自己撐開 ——
+   文字就會浮咗喺卡中間。要 flex:1 迫佢由 icon 右邊一路排到箭嘴。 */
+.hub-main {
+  flex: 1;
+  align-items: flex-start;
+  text-align: left;
+}
+
+/* ── 成本卡對返 stage57 ──────────────────────────────────────────
+   三處由平文字改做「格」：只供內部參考、加成、報價價錢。
+   ⭐ 數值全部由 stage57 度返（.note2／.pv2／.gain），⛔ 冇一個係我自己揀。 */
+
+/* 「只供內部參考」：stage57 係一個淡橄欖底嘅提示格，唔係一行灰字。 */
+.cost-note {
+  margin: 6px 0 14px;
+  padding: 12px 14px;
+  border: 1px solid var(--q-border);
+  border-radius: 14px;
+  background: rgba(152, 165, 107, 0.1);
+  color: var(--q-text-secondary);
+  font-size: 12.5px;
+}
+
+.cost-title {
+  font-size: 18px;
+}
+
+/* 加成：% 由標籤搬入格內（stage57 .pv2 ＋ .dollar）。 */
+.cost-input {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 12px;
+  border: 1px solid var(--q-border);
+  border-radius: 11px;
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.cost-input input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  padding: 12px 0;
+  background: transparent;
+  font: inherit;
+  font-size: var(--q-text-lg);
+  color: var(--q-text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.cost-input input:focus {
+  outline: none;
+}
+
+/* ⚠️ 個綠光要出喺**外面個格**度 —— 淨係寫 input:focus 嘅話，
+   個光會困喺格入面，睇落似漏色。 */
+.cost-input:focus-within {
+  border-color: rgba(157, 169, 105, 0.44);
+  background: rgba(152, 165, 107, 0.09);
+}
+
+.cost-input .cost-unit {
+  flex: none;
+  color: var(--q-text-secondary);
+  font-size: 14px;
+}
+
+/* 冇權限：見到但改唔到 —— 虛線邊，⛔ 唔准收埋。 */
+.cost-input.locked {
+  border-style: dashed;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.cost-input.locked input {
+  color: var(--q-text-secondary);
+}
+
+/* 報價價錢：stage57 係一個實底格，數字用橄欖綠（實測 #98A56B），
+   ⛔ 唔係 --q-complete 嗰隻偏黃綠。 */
+.cost-asking {
+  min-height: 44px;
+  padding: 11px 12px;
+  border-radius: 11px;
+  background: var(--q-card-alt);
+  color: var(--q-accent);
+  font-size: var(--q-text-xl);
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  display: flex;
+  align-items: center;
+}

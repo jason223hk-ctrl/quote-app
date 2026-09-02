@@ -1,6 +1,9 @@
 import { useLayoutEffect, useRef, type ReactNode } from 'react'
 import { VERSION_LABEL } from './version'
 import type { Nav, Route } from './routes'
+import { Icon, ICONS, IconSprite } from './Icon'
+
+export { IconSprite }
 
 /**
  * 共用外殼。結構同 class 名照抄 tree-app-v7 `src/ui/screens.tsx`：
@@ -71,13 +74,14 @@ export function UserPill({ user }: { user: UserInfo }) {
 }
 
 export function ChipButton({
-  glyph,
+  icon,
   label,
   onClick,
   testid,
   small,
 }: {
-  glyph: string
+  /** sprite 入面個 id，用 ICONS 攞，⛔ 唔好手打字串。 */
+  icon: string
   label: string
   onClick: () => void
   testid?: string
@@ -90,7 +94,7 @@ export function ChipButton({
       aria-label={label}
       data-testid={testid}
     >
-      <span aria-hidden="true">{glyph}</span>
+      <Icon name={icon} />
     </button>
   )
 }
@@ -116,14 +120,14 @@ export function HeaderTitle({
 }
 
 export function BottomNav({ active, nav }: { active: string; nav: Nav }) {
-  const item = (key: string, glyph: string, label: string, route: Route) => (
+  const item = (key: string, icon: string, label: string, route: Route) => (
     <button
       className={`nav-item ${active === key ? 'active' : ''}`}
       data-testid={`nav-${key}`}
       onClick={() => nav.go(route)}
     >
-      <span className="nav-ic" aria-hidden="true">
-        {glyph}
+      <span className="nav-ic">
+        <Icon name={icon} />
       </span>
       <span>{label}</span>
       {active === key && <span className="nav-dot" />}
@@ -131,9 +135,9 @@ export function BottomNav({ active, nav }: { active: string; nav: Nav }) {
   )
   return (
     <nav className="bottom-nav">
-      {item('home', '◆', '首頁', { name: 'home' })}
-      {item('records', '▤', '工程', { name: 'records' })}
-      {item('settings', '⚙', '設定', { name: 'settings' })}
+      {item('home', ICONS.navHome, '首頁', { name: 'home' })}
+      {item('records', ICONS.navProjects, '工程', { name: 'records' })}
+      {item('settings', ICONS.navSettings, '設定', { name: 'settings' })}
     </nav>
   )
 }
@@ -223,5 +227,5 @@ export function ScrollBody({ children, testid }: { children: ReactNode; testid?:
 }
 
 export function BackChip({ onClick, label = '返回' }: { onClick: () => void; label?: string }) {
-  return <ChipButton glyph="‹" label={label} onClick={onClick} testid="back" />
+  return <ChipButton icon={ICONS.back} label={label} onClick={onClick} testid="back" />
 }

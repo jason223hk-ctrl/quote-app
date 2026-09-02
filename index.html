@@ -3,8 +3,22 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <meta name="theme-color" content="#768A75" />
+    <!-- ⚠️ 手機瀏覽器上下條邊嘅顏色。⛔ 唔跟返深色底就會喺 app 上下各出一條淺色帶。 -->
+    <meta name="theme-color" content="#0D120E" />
     <title>森伝現場報價記錄</title>
+    <!--
+      標題襯線體（同 stage57 一樣嘅載法）。
+      ⭐ media="print" + onload 換返 all ＝ 唔會擋住畫面出嚟；
+      ⛔ 冇網／載唔到就跌落 tokens.css 嗰條 fallback（Songti TC），唔會爛版。
+    -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@600;700&display=swap"
+      media="print"
+      onload="this.media='all'"
+    />
   </head>
   <body>
     <div id="root"></div>

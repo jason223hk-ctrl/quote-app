@@ -1,0 +1,2584 @@
+<title>報價 App 原型</title>
+<style>
+  :root{
+    --ground:#EFEAE1; --header:#3E342A; --header-2:#4A3F33;
+    --card:#FBFAF6; --card-2:#F3EFE7; --ink:#2B241C; --muted:#8A7F71;
+    --line:#E0D8CB; --danger:#b94b3e; --nav-on:#33593F; --accent:#8C6A3F; --ok:#4E7A5A; --warn:#A5442E;
+    --shadow:0 1px 2px rgba(43,36,28,.06),0 6px 16px rgba(43,36,28,.07);
+    --r:18px;
+    --sans:-apple-system,BlinkMacSystemFont,"PingFang HK","PingFang TC","Noto Sans HK","Microsoft JhengHei",sans-serif;
+    --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--ground);color:var(--ink);font-family:var(--sans);
+    font-size:16px;line-height:1.5;-webkit-font-smoothing:antialiased}
+  .phone{max-width:430px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column;background:var(--ground)}
+  .note{background:#FDF6E3;border-bottom:1px solid #E8DCC0;color:#6B5A34;font-size:13px;padding:10px 18px;text-align:center}
+
+  header{background:var(--header);color:#F6F1E9;padding:18px 18px 34px}
+  header .row{display:flex;align-items:center;gap:12px}
+  .back{width:34px;height:34px;border-radius:50%;background:var(--header-2);border:0;color:#EDE5D9;
+    font-size:17px;cursor:pointer;display:grid;place-items:center;flex:none}
+  header h1{margin:0;font-size:21px;font-weight:650}
+  header .sub{margin:4px 0 0;font-size:13px;color:#B9AE9C}
+  .curve{height:22px;background:var(--ground);border-radius:22px 22px 0 0;margin:-22px 0 0}
+
+  main{flex:1;padding:4px 16px 116px;display:flex;flex-direction:column;gap:14px}
+  .card{background:var(--card);border-radius:var(--r);box-shadow:var(--shadow);padding:16px}
+  .card h2{margin:0;font-size:17px;font-weight:650}
+  .card p.hint{margin:3px 0 0;font-size:13px;color:var(--muted)}
+
+  .treecard{display:flex;align-items:center;gap:12px;padding:15px 16px;margin-bottom:12px;cursor:pointer}
+  .treecard .info{flex:1;min-width:0;cursor:pointer}
+  .treecard .name{font-size:16px;font-weight:650;font-family:var(--mono);letter-spacing:.02em}
+  .treecard .meta{font-size:13px;color:var(--muted);margin-top:2px}
+  .cam{flex:none;width:58px;height:58px;border-radius:16px;border:0;background:var(--header);
+    color:#F6F1E9;cursor:pointer;display:grid;place-items:center;line-height:1}
+  .cam svg{width:24px;height:24px}
+  .cam span{font-size:10px;margin-top:3px}
+  .cam:active,.fab:active,.btn:active{transform:scale(.97)}
+
+  .chev{color:var(--muted);font-size:13px}
+  .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:-26px 16px 0;position:relative;z-index:3}
+  .stat{background:var(--card);border-radius:16px;box-shadow:var(--shadow);padding:12px 10px;text-align:center}
+  .stat .k{font-size:11.5px;color:var(--muted)}
+  .stat .v{font-size:20px;font-weight:700;margin-top:2px;font-variant-numeric:tabular-nums}
+  .stat .v.sm{font-size:15px}
+  .stat .v.gold{color:var(--gold,#B8862B)}
+  .tapstat{cursor:pointer}
+  .tapstat:active{transform:scale(.97)}
+  .stat .tiny{font-size:11px;color:var(--muted);margin-left:1px}
+  .sect{display:flex;align-items:baseline;justify-content:space-between;margin:2px 2px 0}
+  .sect h3{margin:0;font-size:15px;font-weight:650}
+  .sect a{font-size:13px;color:var(--muted);text-decoration:none}
+  .pcard{padding:15px 16px;margin-bottom:12px;cursor:pointer}
+  .pcard .top{display:flex;align-items:center;gap:10px}
+  .pcard .nm{font-size:16px;font-weight:650}
+  .pcard .st{margin-left:auto;font-size:12px;color:var(--muted);display:flex;align-items:center;gap:6px}
+  .pcard .st i{width:8px;height:8px;border-radius:50%;background:#5B7EA8;display:inline-block}
+  .pcard .ln{font-size:13px;color:var(--muted);margin-top:3px}
+  .rowcard{display:flex;align-items:center;gap:12px;padding:16px;margin-bottom:12px;cursor:pointer}
+  .rowcard .t{flex:1;min-width:0}
+  .rowcard .t b{font-size:16px;font-weight:650;display:block}
+  .rowcard .t small{font-size:13px;color:var(--muted)}
+  .fgrp{display:flex;flex-direction:column;gap:14px}
+  .frow2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .frow3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+  .chk{display:flex;align-items:center;gap:11px;padding:12px 13px;border:1px solid var(--line);
+    border-radius:12px;background:#fff;cursor:pointer;margin-bottom:8px;font-size:15px}
+  .chk .box{width:21px;height:21px;border-radius:6px;border:1.8px solid #C3B8A6;flex:none;
+    display:grid;place-items:center;font-size:13px;color:#fff}
+  .chk.on .box{background:var(--header);border-color:var(--header)}
+  .chk .qty{margin-left:auto;width:76px}
+  .chk .qty input{padding:7px 9px;text-align:center;font-size:14px}
+  .seg{display:flex;gap:8px}
+  .seg button{flex:1;padding:11px;border-radius:12px;border:1px solid var(--line);background:#fff;
+    font:inherit;font-weight:600;color:var(--ink);cursor:pointer}
+  .seg button.on{background:var(--header);color:#F6F1E9;border-color:var(--header)}
+  .gh2{font-size:13px;font-weight:700;margin:2px 0 8px}
+  .save{width:100%;padding:15px;border-radius:14px;border:0;background:var(--header);
+    color:#F6F1E9;font:inherit;font-weight:650;cursor:pointer}
+  .danger-row{display:flex;gap:10px;margin-top:4px}
+  .danger-row button{flex:1;padding:13px;border-radius:13px;border:1px solid #EBD3CB;background:#fff;
+    font:inherit;font-weight:600;color:#A5442E;cursor:pointer}
+  .kv{display:flex;padding:11px 0;border-bottom:1px solid var(--line);font-size:14px}
+  .kv:last-child{border-bottom:0}
+  .kv span{margin-left:auto;color:var(--muted)}
+  .dots{margin-left:auto;width:36px;height:36px;border-radius:50%;background:var(--header-2);
+    border:0;color:#EDE5D9;font-size:17px;display:grid;place-items:center;cursor:pointer;flex:none}
+  header h1{font-family:var(--mono);letter-spacing:.02em}
+  .mrow{width:100%;display:flex;align-items:center;gap:12px;padding:15px 14px;border-radius:13px;
+    border:1px solid var(--line);background:#fff;font:inherit;font-weight:600;color:var(--ink);
+    cursor:pointer;margin-bottom:10px}
+  .mrow.danger{color:#A5442E;border-color:#EBD3CB}
+  .mrow:disabled{opacity:.4;cursor:default}
+  .mrow .ic2{width:20px;text-align:center}
+  .mrow .mval{margin-left:auto;font-family:var(--mono);color:var(--muted);font-weight:500}
+  .sheetrow{display:flex;gap:10px;margin-top:14px}
+  .sheetrow .btn{flex:1}
+  label{font-size:12px;color:var(--muted);display:block;margin-bottom:5px;letter-spacing:.03em}
+  /* 備註會因應文字自己長高，⛔ 唔會截斷（Jason 2026-08-25） */
+  textarea{width:100%;padding:11px 12px;border:1px solid var(--line);border-radius:11px;
+    font:inherit;background:#fff;color:var(--ink);resize:none;overflow:hidden;
+    line-height:1.5;display:block;min-height:44px}
+  textarea:focus{outline:2.5px solid var(--accent);outline-offset:2px}
+  /* ⭐ type=date 要同 type=text 一模一樣款（第四輪第 9 條）。
+     ⛔ 唔可以淨係寫 input[type=text] —— 原生日期格會走返自己嗰套細細哋嘅樣。 */
+  input[type=text], input[type=date]{width:100%;padding:11px 12px;
+    border:1px solid var(--line);border-radius:11px;
+    background:#fff;font:inherit;color:var(--ink)}
+  /* 日期格（Jason 2026-08-28）：⛔ 唔可以直接用原生 input[type=date] 顯示 ——
+     原生格顯示咩格式係跟部機語言，英文機會出 08/22/2026。
+     ⭐ 做法：面頭擺一個唯讀文字格，永遠寫 2026-08-22；真正嗰個日期格擺喺上面，
+     透明、鋪滿成格，撳落去就係原生日曆。兩樣都要，缺一不可。 */
+  .datefld{position:relative}
+  .datefld input[type=date]{position:absolute;inset:0;width:100%;height:100%;
+    opacity:0;border:0;padding:0;margin:0;cursor:pointer;z-index:2}
+  .datefld .dshow{pointer-events:none}
+  .datefld .dcal{position:absolute;right:10px;top:50%;transform:translateY(-50%);
+    width:22px;height:22px;opacity:.55;pointer-events:none;z-index:1}
+  input.mono{font-family:var(--mono);letter-spacing:.04em}
+  input.err{border-color:var(--warn)}
+  select{width:100%;padding:12px 12px;border:1px solid var(--line);border-radius:11px;
+    background:#fff;font:inherit;color:var(--ink);appearance:none;
+    background-image:linear-gradient(45deg,transparent 50%,#8A7F71 50%),linear-gradient(135deg,#8A7F71 50%,transparent 50%);
+    background-position:calc(100% - 19px) 21px,calc(100% - 13px) 21px;
+    background-size:6px 6px,6px 6px;background-repeat:no-repeat}
+  .warn{color:var(--warn);font-size:13px;margin:6px 0 0}
+  .inwrap{position:relative}
+  .inwrap input{padding-right:62px}
+  .gpstab{position:absolute;right:5px;top:5px;bottom:5px;padding:0 12px;border-radius:8px;border:0;
+    background:var(--card-2);color:var(--ink);font:inherit;font-size:13px;font-weight:650;cursor:pointer}
+  .gpstab:active{transform:scale(.96)}
+  .renamefail{background:#FDF3E3;border:1px solid #E8D3A8;color:#7A5A1E;font-size:14px;
+    padding:13px 15px;box-shadow:none;display:flex;align-items:flex-start;gap:9px;line-height:1.5}
+  .renamefail button{margin-left:auto;flex:none;border:0;background:#7A5A1E;color:#fff;font:inherit;
+    font-size:13px;font-weight:650;padding:7px 12px;border-radius:9px;cursor:pointer}
+  .hero{padding:2px 4px 2px}
+  .hero .hh{font-size:20px;font-weight:700}
+  .hero .hs{font-size:13px;color:var(--muted);margin-top:3px}
+  .s3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;text-align:center;margin-top:4px}
+  .s3 .n{font-size:24px;font-weight:700;font-variant-numeric:tabular-nums}
+  .s3 .l{font-size:12px;color:var(--muted);margin-top:2px}
+  .s3 .warnv{color:#C07A22}
+  .s3 .failv{color:var(--danger)}
+  .note2{margin-top:13px;background:#F5F1E7;border-radius:12px;padding:11px 13px;
+    font-size:13px;color:#6B5A34;line-height:1.55}
+  .note2.bad{background:#FBEDE9;color:#8A3A2C}
+  .sect2{font-size:15px;font-weight:650;margin:4px 2px 0}
+  .syrow{display:flex;align-items:center;gap:12px;padding:15px 16px;margin-bottom:12px;cursor:pointer}
+  .syrow .nm2{flex:1;min-width:0;font-weight:650;font-size:16px}
+  .sypill{flex:none;font-size:13px;font-weight:650;padding:5px 11px;border-radius:999px;background:var(--card-2);color:var(--muted)}
+  .sypill.ok{color:#4E7A5A}
+  .sypill.wait{color:#C07A22}
+  .sypill.fail{color:var(--danger)}
+  .vpill{margin-left:auto;font-size:12px;font-weight:650;padding:5px 11px;border-radius:999px;
+    background:var(--header-2);color:#D9CFC0;flex:none}
+  .fail3{border-top:1px solid var(--line);margin-top:12px;padding-top:12px;font-size:13px;line-height:1.6}
+  .fail3 .f1{font-weight:650}
+  .fail3 .f2{color:var(--danger);margin-top:2px}
+  .fail3 .f3{color:var(--muted);margin-top:2px;word-break:break-all}
+    background:linear-gradient(150deg,#7C6B52 0%,#A99070 42%,#D3C1A4 78%,#EFE4D2 100%)}
+    color:rgba(255,255,255,.30);font-size:10px;letter-spacing:.2em}
+    border:1.8px solid rgba(255,255,255,.9);background:rgba(43,36,28,.28);z-index:2;
+    display:grid;place-items:center;color:#fff;font-size:13px;line-height:1}
+    color:#F6F1E9;font-size:10px;padding:2px 6px;border-radius:7px}
+    font-size:14px;font-weight:650;margin-right:10px;flex:1;max-width:240px}
+  .paper{background:#fff;border:1px solid var(--line);border-radius:10px;padding:20px 18px;
+    box-shadow:0 2px 10px rgba(43,36,28,.06);font-size:13px;line-height:1.6}
+  .ph{background:#EDE8DE;border:1px dashed #C3B8A6;border-radius:8px;color:#8A7F71;
+    display:grid;place-items:center;font-size:11px;letter-spacing:.1em}
+  .paper .top2{display:flex;align-items:center;gap:14px;border-bottom:2px solid var(--header);padding-bottom:12px}
+  .paper .co{font-size:17px;font-weight:700}
+  .paper .co small{display:block;font-size:11px;color:var(--muted);font-weight:400;letter-spacing:.16em}
+  .paper h4{font-size:13px;font-weight:700;margin:18px 0 7px;padding-bottom:4px;border-bottom:1px solid var(--line)}
+  .paper table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
+  .paper td{padding:5px 0;vertical-align:top}
+  .paper td.r{text-align:right;white-space:nowrap}
+  .paper tr.sum td{border-top:1px solid var(--line);font-weight:700;padding-top:8px}
+  .paper .kvp{display:flex;gap:8px;padding:2px 0}
+  .paper .kvp b{flex:none;width:64px;font-weight:600;color:var(--muted)}
+  .pgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:6px}
+  .pgrid .pc{aspect-ratio:4/3;border-radius:5px;
+    background:linear-gradient(150deg,#7C6B52 0%,#A99070 42%,#D3C1A4 78%,#EFE4D2 100%);
+    position:relative}
+  .pgrid .pc span{position:absolute;left:3px;bottom:3px;background:rgba(43,36,28,.55);color:#F6F1E9;
+    font-size:9px;padding:1px 4px;border-radius:4px}
+  /* 相片報告：A4 直度，一頁一頁咁排，每行兩張（Jason 2026-08-25 提供嘅真實 PDF 樣本） */
+  .pdfpg{background:#fff;border:1px solid var(--line);border-radius:6px;
+    box-shadow:0 2px 10px rgba(43,36,28,.06);aspect-ratio:210/297;
+    padding:18px 16px 26px;margin-bottom:14px;position:relative;
+    display:flex;flex-direction:column;font-size:12px;line-height:1.55}
+  /* 匯出頁：一張相都冇嘅樹，灰咗佢，剔唔到（第四輪第 10 條） */
+  .exrow.dim{opacity:.45}
+  .exrow.dim .box{border-style:dashed}
+  .pdfpg .ptop{display:flex;align-items:flex-start;gap:10px;
+    border-bottom:1px solid var(--line);padding-bottom:7px;margin-bottom:9px}
+  /* ⭐ 真標誌（Jason 2026-08-28：用返成個 logo 連字）。
+     ⛔ 唔准加 border／背景。⛔ 唔准寫死闊度 —— 靠高度撐，闊度跟比例。
+     ⭐ aspect-ratio 一定要寫（715/140 ＝ 張圖真比例）：⛔ 淨係寫 width:auto，
+     喺張圖仲未載入嗰陣個闊度會係 0，抬頭會跳一跳，出 PDF 有機會影到個空位。 */
+  .pdfpg .ptop .mark{height:40px;width:auto;aspect-ratio:715/140;max-width:58%;
+    flex:none;display:block;object-fit:contain}
+  /* 三行齊頭開始：格仔擺喺右邊，但入面啲字一律靠左，行頭對齊（Jason 2026-08-25） */
+  .pdfpg .hd3{margin-left:auto;text-align:left;font-size:9.5px;line-height:1.45;color:#2B241C}
+  .pdfpg .pmeta{display:flex;flex-wrap:wrap;gap:2px 16px;margin-bottom:8px}
+  .pdfpg .pmeta div{display:flex;gap:6px;font-size:9.5px}
+  .pdfpg .pmeta b{font-weight:600;color:var(--muted)}
+  .pdfpg .sechd{font-size:12px;font-weight:700;margin:0 0 8px;
+    padding-bottom:4px;border-bottom:1px solid var(--line)}
+  .rgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px 14px;align-content:start}
+  .rcell{display:flex;flex-direction:column;gap:5px}
+  .rcell .im{aspect-ratio:3/4;border-radius:3px;
+    background:linear-gradient(150deg,#7C6B52 0%,#A99070 42%,#D3C1A4 78%,#EFE4D2 100%)}
+  .rcell .cp{text-align:center;font-size:10px;line-height:1.35;color:#2B241C;
+    word-break:break-word}
+  .rcell .cp .fn{display:block;font-variant-numeric:tabular-nums}
+  .rcell .cp .wk{display:block;margin-top:1px}
+  .rcell .cp .nt{display:block;font-size:9px;color:#6E6355;margin-top:1px}
+  .rcell .cp i{font-style:normal;color:#B08A3E}
+  .pdfpg .pfoot{position:absolute;left:16px;right:16px;bottom:9px;
+    display:flex;font-size:10px;color:var(--muted)}
+  .pdfpg .pfoot span:last-child{margin-left:auto}
+  /* 匯出頁：撳一撳棵樹就攤開佢啲相，逐張揀（Jason 2026-08-25） */
+  .exrow{cursor:pointer}
+  .exrow .chev{margin-left:8px;color:var(--muted);font-size:13px;
+    transition:transform .16s ease;display:inline-block}
+  .exrow.open .chev{transform:rotate(180deg)}
+  .exwrap{padding:2px 2px 10px}
+  .exgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+  .excell{position:relative;border-radius:11px;overflow:hidden;aspect-ratio:3/4;cursor:pointer;
+    background:linear-gradient(150deg,#7C6B52 0%,#A99070 42%,#D3C1A4 78%,#EFE4D2 100%)}
+  .excell .tick{position:absolute;top:5px;right:5px;width:20px;height:20px;border-radius:50%;
+    border:2px solid #F3EDE3;background:rgba(22,18,13,.42);z-index:2;
+    display:grid;place-items:center;font-size:12px;color:#fff}
+  .excell.on .tick{background:var(--nav-on);border-color:var(--nav-on)}
+  .excell.on{outline:2.5px solid var(--nav-on);outline-offset:-2.5px}
+  .excell .cap{position:absolute;left:4px;right:4px;bottom:4px;z-index:2;
+    background:rgba(43,36,28,.6);color:#F3EDE3;font-size:9px;padding:2px 4px;
+    border-radius:5px;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .exnone{font-size:13px;color:var(--muted);padding:4px 2px 8px}
+  /* 現場角色撳唔到嘅嘢：見到但灰，⛔ 唔准收埋 */
+  .locked{opacity:.45}
+  /* 成本明細（Jason 2026-08-25）：⛔ 只供內部，唔會上 PDF */
+  .crow{display:flex;align-items:baseline;gap:10px;padding:6px 0;font-size:14px;
+    border-bottom:1px solid var(--line)}
+  .crow:last-of-type{border-bottom:0}
+  .crow .cl{flex:1;min-width:0}
+  .crow .cv{flex:none;font-variant-numeric:tabular-nums;font-weight:600}
+  .crow.sum{border-top:1.5px solid var(--header);border-bottom:0;margin-top:6px;
+    padding-top:10px;font-size:15px}
+  .crow.sum .cl{font-weight:700}
+  .crow.ask .cv{font-weight:500;color:#8A6A24;font-size:13px}
+  .pv2{display:flex;align-items:center;gap:4px;border:1px solid var(--line);
+    border-radius:11px;padding:0 12px;background:#fff}
+  .pv2 .dollar{color:var(--muted);font-size:14px}
+  .pv2 input{border:0;padding:11px 0;background:transparent;flex:1;min-width:0;
+    font:inherit;color:var(--ink);font-variant-numeric:tabular-nums}
+  .pv2 input:focus{outline:none}
+  .gain{padding:11px 12px;border-radius:11px;background:var(--card-2);
+    font-variant-numeric:tabular-nums;font-weight:650;min-height:44px;
+    display:flex;align-items:center}
+  .gain.bad{color:#A5442E}
+  .gain.good{color:#3F6B4E}
+  .askq{background:#FDF3E3;border:1px solid #E8D3A8;color:#7A5A1E;border-radius:8px;
+    padding:9px 11px;font-size:12px;margin-top:8px;line-height:1.5}
+  .prow{display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid var(--line)}
+  .prow:last-child{border-bottom:0}
+  /* 分地區嘅項目：一個標題行，底下逐個地區一行（Jason 2026-08-26） */
+  .prow.head{border-bottom:0;padding-bottom:2px}
+  .prow.sub{padding-left:14px}
+  .prow.sub .pl{font-size:14px;color:var(--muted)}
+  .prow .pl{flex:1;min-width:0;font-size:15px}
+  .prow .pu{font-size:12px;color:var(--muted);margin-top:1px}
+  .prow .pv{flex:none;width:112px;position:relative}
+  .prow .pv input{padding-left:26px;text-align:right;font-variant-numeric:tabular-nums}
+  .prow .pq{flex:none;font-size:13px;font-weight:650;color:var(--muted);
+    background:var(--card-2);padding:6px 12px;border-radius:999px}
+  .prow .dollar{position:absolute;left:11px;top:50%;transform:translateY(-50%);
+    color:var(--muted);font-size:14px;pointer-events:none}
+  .chips{display:flex;gap:9px;overflow-x:auto;padding:2px 2px 4px;-webkit-overflow-scrolling:touch}
+  .chips::-webkit-scrollbar{height:0}
+  .chip2{flex:none;padding:8px 17px;border-radius:999px;border:0;background:transparent;
+    font:inherit;font-size:14px;font-weight:650;color:var(--muted);cursor:pointer;white-space:nowrap}
+  .chip2.on{background:var(--nav-on);color:#fff}
+  .head-tree-name{cursor:pointer;display:inline-block;border-bottom:1.5px dotted rgba(246,241,233,.45);
+    padding-bottom:1px}
+  .head-tree-name:active{opacity:.7}
+
+  .slotbtns{display:flex;gap:10px;margin-top:13px}
+  .btn{flex:1;padding:13px 10px;border-radius:13px;border:1px solid var(--line);background:#fff;
+    font:inherit;font-weight:600;color:var(--ink);cursor:pointer}
+  .btn.primary{background:var(--header);color:#F6F1E9;border-color:var(--header)}
+  .strip{display:flex;gap:10px;overflow-x:auto;margin-top:13px;padding-bottom:2px;
+    scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch}
+  .strip::-webkit-scrollbar{height:0}
+  .frame{flex:0 0 calc(50% - 5px);scroll-snap-align:start}
+  .tile{position:relative;border-radius:14px;overflow:hidden;aspect-ratio:3/4;cursor:pointer;
+    background:linear-gradient(150deg,#7C6B52 0%,#A99070 42%,#D3C1A4 78%,#EFE4D2 100%)}
+  .tile::after{content:'樣板相';position:absolute;inset:0;display:grid;place-items:center;
+    color:rgba(255,255,255,.30);font-size:12px;letter-spacing:.28em}
+  .tile.up{filter:saturate(.5) brightness(.82)}
+  .upnote{position:absolute;inset:0;z-index:3;display:grid;place-items:center;
+    color:#F3EDE3;font-size:12.5px;font-weight:600;text-shadow:0 1px 3px rgba(0,0,0,.5)}
+  .x{position:absolute;top:6px;right:6px;width:26px;height:26px;border-radius:50%;
+    background:rgba(22,18,13,.62);color:#fff;border:0;display:grid;place-items:center;
+    font-size:13px;line-height:1;cursor:pointer;z-index:4}
+  .chip{position:absolute;bottom:6px;z-index:4;padding:4px 8px;border-radius:8px;font-size:11px;
+    font-weight:600;background:rgba(22,18,13,.68);color:#F3EDE3;border:0;font-family:var(--sans)}
+  .chip.l{left:6px}
+  .chip.r{right:6px;display:flex;align-items:center;gap:4px;cursor:pointer}
+  .dot{width:8px;height:8px;border-radius:50%;border:2px solid #F3EDE3;display:inline-block}
+
+  /* 每張相一個備註（Jason 2026-08-25）：備註會出現喺 PDF 相底。 */
+  .notebtn{display:block;width:100%;margin-top:6px;padding:6px 8px;border-radius:9px;
+    border:1px solid var(--line);background:#fff;font:inherit;font-size:11.5px;
+    line-height:1.35;color:var(--ink);text-align:left;cursor:pointer;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .notebtn.empty{color:var(--muted);border-style:dashed}
+
+  /* 搜尋（跟 tree app 嘅面板：日期範圍、工程名稱、建立人、重設／搜尋） */
+  /* 放大鏡緊貼「工程」右邊，⛔ 唔係擺喺最右（Jason 2026-08-25） */
+  .h1row{display:flex;align-items:center;gap:9px}
+  .hbtn{flex:none;width:28px;height:28px;border-radius:50%;border:0;display:grid;place-items:center;
+    background:rgba(255,255,255,.18);color:#F6F1E9;font-size:13px;cursor:pointer;padding:0}
+  .sgrp{margin-bottom:12px}
+  .sgrp>label{display:block;font-size:12px;color:var(--muted);margin-bottom:6px}
+  .sdate{display:flex;align-items:center;gap:8px}
+  .sdate input{flex:1;min-width:0}
+  .sdate span{flex:none;font-size:13px;color:var(--muted)}
+  .srch input[type=date]{width:100%;padding:11px 12px;border:1px solid var(--line);
+    border-radius:11px;font:inherit;background:#fff;color:var(--ink)}
+  .srow{display:flex;gap:10px;margin-top:4px}
+  .srow .btn{flex:1}
+  .srchtag{font-size:12px;color:var(--muted);margin:0 2px 8px}
+  /* 客戶格：撳落去彈個可以搜嘅清單（跟 Odoo 嗰個做法，Jason 2026-08-25） */
+  .pickfld{position:relative;cursor:pointer}
+  .pickfld input{cursor:pointer;padding-right:34px}
+  .pickfld .caret{position:absolute;right:12px;top:50%;transform:translateY(-50%);
+    color:var(--muted);font-size:12px;pointer-events:none}
+  .cbrow{width:100%;text-align:left;font:inherit;padding:13px 12px;border-radius:12px;
+    border:1px solid var(--line);background:#fff;margin-bottom:8px;cursor:pointer;color:var(--ink)}
+  .cbrow b{display:block;font-weight:650;font-size:15px}
+  .cbrow small{display:block;color:var(--muted);font-size:12.5px;margin-top:2px}
+  .cbscroll{max-height:46vh;overflow-y:auto;margin-top:10px}
+  .lightbox{position:fixed;inset:0;z-index:80;background:rgba(14,11,8,.94);display:none;
+    align-items:center;justify-content:center;padding:20px}
+  .lightbox.show{display:flex}
+  .lightbox .big{width:min(92vw,520px);aspect-ratio:3/4;border-radius:16px;
+    background:linear-gradient(150deg,#7C6B52 0%,#A99070 42%,#D3C1A4 78%,#EFE4D2 100%);
+    display:grid;place-items:center;color:rgba(255,255,255,.4);letter-spacing:.3em;font-size:15px}
+  .lightbox .lbx{position:absolute;top:18px;right:18px;width:40px;height:40px;border-radius:50%;
+    background:rgba(255,255,255,.14);color:#fff;border:0;font-size:19px;cursor:pointer}
+  .lightbox .cap{position:absolute;bottom:26px;left:0;right:0;text-align:center;
+    color:#E9DFCF;font-size:14px;font-weight:600}
+
+  .addwork{width:100%;padding:15px;border-radius:var(--r);border:1.5px dashed #CFC4B2;
+    background:transparent;font:inherit;font-weight:650;color:var(--accent);cursor:pointer}
+  .legacy{background:#FBF3DF;border-radius:var(--r);padding:14px 16px;font-size:13.5px;color:#6B5A34}
+
+  nav{position:fixed;left:0;right:0;bottom:0;display:flex;justify-content:center;padding:0 16px 16px;pointer-events:none}
+  nav .bar{max-width:398px;width:100%;background:#FBFAF6;border-radius:26px;
+    box-shadow:0 2px 6px rgba(43,36,28,.07),0 10px 26px rgba(43,36,28,.10);
+    display:grid;grid-template-columns:repeat(4,1fr);padding:12px 0 8px;pointer-events:auto}
+  nav .tab{cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:5px;padding:2px 0 0}
+  nav .ic{display:block;color:#9A9287;line-height:0}
+  nav .ic svg{width:22px;height:22px;display:block}
+  nav b{font-size:12px;font-weight:650;color:#9A9287;white-space:nowrap;line-height:1}
+  nav .dot{width:4px;height:4px;border-radius:50%;background:transparent;margin-top:1px}
+  nav .tab.on .ic{color:var(--nav-on)}
+  nav .tab.on b{color:var(--nav-on)}
+  nav .tab.on .dot{background:var(--nav-on)}
+
+  .fab{position:fixed;right:calc(50% - 215px + 18px);bottom:98px;z-index:40;background:var(--header);
+    color:#F6F1E9;border:0;border-radius:50%;width:58px;height:58px;font-size:26px;line-height:1;
+    display:grid;place-items:center;box-shadow:0 6px 18px rgba(43,36,28,.28);cursor:pointer}
+  @media (max-width:466px){.fab{right:18px}}
+
+  .scrim{position:fixed;inset:0;background:rgba(43,36,28,.42);display:none;align-items:flex-start;
+    justify-content:center;z-index:50;padding:22px 14px}
+  .scrim.show{display:flex}
+  .sheet{background:var(--card);width:100%;max-width:402px;border-radius:20px;
+    padding:18px 16px 18px;max-height:88vh;overflow-y:auto;animation:up .18s ease;
+    box-shadow:0 12px 34px rgba(24,19,14,.28)}
+  @keyframes up{from{transform:translateY(-14px);opacity:.4}to{transform:none;opacity:1}}
+  @media (prefers-reduced-motion:reduce){.sheet{animation:none}.chev{transition:none}.toast{transition:none}}
+
+  .sheet h3{margin:0 0 2px;font-size:17px;font-weight:650;display:flex;align-items:center;gap:8px}
+  .sheet .sub{font-size:13px;color:var(--muted);margin:0 0 4px}
+  .grp{margin-top:15px}
+  .gh{font-size:12px;color:var(--muted);letter-spacing:.06em;margin-bottom:7px}
+  .opt{width:100%;text-align:left;font:inherit;padding:15px 14px;border-radius:13px;border:1px solid var(--line);
+    background:#fff;margin-bottom:9px;cursor:pointer;color:var(--ink);font-weight:600;
+    display:flex;align-items:center;gap:10px}
+  .opt:disabled{opacity:.42;cursor:default}
+  .opt .en{margin-left:auto;font-size:12px;color:var(--muted);font-family:var(--mono);font-weight:400}
+  .opt .arrow{margin-left:auto;color:var(--muted);font-size:15px}
+  .opt.big{padding:18px 16px;font-size:17px}
+  .close{width:100%;padding:13px;border-radius:13px;border:0;background:var(--card-2);
+    font:inherit;font-weight:650;margin-top:6px;cursor:pointer;color:var(--ink)}
+  .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:176px;z-index:60;background:var(--header);
+    color:#F6F1E9;padding:11px 18px;border-radius:14px;font-size:14px;box-shadow:var(--shadow);
+    opacity:0;pointer-events:none;transition:opacity .18s ease}
+  .toast.show{opacity:1}
+  :focus-visible{outline:2.5px solid var(--accent);outline-offset:2px}
+  .hidden{display:none !important}
+
+  /* ---- 向左掃刪除：跟 tree app SwipeToDelete（screens.tsx:267-299 / app.css:277-286）---- */
+  .swipe-wrap{position:relative;overflow:hidden;border-radius:var(--r);margin-bottom:12px}
+  .swipe-bg{position:absolute;inset:0;z-index:0;background:var(--danger);border-radius:var(--r)}
+  .swipe-trash{position:absolute;top:0;right:0;bottom:0;width:76px;z-index:0;display:inline-flex;
+    align-items:center;justify-content:center;background:transparent;color:#fff;border:0;padding:0;cursor:pointer}
+  .swipe-trash svg{width:36px;height:36px}
+  .swipe-card{position:relative;z-index:1;will-change:transform}
+  .swipe-card>.card{margin-bottom:0}
+
+  /* ---- 下拉重新整理：跟 tree app usePullToRefresh（screens.tsx:467-513 / app.css:994-998）---- */
+  .ptr{position:fixed;left:0;right:0;top:6px;z-index:55;display:flex;justify-content:center;
+    pointer-events:none;opacity:0}
+  .ptr-ic{width:36px;height:36px;border-radius:50%;background:#fff;
+    box-shadow:0 3px 10px rgba(50,43,32,.22);display:inline-flex;align-items:center;justify-content:center}
+  .ptr-ic svg{width:20px;height:20px}
+  .ptr-ic.spin{animation:ptr-spin .8s linear infinite}
+  @keyframes ptr-spin{to{transform:rotate(360deg)}}
+
+  /* ---- 刪除確認：跟 tree app ConfirmModal（screens.tsx:253-264）---- */
+  .cscrim{position:fixed;inset:0;background:rgba(43,36,28,.42);display:none;align-items:center;
+    justify-content:center;z-index:70;padding:22px}
+  .cscrim.show{display:flex}
+  .cmodal{background:var(--card);width:100%;max-width:340px;border-radius:20px;padding:20px 18px;
+    box-shadow:0 12px 34px rgba(24,19,14,.28)}
+  .modal-title{margin:0 0 8px;font-size:17px;font-weight:650;display:flex;align-items:center;gap:9px}
+  .modal-del-icon{width:26px;height:26px;color:var(--danger);flex:none}
+  .modal-hint{margin:0;font-size:14px;color:var(--muted);line-height:1.55}
+  .modal-actions{display:flex;gap:10px;margin-top:18px}
+  .pill-btn{flex:1;padding:13px;border-radius:13px;font:inherit;font-weight:650;cursor:pointer}
+  .pill-btn.outline{border:1px solid var(--line);background:#fff;color:var(--ink)}
+  .pill-btn.danger{border:0;background:var(--danger);color:#fff}
+  .pill-btn:disabled{opacity:.55;cursor:default}
+</style>
+
+<div class="phone">
+  <div class="note">樣板：不會實際拍攝或儲存，只供試用流程</div>
+
+  <div id="screenHome">
+    <header><div class="row">
+      <div><h1 style="font-family:var(--sans)">森伝報價</h1><div class="sub">SYLVAN QUOTATION</div></div>
+    </div></header>
+    <div class="stats">
+      <div class="stat"><div class="k">待報價</div><div class="v gold" id="hs1">0</div></div>
+      <div class="stat"><div class="k">已報價</div><div class="v" id="hs2">0</div></div>
+      <div class="stat"><div class="k">已中標</div><div class="v" id="hs3">0</div></div>
+    </div>
+    <main>
+      <div class="sect"><h3>最近工程</h3>
+        <a href="#" onclick="showAllList();return false">查看全部</a></div>
+      <div id="projList"></div>
+    </main>
+    <button class="fab" onclick="openNew()" aria-label="加工程">＋</button>
+  </div>
+
+  <div id="screenAll" class="hidden">
+    <header><div class="row">
+      <div>
+        <div class="h1row"><h1 style="font-family:var(--sans)">工程</h1>
+          <button class="hbtn" id="srchBtn" onclick="openSearch()" aria-label="搜尋">🔍</button></div>
+        <div class="sub" id="allSub">全部工程</div>
+      </div>
+    </div></header>
+    <div class="curve"></div>
+    <main>
+      <div class="chips" id="allChips"></div>
+      <div id="allList"></div>
+    </main>
+    <button class="fab" onclick="openNew()" aria-label="加工程">＋</button>
+  </div>
+
+  <div id="screenEnv" class="hidden">
+    <header><div class="row">
+      <button class="back" onclick="showProject()">‹</button>
+      <div><h1 style="font-family:var(--sans)">環境相</h1><div class="sub" id="envSub">彩</div></div>
+    </div></header>
+    <div class="curve"></div>
+    <main><div id="envBox"></div></main>
+  </div>
+
+  <div id="screenPdf" class="hidden">
+    <header><div class="row">
+      <button class="back" onclick="showProject()">‹</button>
+      <div><h1 style="font-family:var(--sans)">匯出 PDF</h1><div class="sub" id="pdfSub">彩</div></div>
+    </div></header>
+    <div class="curve"></div>
+    <main>
+      <div class="note2">此資料只顯示於本次 PDF 的頁首右上角，不會更改工程本身。留空的項目不會顯示。環境相不會加入 PDF。</div>
+      <div class="card fgrp">
+        <div><label>工程名稱</label><input type="text" id="exName"></div>
+        <div><label>日期</label>
+          <div class="datefld">
+            <input type="text" class="dshow" id="exDateShow" readonly placeholder="年-月-日">
+            <input type="date" id="exDate" oninput="onDatePick(this)" onclick="openDatePicker(this)">
+            <svg class="dcal" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>
+          </div>
+        </div>
+        <div><label>樹木數目</label><input type="text" id="exCount" oninput="onExCount()"></div>
+      </div>
+      <div class="card">
+        <div class="gh2">選擇樹木 <span id="exSel" style="font-weight:400;color:var(--muted)"></span></div>
+        <div class="chips" id="exChips"></div>
+        <div id="exTrees"></div>
+      </div>
+      <div class="sheetrow">
+        <button class="btn" onclick="showProject()">取消</button>
+        <button class="btn primary" onclick="doExport()">匯出 PDF</button>
+      </div>
+    </main>
+  </div>
+
+  <div id="screenClients" class="hidden">
+    <header><div class="row">
+      <button class="back" onclick="showSettings()">‹</button>
+      <div><h1 style="font-family:var(--sans)">客戶簿</h1>
+        <div class="sub" id="cbSub">—</div></div>
+    </div></header>
+    <div class="curve"></div>
+    <main>
+      <div class="note2">此處的客戶可在「客戶資料」直接選用。修改只影響日後選用，已填入工程的資料不會變。</div>
+      <div id="cbList"></div>
+    </main>
+    <button class="fab" onclick="openClient()" aria-label="加客戶">＋</button>
+  </div>
+
+  <div id="screenPrice" class="hidden">
+    <header><div class="row">
+      <button class="back" onclick="showSettings()">‹</button>
+      <div><h1 style="font-family:var(--sans)">單價設定</h1>
+        <div class="sub">報價時自動套用</div></div>
+    </div></header>
+    <div class="curve"></div>
+    <main>
+      <div class="note2">此處只設定單價。每張報價實際用幾多，由該工程的「工程資料」決定。<br>
+      標示「逐次報價」的項目沒有固定單價，出報價時須逐次填寫。<br>
+      修改單價只影響之後新增的工程，已建立的工程沿用建立當日的單價。</div>
+      <div id="priceBox"></div>
+      <button class="save" onclick="savePrice()">儲存</button>
+    </main>
+  </div>
+
+  <div id="screenSync" class="hidden">
+    <header><div class="row">
+      <div><h1 style="font-family:var(--sans)">同步</h1></div>
+    </div></header>
+    <div class="curve"></div>
+    <main>
+      <div class="hero">
+        <div class="hh" id="syTitle">已自動同步</div>
+        <div class="hs" id="sySub">最後同步時間：今日 11:04</div>
+      </div>
+      <div class="card">
+        <div class="gh2">Google Drive 同步總覽</div>
+        <div class="s3">
+          <div><div class="n" id="syOk">0</div><div class="l">已同步</div></div>
+          <div><div class="n warnv" id="syWait">0</div><div class="l">待同步</div></div>
+          <div><div class="n failv" id="syFail">0</div><div class="l">同步失敗</div></div>
+        </div>
+        <div class="note2 hidden" id="syWaitNote">「待同步」無須處理 —— 相片已安全存入雲端，系統會自動複製到 Google Drive（最多需時 10 分鐘）。</div>
+        <div class="note2 bad hidden" id="syFailNote"></div>
+        <div id="syFailList"></div>
+      </div>
+      <div class="sect2">專案同步狀態</div>
+      <div id="syProjs"></div>
+    </main>
+  </div>
+
+  <div id="screenProject" class="hidden">
+    <header><div class="row">
+      <button class="back" onclick="showHome()">‹</button>
+      <div><h1 id="pjName" style="font-family:var(--sans)">彩</h1><div class="sub" id="pjSub">2026-08-22 · 九龍 · 日更</div></div>
+      <button class="dots" onclick="askDeleteProject(projName)" aria-label="刪除工程">×</button>
+    </div></header>
+    <div class="stats">
+      <div class="stat tapstat" role="button" tabindex="0" onclick="openQMenu()"
+        onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openQMenu()}">
+        <div class="k">狀態</div><div class="v sm" id="pjQ">待報價</div></div>
+      <div class="stat"><div class="k">樹木</div><div class="v" id="pjTrees">5</div></div>
+      <div class="stat"><div class="k">地區</div><div class="v sm">九龍</div></div>
+    </div>
+    <main>
+      <div class="card rowcard" onclick="showBasic()">
+        <div class="t"><b>客戶資料</b></div></div>
+      <div class="card rowcard" onclick="showSite()">
+        <div class="t"><b>工程資料</b></div></div>
+      <div class="card rowcard" onclick="showList()">
+        <div class="t"><b>樹木清單</b><small id="pjTreeCount">共 5 棵</small></div></div>
+      <div class="card rowcard" onclick="showEnv()">
+        <div class="t"><b>環境相</b><small id="pjEnvCount">尚未拍攝</small></div></div>
+      <div class="card rowcard" onclick="showPdf()">
+        <div class="t"><b>匯出 PDF</b><small>每頁四張相</small></div></div>
+
+      <div class="card" id="costCard">
+        <div class="gh2">成本</div>
+        <div class="note2">此處為成本，只供內部參考。不會出現在 PDF。</div>
+        <div id="costBox"></div>
+        <div class="frow2" style="margin-top:12px">
+          <div><label>加成</label>
+            <div class="pv2"><input type="text" inputmode="numeric" id="markup"
+              value="50" oninput="onMarkup(this)"><span class="dollar">%</span></div>
+          </div>
+          <div><label>報價價錢</label><div class="gain" id="gainBox">—</div></div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <div id="screenList" class="hidden">
+    <header><div class="row">
+      <button class="back" onclick="showProject()">‹</button>
+      <div><h1>樹木清單</h1><div class="sub" id="listSub">彩 · 2026-08-22 · 九龍</div></div>
+    </div></header>
+    <div class="curve"></div>
+    <main><div id="treeList"></div></main>
+    <button class="fab" onclick="openAdd()" aria-label="加樹">＋</button>
+  </div>
+
+  <div id="screenTree" class="hidden">
+    <header><div class="row">
+      <button class="back" onclick="showList()">‹</button>
+      <div><h1 id="treeTitle" class="head-tree-name" role="button" tabindex="0"
+        onclick="openData()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openData()}">T01</h1>
+        <div class="sub" id="treeSub">彩</div></div>
+      <button class="dots" onclick="askDeleteTree(cur)" aria-label="刪除呢棵樹">×</button>
+    </div></header>
+    <div class="curve"></div>
+    <main>
+      <div class="card renamefail hidden" id="renameFail"></div>
+      <div id="slots"></div>
+      <button class="addwork" onclick="openPicker()">＋ 新增工序</button>
+      <div class="legacy hidden" id="legacyNote">舊格式：修剪（未細分），請新增工序。</div>
+    </main>
+  </div>
+
+  <div id="screenBasic" class="hidden">
+    <header><div class="row">
+      <button class="back" onclick="showProject()">‹</button>
+      <div><h1 style="font-family:var(--sans)" id="basicH1">客戶資料</h1><div class="sub" id="basicSub">彩</div></div>
+    </div></header>
+    <div class="curve"></div>
+    <main>
+      <div class="card fgrp">
+        <div><label>客戶</label>
+          <div class="pickfld" onclick="openPickClient()">
+            <input type="text" id="bfClient" readonly placeholder="選擇客戶">
+            <span class="caret">▾</span>
+          </div>
+        </div>
+        <div class="frow2">
+          <div><label>聯絡人</label><input type="text" id="bfPerson" oninput="onClientField(this)"></div>
+          <div><label>電話</label><input type="text" inputmode="tel" id="bfPhone" oninput="onClientField(this)"></div>
+        </div>
+        <div class="note2">輸入即時儲存，無須按鍵。</div>
+      </div>
+    </main>
+  </div>
+
+  <div id="screenSite" class="hidden">
+    <header><div class="row">
+      <button class="back" onclick="showProject()">‹</button>
+      <div><h1 style="font-family:var(--sans)" id="siteH1">工程資料</h1><div class="sub" id="siteSub">彩</div></div>
+    </div></header>
+    <div class="curve"></div>
+    <main>
+      <div class="card fgrp">
+        <div class="frow2">
+          <div><label>工程日期</label>
+            <div class="datefld">
+              <input type="text" class="dshow" id="sfDateShow" readonly placeholder="年-月-日">
+              <input type="date" id="sfDate" oninput="onDatePick(this)" onclick="openDatePicker(this)">
+              <svg class="dcal" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                <rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>
+            </div>
+          </div>
+          <div><label>日／夜</label>
+            <div class="seg" id="shiftSeg"><button class="on" onclick="onShift(this)">日</button><button onclick="onShift(this)">夜</button></div>
+          </div>
+        </div>
+        <div><label>工程名稱</label><input type="text" id="bfName" onchange="onProjName(this)"></div>
+        <div><label>地區</label>
+          <select id="sfArea" onchange="onArea(this)"><option>新界</option><option>九龍</option><option>香港、大嶼山</option></select>
+        </div>
+        <div><label>地址</label>
+          <div class="inwrap"><input type="text" id="sfAddr" oninput="onSiteField(this)">
+            <button class="gpstab" onclick="toast('樣板：將以 GPS 取得座標，再反查地址')">GPS</button></div>
+        </div>
+        <div><label>Odoo 單號</label><input type="text" id="bfOdoo" placeholder="例如 SY202606-128（可留空）" oninput="onSiteField(this)"></div>
+        <div><label>備註</label>
+          <textarea id="sfNote" rows="1" oninput="grow(this);onSiteField(this)"></textarea></div>
+      </div>
+
+      <div class="card fgrp">
+        <div class="gh2">人手</div>
+        <div class="frow3">
+          <div><label>每日人數</label><input type="text" inputmode="numeric" id="mCrew" oninput="onManpower(this)"></div>
+          <div><label>每日攀樹師人數</label><input type="text" inputmode="numeric" id="mClimb" oninput="onManpower(this)"></div>
+          <div><label>總日數</label><input type="text" inputmode="numeric" id="mDays" oninput="onManpower(this)"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="gh2">垃圾處理</div>
+        <div id="wasteBox"></div>
+      </div>
+
+      <div class="card">
+        <div class="gh2">吊雞</div>
+        <div id="craneBox"></div>
+        <div class="gh2" style="margin-top:14px">升降台</div>
+        <div id="liftBox"></div>
+        <div id="liftOtherWrap" class="hidden" style="margin-top:10px">
+          <label>其他升降台</label><input type="text" id="liftOtherIn" placeholder="型號或高度">
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="gh2">起樹頭</div>
+        <div id="stumpBox"></div>
+      </div>
+
+      <button class="save hidden" id="siteSave" onclick="saveSite()">建立工程</button>
+      <div class="note2" id="siteAuto">輸入即時儲存，無須按鍵。</div>
+    </main>
+  </div>
+
+  <div id="screenSettings" class="hidden">
+    <header><div class="row">
+      <div><h1 style="font-family:var(--sans)">設定</h1></div>
+      <span class="vpill">樣板</span>
+    </div></header>
+    <div class="curve"></div>
+    <main>
+      <div class="card">
+        <div class="gh2">帳戶</div>
+        <div class="kv">電郵 <span>jason223hk@gmail.com</span></div>
+        <div class="slotbtns">
+          <button class="btn" onclick="openPw()">更改密碼</button>
+          <button class="btn" onclick="openLogout()">登出</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="gh2">角色</div>
+        <div class="note2">樣板專用：真正版本由登入帳戶決定，⛔ 唔會有呢個掣。</div>
+        <div class="seg" id="roleSeg" style="margin-top:10px">
+          <button onclick="setRole('office')">辦公室</button>
+          <button onclick="setRole('field')">現場</button>
+        </div>
+      </div>
+
+      <div class="card rowcard" onclick="showClients()">
+        <div class="t"><b>客戶簿</b><small id="cbCount">—</small></div>
+      </div>
+
+      <div class="card rowcard" id="priceCard" onclick="isOffice()?showPrice():needOffice('修改單價')">
+        <div class="t"><b>單價設定</b><small>夾車、吊雞、升降台及人手單價</small></div>
+      </div>
+
+      <div class="card">
+        <div class="gh2">同步 / 上傳診斷</div>
+        <div class="kv">登入狀態 <span>正常</span></div>
+        <div class="kv">殘留相片檔案 <span>無</span></div>
+        <div class="kv">已載入工程 <span>3</span></div>
+        <div class="kv">改名未完成 <span id="diagRename">無</span></div>
+        <div class="note2" id="diagOk">無問題：全部相片已上傳，沒有待處理項目。</div>
+      </div>
+
+      <div class="card rowcard" onclick="fakeRenameFail()">
+        <div class="t"><b>模擬「改名中途失敗」</b><small>樣板專用，正式版不會有此按鈕</small></div>
+      </div>
+    </main>
+  </div>
+
+  <nav><div class="bar">
+    <div class="tab" id="tabHome" onclick="showHome()"><span class="ic">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 21v-8"/><path d="M12 13C12 9 9 6.5 5 6.5c0 4 2.6 6.5 7 6.5Z"/>
+        <path d="M12.4 12.2c.2-3.2 2.6-5.4 6.1-5.4 0 3.4-2.3 5.6-6.1 5.4Z"/></svg>
+      </span><b>首頁</b><span class="dot"></span></div>
+    <div class="tab" id="tabProj" onclick="showAllList()"><span class="ic">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="4.5" y="4" width="15" height="17" rx="2.5"/><rect x="9" y="2" width="6" height="4" rx="1.4"/>
+        <path d="M8.5 11h7"/><path d="M8.5 15h4.5"/></svg>
+      </span><b>工程</b><span class="dot"></span></div>
+    <div class="tab" id="tabSync" onclick="showSync()"><span class="ic">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M6.5 18.5A4 4 0 0 1 6 10.6a5.6 5.6 0 0 1 10.7-1.6A4.2 4.2 0 0 1 18 18.5"/>
+        <path d="M12 21v-8"/><path d="M9 15.5 12 12.5l3 3"/></svg>
+      </span><b>同步</b><span class="dot"></span></div>
+    <div class="tab" id="tabSet" onclick="showSettings()"><span class="ic">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="3.1"/>
+        <path d="M19.4 14.5a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-1.8-.3 1.6 1.6 0 0 0-1 1.5V21a2 2 0 0 1-4 0v-.2a1.6 1.6 0 0 0-1-1.5 1.6 1.6 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0 .3-1.8 1.6 1.6 0 0 0-1.5-1H3a2 2 0 0 1 0-4h.2a1.6 1.6 0 0 0 1.5-1 1.6 1.6 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.6 1.6 0 0 0 1.8.3H9a1.6 1.6 0 0 0 1-1.5V3a2 2 0 0 1 4 0v.2a1.6 1.6 0 0 0 1 1.5 1.6 1.6 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8V9a1.6 1.6 0 0 0 1.5 1H21a2 2 0 0 1 0 4h-.2a1.6 1.6 0 0 0-1.5 1Z"/></svg>
+      </span><b>設定</b><span class="dot"></span></div>
+  </div></nav>
+</div>
+
+<div class="toast" id="toast"></div>
+
+
+<div class="lightbox" id="lightbox" onclick="closeZoom()">
+  <button class="lbx" onclick="closeZoom()" aria-label="閂">✕</button>
+  <div class="big">樣板相</div>
+  <div class="cap" id="lbCap"></div>
+</div>
+
+<div class="scrim" id="scrim" onclick="if(event.target===this)closeSheet()">
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
+    <div id="sheetBody"></div>
+  </div>
+</div>
+
+<div class="ptr" id="ptr" aria-hidden="true"><span class="ptr-ic" id="ptrIc">
+  <svg viewBox="0 0 24 24" fill="none" stroke="#3E342A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M21 12a9 9 0 1 1-2.6-6.4"/><path d="M21 3v6h-6"/></svg></span></div>
+
+<div class="cscrim" id="cscrim" onclick="if(event.target===this)closeConfirm()">
+  <div class="cmodal" role="dialog" aria-modal="true" aria-labelledby="confirm-title">
+    <h3 class="modal-title" id="confirm-title">
+      <svg class="modal-del-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+        stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/>
+        <path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
+      <span id="cTitle"></span></h3>
+    <p class="modal-hint" id="cMsg"></p>
+    <div class="modal-actions">
+      <button class="pill-btn danger" id="cOk">刪除</button>
+      <button class="pill-btn outline" id="cCancel" onclick="closeConfirm()">取消</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  const PRUNE = [
+    ['crown_cleaning','清理樹冠','Crown Cleaning'],
+    ['crown_thinning','疏枝','Crown Thinning'],
+    ['crown_reduction','縮減樹冠','Crown Reduction'],
+    ['crown_raising','提升樹冠','Crown Raising'],
+  ];
+  const OTHER = [
+    ['stump_removal','起樹頭','Stump Removal'],
+    ['cabling','拉索加固','Cabling'],
+    ['close_up','近景','Close Up'],
+    ['other','其他','Other'],
+  ];
+  const REMOVAL = ['removal','移除','Removal'];
+  // 顯示次序（Jason 2026-08-23 定）。移除唔喺佢個清單，暫時照 docs 擺喺四個修剪之後。
+  /* 顯示次序。⭐ 移除排最先 —— 佢係獨立一路：有移除就唔會有修剪同拉索加固，
+     但可能會起樹頭。（Jason 2026-08-24） */
+  const ORDER = ['removal','stump_removal',
+                 'crown_cleaning','crown_thinning','crown_reduction','crown_raising','cabling',
+                 'close_up','other'];
+  const PRUNE_KEYS = ['crown_cleaning','crown_thinning','crown_reduction','crown_raising','cabling'];
+  function hasRemoval(t){ return !!(t && t.works.includes('removal')) }
+  function hasPrune(t){ return !!(t && t.works.some(k=>PRUNE_KEYS.includes(k))) }
+  const rank = k => { const i = ORDER.indexOf(k); return i === -1 ? ORDER.length : i };
+  const TOKEN = {}; [...PRUNE,...OTHER,REMOVAL.length===3?REMOVAL:null].filter(Boolean)
+    .forEach(([k,l,t])=>TOKEN[k]=[l,t]);
+
+  let trees = [
+    { tag:'1', works:['crown_cleaning','crown_reduction'], legacy:false },
+    { tag:'2',      works:[], legacy:true },
+    { tag:'3',      works:[], legacy:false },
+    { tag:'4',      works:['crown_cleaning'], legacy:false },
+    { tag:'5',      works:['crown_cleaning','close_up'], legacy:false },
+  ];
+  let photos = {};
+  trees.forEach(t=>{ photos[t.tag]={whole:[]}; t.works.forEach(w=>photos[t.tag][w]=[]) });
+  photos['1'].whole = [{synced:true},{synced:true},{synced:true}];
+  photos['1'].crown_cleaning = [{synced:true},{synced:true}];
+  photos['1'].crown_reduction = [{synced:true}];
+  photos['4'].whole = [{synced:true}];
+  photos['4'].crown_cleaning = [{synced:true},{synced:true},{synced:true}];
+  photos['5'].whole = [{synced:true}];
+  photos['5'].crown_cleaning = [{synced:true}];
+  photos['5'].close_up = [{synced:true}];
+  // ⭐ 全景相預設入 PDF（Jason 2026-08-25）
+  Object.keys(photos).forEach(tag=>(photos[tag].whole||[]).forEach(ph=>ph.pick=true));
+  /* 每個工程各有自己嘅樹同相。轉工程就換晒兩個引用。 */
+  /* ⭐ 大原則：每個工程都係獨立（Jason 2026-08-25）。
+     凡係屬於一個工程嘅嘢，一律喺呢度一次過換。
+     ⛔ 唔准喺個別 function 度逐樣清 —— 一定會漏。
+     加新欄位嘅時候，第一個問題係「呢樣係屬於工程定係屬於全公司」。 */
+  function bindProj(p){
+    if(!p.trees){ p.trees = []; p.photos = {} }
+    if(!p.site)   p.site   = { crew:'', climb:'', days:'', picked:new Set(), qtys:{} };
+    if(!p.client) p.client = { co:'', person:'', tel:'', odoo:'' };
+    if(!p.ex)     p.ex     = { treeOn:new Set(), open:new Set(), who:'' };
+    trees = p.trees; photos = p.photos; curProj = p;
+    picked = p.site.picked; qtys = p.site.qtys;          // 工程資料揀咗嘅嘢
+    exTreeOn = p.ex.treeOn; exOpen = p.ex.open;          // 匯出頁揀咗嘅樹
+    cur = p.cur || (p.trees[0] ? p.trees[0].tag : '');   // 當前開緊嘅樹
+  }
+  function openProj(name){
+    newMode = false;
+    const p = projects.find(x=>x.name===name); if(!p) return;
+    projName = name; bindProj(p); paintProjName(); showProject();
+  }
+  let cur = '5';
+  let pendingTag = null;
+  let pendingOther = null;
+  let renamingTag = null;
+
+  const T = tag => trees.find(x=>x.tag===tag);
+  // 跟 tree app：src/domain/slice2.ts
+  const ALNUM = /^([A-Za-z]*)(\d+)$/;
+  function normalizeTag(tag){
+    const trimmed = (tag||'').trim();
+    const m = ALNUM.exec(trimmed);
+    if(!m) return trimmed;                              // 冇規則嘅形狀 → 逐個字對
+    return m[1].toUpperCase() + m[2].replace(/^0+(?=\d)/,'');
+  }
+  function tagParts(tag){
+    const m = ALNUM.exec((tag||'').trim());
+    return m ? { prefix:m[1].toUpperCase(), width:m[2].length } : null;
+  }
+  function widthCheck(newTag, existing){
+    const parts = tagParts(newTag);
+    if(!parts) return { ok:true };                      // 唔係嗰個形狀就豁免
+    const widths = [...new Set((existing||[]).map(tagParts)
+      .filter(p=>p && p.prefix===parts.prefix).map(p=>p.width))].sort((a,b)=>a-b);
+    if(!widths.length || widths.includes(parts.width)) return { ok:true };
+    const group = parts.prefix ? ` ${parts.prefix} 系` : '純數字';
+    return { ok:false, msg:`格式不一致：此工程${group}樹牌用緊 ${widths.join(' 或 ')} 位數，請使用一致格式` };
+  }
+
+  // 跟 tree app：useState('T') —— 永遠預設 T，刪得，可以打其他文字
+  function nextTag(){ return 'T' }
+  function renderList(){
+    document.getElementById('treeList').innerHTML = trees.map(t=>{
+      const n = Object.values(photos[t.tag]).reduce((a,b)=>a+b.length,0);
+      const w = t.works.length
+        ? [...t.works].sort((a,b)=>rank(a)-rank(b))
+            .map(k=> k==='other' && t.otherText ? '其他：'+t.otherText : TOKEN[k][0]).join('、')
+        : (t.legacy?'修剪（未細分）':'未揀工序');
+      return swipeWrap(`<div class="card treecard" onclick="openTree('${t.tag}')">
+        <div class="info">
+          <div class="name">${t.tag}</div>
+          <div class="meta">${w} · ${n} 張相</div>
+        </div>
+      </div>`, `askDeleteTree('${t.tag}')`);
+    }).join('');
+  }
+
+  function slotCard(tag,key){
+    const whole = key==='whole';
+    const tObj = T(tag);
+    let label = whole?'全景相':TOKEN[key][0];
+    if(key==='other' && tObj && tObj.otherText) label = '其他：'+tObj.otherText;
+    const token = whole?'Whole View':(key==='other'?'Other-1':TOKEN[key][1]);
+
+    const arr = photos[tag][key]||[];
+    const chipName = whole ? '全景前' : TOKEN[key][0];
+    const tiles = arr.map((p,i)=>{
+      const nn = String(2*i+1).padStart(2,'0');
+      return `<div class="frame">
+        <div class="tile ${(p.synced && !p.renaming)?'':'up'}" onclick="zoom('${chipName} ${nn}')">
+          ${!p.synced?'<div class="upnote">上載中⋯</div>':(p.renaming?'<div class="upnote">更改檔名中⋯</div>':'')}
+          <button class="x" onclick="event.stopPropagation();dropAt('${key}',${i})" aria-label="刪相">✕</button>
+          <span class="chip l">${chipName} ${nn}</span>
+          <button class="chip r" onclick="event.stopPropagation();toast('標記功能屬 P3d，尚未開發')"><span class="dot"></span>標記</button>
+        </div>
+        <button class="notebtn${p.note?'':' empty'}" onclick="openNote('tree','${key}',${i})">${p.note ? esc(p.note) : '＋ 備註'}</button>
+      </div>`;
+    }).join('');
+    /* 移除：⛔ 唔使影工序相，全景相已經夠（Jason 2026-08-24）。
+       張卡照留住，等你知呢棵樹係要移除，但冇拍攝／相簿。 */
+    if(key === 'removal'){
+      return `<div class="card" style="margin-bottom:14px">
+        <h2>${label}</h2>
+        <div class="note2">全景相已足夠，無須另行拍攝。</div></div>`;
+    }
+    const locked = !whole && !wholeReady(tag);
+    const lockNote = locked
+      ? `<p class="warn" style="margin-top:11px">請先拍攝全景相</p>`
+      : '';
+    const btns = locked ? '' :
+      `<div class="slotbtns"><button class="btn primary" onclick="shoot('${key}')">拍攝</button>
+        <button class="btn" onclick="shoot('${key}')">相簿</button></div>`;
+    return `<div class="card" style="margin-bottom:14px">
+      <h2>${label}</h2>
+      ${arr.length?`<div class="strip">${tiles}</div>`:''}
+      ${btns}${lockNote}</div>`;
+  }
+
+  function renderTree(){
+    if(document.getElementById('renameFail')) paintRenameFail();
+    const t = T(cur); if(!t) return;
+    document.getElementById('treeTitle').textContent = t.tag;
+    document.getElementById('legacyNote').classList.toggle('hidden', !t.legacy);
+    document.getElementById('slots').innerHTML =
+      ['whole', ...[...t.works].sort((a,b)=>rank(a)-rank(b))].map(k=>slotCard(t.tag,k)).join('');
+    document.querySelector('.addwork').classList.toggle('hidden', !wholeReady(t.tag));
+  }
+  // ⭐ 第 6 條（2026-08-25）：影咗就解鎖，⛔ 唔再等上載。現場冷網唔可以卡死同事。
+  const wholeReady = tag => (photos[tag].whole||[]).length > 0;
+  function shoot(k){
+    if(k!=='whole' && !wholeReady(cur)){ toast('請先拍攝全景相'); return }
+    const arr = photos[cur][k] || (photos[cur][k]=[]);
+    // ⭐ 全景相預設入 PDF（Jason 2026-08-25）；工序相要自己揀
+    const shot = {synced:false, pick: k==='whole'}; arr.push(shot); renderTree();
+    setTimeout(()=>{ shot.synced=true; renderTree() }, 1800);
+  }
+  /* 刪一張相，後面全部要向前改號：01 03 05，刪咗 01 → 03 變 01、05 變 03。
+     ⛔ 真 app 呢一步唔止改畫面 —— 每一張跟住改嘅相都要去 Drive 改一次檔名。
+     所以呢度真係等，⛔ 唔可以即刻變好。 */
+  function dropAt(k,i){
+    openConfirm('刪除相片？', '此相片將被移除（可重新拍攝）。', ()=>doDropAt(k,i));
+  }
+  function doDropAt(k,i){
+    const arr = photos[cur][k]||[];
+    const nn = n => String(2*n+1).padStart(2,'0');
+    const moved = [];
+    for(let j=i+1; j<arr.length; j++) moved.push(nn(j)+'→'+nn(j-1));
+    const gone = nn(i);
+    arr.splice(i,1);
+    if(!moved.length){ renderTree(); return }
+    arr.slice(i).forEach(ph=>ph.renaming = true);
+    renderTree();
+    setTimeout(()=>{ arr.forEach(ph=>delete ph.renaming); renderTree() }, 900);
+  }
+
+  function openTree(tag){ setNav('tabProj');
+    cur=tag; if(curProj) curProj.cur = tag;      // ⛔ 跟工程走
+    const t=T(tag);
+    renderTree(); hideAll();
+    document.getElementById('screenTree').classList.remove('hidden');
+    window.scrollTo(0,0);
+  }
+  /* 工程名淨係一個來源：「基本資料」入面個「工程名稱」格。
+     改咗要即刻改埋啡色 bar、樹木清單、樹木頁、工程資料、首頁張工程卡。 */
+  let projName = '彩';
+  let curProj = null;                          // 而家開緊邊個工程
+  function paintProjName(){
+    document.getElementById('pjName').textContent = projName;
+    document.getElementById('listSub').textContent = projName + ' · 2026-08-22 · 九龍';
+    document.getElementById('treeSub').textContent = projName;
+    document.getElementById('basicSub').textContent = projName;
+    document.getElementById('siteSub').textContent = projName;
+    if(curProj) curProj.name = projName;      // ⛔ 唔可以靠 live 揾，開多個工程就會改錯
+    renderProjects();
+  }
+  let newMode = false;
+  /* ⛔ 新增工程改咗喺「工程資料」做（Jason 2026-08-25）——
+     因為工程名稱、日期、地區、地址已經由「客戶資料」搬咗過去。
+     「客戶資料」而家淨返客戶、聯絡人、電話，⛔ 開唔到新工程。 */
+  function openNew(){
+    newMode = true;
+    showSite();
+    document.getElementById('siteH1').textContent = '新增工程';
+    document.getElementById('siteSub').textContent = '填妥後按儲存即可建立';
+    ['sfDate','sfDateShow','bfName','sfAddr','bfOdoo','sfNote'].forEach(i=>{
+      const e = document.getElementById(i); if(e) e.value = '';
+    });
+    document.getElementById('sfDate').value = TODAY;   // ⛔ 唔再寫死
+    paintDates();
+    document.getElementById('bfName').focus();
+  }
+  /* 客戶資料：淨係客戶、聯絡人、電話。⛔ 冇工程名稱，所以開唔到新工程、改唔到名。
+     ⛔ 2026-08-26 起冇「儲存」掣 —— 打字即時入 curProj.client。 */
+  /* ⛔ 舊版呢度乜都冇做 —— 撳咗儲存但根本冇存過。 */
+  function saveBasic(){
+    const gv = id => (document.getElementById(id)||{}).value.trim() || '';
+    if(curProj){
+      curProj.client.co     = gv('bfClient');
+      curProj.client.person = gv('bfPerson');
+      curProj.client.tel    = gv('bfPhone');
+    }
+    showProject();                 // 儲存完返工程頁
+    toast('樣板：已儲存');
+  }
+  function saveSite(){
+    const el = document.getElementById('bfName');
+    const v = el ? el.value.trim() : '';
+    if(!v){ toast('請填寫工程名稱'); return }
+    const f = document.getElementById('screenSite');
+    const day = f.querySelector('.seg .on') ? f.querySelector('.seg .on').textContent.trim() : '日';
+    const dt = (document.getElementById('sfDate')||{}).value || TODAY;
+    const area = (document.getElementById('sfArea')||{}).value || '九龍';
+    const addr = (document.getElementById('sfAddr')||{}).value || '';
+    if(newMode){
+      if(projects.some(x=>x.name===v)){ toast('已有工程名為「'+v+'」'); return }
+      /* ⭐ 建立人（Jason 2026-08-25，跟 tree app）：開工程嗰陣記低邊個開，⛔ 之後唔改得。
+         ⛔ 全 app 就只記呢一樣 —— 冇其他操作記錄。 */
+      const np = { name:v, sub:`${dt} · ${area} · ${day}更`, addr, q:'pending',
+                   trees:[], photos:{}, date:dt, by:ME };
+      projects.unshift(np);
+      newMode = false;
+      document.getElementById('siteH1').textContent = '工程資料';
+      projName = v; bindProj(np); paintProjName();
+      renderList(); renderTree(); showProject();
+      toast('樣板：已新增工程「'+v+'」');
+      return;
+    }
+    if(v !== projName && projects.some(x=>x.name===v)){ toast('已有工程名為「'+v+'」'); return }
+    const note = (document.getElementById('sfNote')||{}).value || '';
+    const gv = id => (document.getElementById(id)||{}).value || '';
+    if(curProj){ curProj.sub = `${dt} · ${area} · ${day}更`; curProj.addr = addr;
+                 curProj.date = dt; curProj.note = note; curProj.area = area; curProj.shift = day;
+                 /* ⛔ 人手數字要存返個工程，唔可以淨係留喺畫面 */
+                 curProj.site.crew = gv('mCrew');
+                 curProj.site.climb = gv('mClimb');
+                 curProj.site.days = gv('mDays');
+                 curProj.odoo = gv('bfOdoo'); }
+    projName = v; paintProjName();
+    showProject();                 // 儲存完返工程頁
+    toast('樣板：已儲存');
+  }
+
+  const projects = [
+    {name:'彩', sub:'2026-08-22 · 九龍 · 日更', addr:'彩霞邨，彩月樓', live:true,
+     date:'2026-08-22', by:'阿耀'},
+    {name:'Testing01', sub:'2026-08-14 · 九龍 · 日更', addr:'Isaac - KLB', live:false,
+     date:'2026-08-14', by:'Isaac', q:'quoted', quotedAt:'2026-08-14'},
+    {name:'廿', sub:'2026-08-14 · 新界 · 日更', addr:'', live:false,
+     date:'2026-08-14', by:'聰'},
+  ];
+  const CREATORS = ['阿耀','聰','Isaac','Anna','Jason'];
+  let ME = 'Jason';                      // 樣板：真 app 由登入帳戶決定
+  /* 兩個角色（Jason 2026-08-25）：現場、辦公室。
+     現場做得：開工程、加樹、影相、打備註、删相、改工程資料、匯出 PDF。
+     現場 ⛔ 做唔到：删工程、删樹、改單價、轉「已中標」、改樹牌。
+     ⛔ 唔准收埋啲掣 —— 要見到但撳唔到，同埋講明點解。收埋咗同事會以為 app 壞咗。 */
+  let ROLE = 'office';                   // 'office' | 'field'
+  function isOffice(){ return ROLE === 'office' }
+  function needOffice(what){
+    toast((what||'呢個操作') + '需要辦公室權限');
+    return false;
+  }
+  function setRole(r){ ROLE = r; renderProjects(); renderList && renderList();
+    showSettings(); toast('樣板：已切換為「' + (r==='office'?'辦公室':'現場') + '」'); }
+  projects[0].trees = trees; projects[0].photos = photos;
+  projects.slice(1).forEach(p=>{ p.trees = []; p.photos = {} });
+  curProj = projects[0];
+  /* ⚠️ 呢度⛔ 唔可以叫 bindProj —— picked / qtys / exTreeOn / exOpen 仲未宣告到，
+     叫落去會 TDZ 爆。真正嘅初始化喺成段 script 最尾（搵「開機」）。 */
+  function renderProjects(){
+    // ⛔ 首頁淨係留待報價（Jason 2026-08-24）
+    const list = projects.filter(p=>(p.q||'pending')==='pending');
+    const box0 = document.getElementById('projList');
+    if(!list.length){
+      /* ⛔ 唔准留白版 —— 同事分唔到係「冇嘢做」定係「app 壞咗」（Jason 2026-08-25）。 */
+      box0.innerHTML = `<div class="card" style="text-align:center;padding:26px 16px">
+        <div style="font-size:15px;font-weight:600">現時沒有待報價的工程</div>
+        <div style="font-size:13px;color:var(--muted);margin-top:6px">到工程列表查看全部</div>
+      </div>`;
+    } else
+    document.getElementById('projList').innerHTML = list.map((p,i)=>swipeWrap(
+      `<div class="card pcard" onclick="openProj('${p.name}')">
+        <div class="top"><span class="nm">${p.name}</span>
+          <span class="st">${qPill(p.q)}</span></div>
+        <div class="ln">${p.sub}</div>
+        ${p.addr?`<div class="ln">${p.addr}</div>`:''}
+      </div>`, `askDeleteProject('${p.name}')`)).join('');
+    const live2 = projects;
+    document.getElementById('hs1').textContent = live2.filter(p=>(p.q||'pending')==='pending').length;
+    document.getElementById('hs2').textContent = live2.filter(p=>p.q==='quoted').length;
+    document.getElementById('hs3').textContent = live2.filter(p=>p.q==='won').length;
+    renderAll();
+  }
+  /* ⭐ 夾車（Jason 2026-08-26）：24／30 噸有「架數」欄，⛔ 唔乘日數 —— 架數 × 價。
+     ⭐ 9 噸碎垃圾 ⛔ 冇數量欄 —— 剔咗就算一次 $300。 */
+  const WASTE=[['t24','24噸夾車',1],['t30','30噸夾車',1],['t9','9噸碎垃圾',0],['none','垃圾不用清走',0]];
+  /* ── 地區同日夜（Jason 2026-08-26）──────────────────────────
+     ⭐ 地區喺工程資料揀一次，全單通用。⛔ 三個選項，跟返單價表嘅分法。 */
+  const AREAS = [['nt','新界'],['kl','九龍'],['hk','香港、大嶼山']];
+  function areaKey(){
+    const a = (curProj && curProj.area) || '新界';
+    const hit = AREAS.find(([,l])=>l===a);
+    return hit ? hit[0] : 'nt';
+  }
+  function isNight(){ return !!(curProj && curProj.shift === '夜') }
+  const CRANE=[['crane_tung','東哥 - 30噸'],['crane_fai30','輝哥 - 30噸 + 科同'],
+               ['crane_fai86','輝哥 8+6'],['crane_fai100','輝哥 100T 8+6尾']];
+  const LIFT=[['lift_18','18M'],['lift_25','25M'],['lift_32','32M'],['lift_37','37M'],
+              ['lift_46','46M'],['lift_other','其他']];
+  const STUMP=[['yes_self','自己起'],['yes_chuen','銓哥報價']];
+  /* ⭐ 每個工程都係獨立（Jason 2026-08-25）。
+     ⛔ 呢兩個唔再係全 app 共用 —— bindProj() 會換成當前工程嗰份。 */
+  let picked = new Set();
+  let qtys = {};                      // 24／30 噸夾車嘅架數
+  const QTYOF = new Set(WASTE.filter(w=>w[2]).map(w=>w[0]));   // 邊幾項有架數欄
+  function chk(v,l,qty){
+    const on = picked.has(v);
+    return `<div class="chk${on?' on':''}" id="chk_${v}" onclick="togglePick('${v}')">
+      <span class="box">${on?'✓':''}</span>${l}
+      ${qty?`<span class="qty" onclick="event.stopPropagation()"><input type="text" inputmode="numeric"
+        placeholder="架數" id="q_${v}" value="${qtys[v]||''}" oninput="onQty('${v}',this)"></span>`:''}
+    </div>`;
+  }
+  /* 右邊打數字 → 左邊自動剔；抹走個數字 → 自動甩剔。
+     ⛔ 唔可以喺度重畫成塊，一重畫個鍵盤就收埋，所以淨係改嗰行嘅樣。 */
+  function onQty(v,el){
+    const n = el.value.replace(/[^0-9]/g,'');
+    if(n !== el.value) el.value = n;
+    qtys[v] = n;
+    const want = n !== '' && +n > 0;
+    want ? picked.add(v) : picked.delete(v);
+    const row = document.getElementById('chk_'+v);
+    row.classList.toggle('on', want);
+    row.querySelector('.box').textContent = want ? '✓' : '';
+    renderCost();
+  }
+  function renderSite(){
+    document.getElementById('wasteBox').innerHTML = WASTE.map(([v,l,q])=>chk(v,l,q)).join('');
+    document.getElementById('craneBox').innerHTML = CRANE.map(([v,l])=>chk(v,l,0)).join('');
+    document.getElementById('liftBox').innerHTML  = LIFT.map(([v,l])=>chk(v,l,0)).join('');
+    document.getElementById('stumpBox').innerHTML = STUMP.map(([v,l])=>chk(v,l,0)).join('');
+    document.getElementById('liftOtherWrap').classList.toggle('hidden', !picked.has('lift_other'));
+    renderCost();
+  }
+  /* 垃圾處理互斥（Jason 2026-08-25）：
+     「垃圾不用清走」同任何一款車唔可以同時剔 —— 兩樣互相否定。
+     ⛔ 唔用變灰鎖死，用「剔一個自動甩另一個」，同「移除係獨立」嗰個手法一致。 */
+  const WASTE_CARS = WASTE.map(([k])=>k).filter(k=>k!=='none');
+  function togglePick(v){
+    if(picked.has(v)){ picked.delete(v); if(v in qtys) qtys[v]='' }      // 甩剔 → 抹走個數
+    else {
+      if(v === 'none'){
+        WASTE_CARS.forEach(k=>{ picked.delete(k); if(k in qtys) qtys[k]='' });
+      } else if(WASTE_CARS.includes(v)){
+        picked.delete('none');
+      }
+      picked.add(v); if(QTYOF.has(v) && !qtys[v]) qtys[v]='1' }          // 剔 → 自動變 1
+    renderSite();
+  }
+  function segPick(el){ [...el.parentNode.children].forEach(b=>b.classList.remove('on')); el.classList.add('on') }
+  /* ⭐ 全部即時儲存（Jason 2026-08-26）：打完就存，⛔ 冇「儲存」呢一步。
+     ⛔ 唔可以一半自動存、一半要撳掣 —— 舊版就係咁，剔項目自動存但打字唔存，
+     同事撳返上一頁會以為兩樣都存咗。 */
+  function onSiteField(el){
+    if(!curProj || newMode) return;
+    const v = el.value;
+    if(el.id === 'sfDate'){ curProj.date = v; syncSub(); }
+    if(el.id === 'sfAddr'){ curProj.addr = v; }
+    if(el.id === 'bfOdoo'){ curProj.odoo = v; }
+    if(el.id === 'sfNote'){ curProj.note = v; }
+    renderProjects();
+  }
+  /* 日期格（Jason 2026-08-28）：真值永遠係 YYYY-MM-DD，面頭嗰個唯讀格照樣寫 YYYY-MM-DD。
+     ⛔ 每次用程式改真值之後，一定要叫 paintDates()，否則面頭嗰格唔會跟住郁。 */
+  const DATE_FIELDS = [['sfDate','sfDateShow'], ['exDate','exDateShow']];
+  function paintDates(){
+    DATE_FIELDS.forEach(([id, sid])=>{
+      const a = document.getElementById(id), b = document.getElementById(sid);
+      if(a && b) b.value = a.value || '';
+    });
+  }
+  /* 撳成格任何位置都要開到日曆。
+     ⛔ 手機本身撳邊度都開得，但電腦 Chrome 淨係撳個日曆圖示先開，所以要自己叫 showPicker()。
+     ⛔ 要包 try —— 撳正個圖示嗰陣佢已經自己開緊，再叫一次會 throw。 */
+  function openDatePicker(el){
+    try{ if(el.showPicker) el.showPicker() }catch(e){}
+  }
+  function onDatePick(el){
+    paintDates();
+    if(el.id === 'sfDate') onSiteField(el);
+  }
+  function syncSub(){
+    if(!curProj) return;
+    const day = curProj.shift || '日';
+    curProj.sub = `${curProj.date||''} · ${curProj.area||'新界'} · ${day}更`;
+  }
+  /* 工程名 ⛔ 唔逐個字改 —— 用 onchange（離開個格先計），
+     否則打「彩霞邨」會經過「彩」「彩霞」呢啲中間狀態，每個都要改晒成個 app。 */
+  function onProjName(el){
+    if(!curProj || newMode) return;
+    const v = el.value.trim();
+    if(!v){ el.value = projName; toast('工程名稱不可留空'); return }
+    if(v !== projName && projects.some(x=>x.name===v)){
+      el.value = projName; toast('已有工程名為「'+v+'」'); return;
+    }
+    projName = v; paintProjName();
+  }
+  function onClientField(el){
+    if(!curProj) return;
+    if(el.id === 'bfPerson') curProj.client.person = el.value;
+    if(el.id === 'bfPhone')  curProj.client.tel    = el.value;
+  }
+  /* 地區同日夜而家真係影響價錢（Jason 2026-08-26），⛔ 唔再淨係顯示用。 */
+  function onArea(el){ if(curProj) curProj.area = el.value; syncSub(); renderProjects(); renderCost() }
+  function onShift(el){
+    segPick(el);
+    if(curProj) curProj.shift = el.textContent.trim();
+    syncSub(); renderProjects(); renderCost();
+  }
+  function showBasic(){
+    document.getElementById('basicH1').textContent = '客戶資料';
+    document.getElementById('basicSub').textContent = projName;
+    const c = (curProj && curProj.client) || {};
+    const put = (id,v)=>{ const e=document.getElementById(id); if(e) e.value = v||'' };
+    put('bfClient', c.co); put('bfPerson', c.person); put('bfPhone', c.tel);
+    setNav('tabProj'); hideAll(); document.getElementById('screenBasic').classList.remove('hidden'); window.scrollTo(0,0) }
+  function showSite(){
+    renderSite();
+    const sv = document.getElementById('siteSave'), au = document.getElementById('siteAuto');
+    if(sv) sv.classList.toggle('hidden', !newMode);      // ⭐ 淨係新增工程先要撳掣
+    if(au) au.classList.toggle('hidden', !!newMode);
+    if(!newMode){
+      document.getElementById('siteH1').textContent = '工程資料';
+      document.getElementById('siteSub').textContent = projName;
+      const n = document.getElementById('bfName'); if(n) n.value = projName;
+      const a = document.getElementById('sfAddr'); if(a && curProj) a.value = curProj.addr || '';
+      const dt = document.getElementById('sfDate'); if(dt && curProj) dt.value = curProj.date || '';
+      paintDates();
+      const nt = document.getElementById('sfNote'); if(nt && curProj) nt.value = curProj.note || '';
+      const od = document.getElementById('bfOdoo'); if(od && curProj) od.value = curProj.odoo || '';
+      const st = (curProj && curProj.site) || {};
+      const put = (id,v)=>{ const e=document.getElementById(id); if(e) e.value = v||'' };
+      put('mCrew', st.crew); put('mClimb', st.climb); put('mDays', st.days);
+      const ar = document.getElementById('sfArea');
+      if(ar) ar.value = (curProj && curProj.area) || '新界';
+      const sg = document.getElementById('shiftSeg');
+      if(sg){ const want = (curProj && curProj.shift) || '日';
+        [...sg.children].forEach(b=>b.classList.toggle('on', b.textContent.trim()===want)); }
+    }
+    setNav('tabProj'); hideAll(); document.getElementById('screenSite').classList.remove('hidden');
+    /* ⛔ 一定要喺 remove('hidden') 之後先叫 grow —— 版面仲收埋嗰陣 scrollHeight 係 0，
+       量出嚟嘅高度就係一行，跟住張版一顯示就已經縮咗。 */
+    growAll(document.getElementById('screenSite'));
+    /* ⛔ 一定要喺填返啲格之後先再算一次 —— renderSite() 喺上面行嗰陣，
+       人手／日數／收客價仲係上一個工程嘅值。 */
+    renderCost();
+    window.scrollTo(0,0) }
+  function showSettings(){ renderClients(); paintRole();
+    setNav('tabSet'); hideAll(); document.getElementById('screenSettings').classList.remove('hidden'); window.scrollTo(0,0) }
+  function paintRole(){
+    const seg = document.getElementById('roleSeg'); if(!seg) return;
+    [...seg.children].forEach((b,i)=>b.classList.toggle('on', (i===0)===isOffice()));
+    const pr = document.getElementById('priceCard');
+    if(pr){ pr.classList.toggle('locked', !isOffice());
+      const sm = pr.querySelector('small');
+      if(sm) sm.textContent = isOffice() ? '夾車、吊雞、升降台及人手單價' : '需要辦公室權限'; }
+  }
+
+  function setNav(k){
+    ['tabHome','tabProj','tabSync','tabSet'].forEach(id=>
+      document.getElementById(id).classList.toggle('on', id===k));
+  }
+  function hideAll(){ ['screenHome','screenAll','screenSync','screenEnv','screenPrice','screenClients','screenPdf','screenProject','screenList','screenTree','screenBasic','screenSite','screenSettings']
+    .forEach(id=>document.getElementById(id).classList.add('hidden')) }
+  function showHome(){ renderProjects(); setNav('tabHome'); hideAll();
+    document.getElementById('screenHome').classList.remove('hidden'); window.scrollTo(0,0) }
+  function showProject(){
+    const me = projects.find(x=>x.name===projName) || {};
+    document.getElementById('pjQ').innerHTML = qLabel(me.q) + '';
+    document.getElementById('pjTrees').textContent = trees.length;
+    document.getElementById('pjTreeCount').textContent = '共 '+trees.length+' 棵';
+    document.getElementById('pjEnvCount').textContent = (curProj.env||[]).length
+      ? (curProj.env||[]).length + ' 張' : '尚未拍攝';
+    const mk = document.getElementById('markup');
+    if(mk) mk.value = (curProj && curProj.markup !== undefined) ? curProj.markup : '50';
+    renderCost();
+    setNav('tabProj'); hideAll(); document.getElementById('screenProject').classList.remove('hidden'); window.scrollTo(0,0);
+  }
+  /* ⛔ 已中標唔轉得返（Jason 2026-08-25）。
+     因為轉「已中標」會搬相片資料夾去 tree app，而且⛔ 冇撤回。
+     轉得返就等於個狀態同 Drive 實況唔一致 —— 工程話「待報價」，但啲相已經喺 tree app。
+     ⛔ 唔准收埋啲選項 —— 要見到但撳唔到，同埋講明點解。 */
+  function openQMenu(){
+    const p = projects.find(x=>x.name===projName) || {};
+    const now = p.q || 'pending';
+    const locked = now === 'won';
+    const row = (k,l)=>{
+      const off = (locked && k !== 'won') || (k === 'won' && !isOffice());
+      return `<button class="mrow" ${off?'disabled':`onclick="setProjQ('${k}')"`}>
+        <span class="ic2">${now===k?'✓':''}</span>${l}</button>`;
+    };
+    openSheet(`<h3 id="sheetTitle">報價狀態</h3>
+      ${locked ? '<p class="sub">已中標的工程不可轉回。相片資料夾已搬入 Tree App Photos。</p>'
+        : (!isOffice() ? '<p class="sub">「已中標」需要辦公室權限。</p>' : '')}
+      <div class="grp">
+        ${row('pending','待報價')}${row('quoted','已報價')}${row('won','已中標')}
+      </div>
+      <div class="sheetrow"><button class="btn" onclick="closeSheet()">取消</button></div>`);
+  }
+  /* 第 2 條（2026-08-25）：待報價⇄已報價照舊即時改。
+     ⛔ 但「已中標」會搬相片資料夾去 tree app，而且⛔ 冇撤回（第 9 條），
+     所以一定要彈一次確認，⛔ 而且要寫明後果，唔准淨係寫「確定嗎」。 */
+  function setProjQ(k){
+    const p = projects.find(x=>x.name===projName); if(!p) return;
+    if(p.q === 'won' && k !== 'won'){ closeSheet(); toast('已中標的工程不可轉回'); return }
+    if(k === 'won' && !isOffice()){ closeSheet(); return needOffice('轉為已中標') }
+    if(k === 'won' && p.q !== 'won'){
+      closeSheet();
+      openConfirm('轉為已中標？',
+        '「' + projName + '」的相片資料夾會搬入 Tree App Photos，同事即刻見到。轉了之後不能還原。',
+        ()=>doSetQ('won'), {danger:false});
+      document.getElementById('cOk').textContent = '轉為已中標';
+      return;
+    }
+    closeSheet(); doSetQ(k);
+  }
+  function doSetQ(k){
+    const p = projects.find(x=>x.name===projName); if(!p) return;
+    /* 記低幾時轉「已報價」，等工程列表出得到「報咗 N 日」（Jason 2026-08-25）。
+       ⛔ 由待報價轉入去先記，⛔ 已經係已報價再撳一次唔會重設。 */
+    if(k === 'quoted' && p.q !== 'quoted') p.quotedAt = TODAY;
+    p.q = k; renderProjects(); showProject();
+    toast('樣板：「'+projName+'」已轉為 '+ (QTABS.find(t=>t[0]===k)||[,k])[1]);
+  }
+  /* 第四輪第 9 條（Jason 2026-08-28）：⛔ 唔再寫死日期，用返部機當日。
+     ⛔ 唔准用 toISOString() —— 嗰個係 UTC，香港時間半夜零點至八點會早咗一日。 */
+  function todayStr(){
+    const d = new Date();
+    const p = n => String(n).padStart(2,'0');
+    return d.getFullYear() + '-' + p(d.getMonth()+1) + '-' + p(d.getDate());
+  }
+  const TODAY = todayStr();
+  function daysSince(d){
+    if(!d) return null;
+    const a = Date.parse(d + 'T00:00:00'), b = Date.parse(TODAY + 'T00:00:00');
+    if(isNaN(a) || isNaN(b)) return null;
+    return Math.max(0, Math.round((b - a) / 86400000));
+  }
+  const QTABS = [['all','全部'],['pending','待報價'],['quoted','已報價'],['won','已中標']];
+  const QDOT = { pending:'#B8862B', quoted:'#5B7EA8', won:'#4E7A5A' };
+  function qLabel(q){ return (QTABS.find(t=>t[0]===(q||'pending'))||[,'待報價'])[1] }
+  function qPill(q){ const k=q||'pending';
+    return `<i style="background:${QDOT[k]}"></i>${qLabel(k)}` }
+  let allFilter = 'all';
+  function setAllFilter(k){ allFilter = k; renderAll() }
+  /* 搜尋（Jason 2026-08-25，跟 tree app 嗰個面板）：
+     日期範圍 ＋ 工程名稱 ＋ 建立人，⛔ 唔係打字即時篩 —— 要撳「搜尋」先做。
+     ⭐ 同上面四個狀態 tab 係疊埋一齊，唔係二選一。 */
+  let srch = null;                       // null = 未搜尋
+  /* ⛔ 唔係頁內面板 —— 係彈出嚟嘅 dialog（Jason 2026-08-25）。 */
+  function openSearch(){
+    const c = srch || {f:'',t:'',n:'',by:''};
+    openSheet(`<h3 id="sheetTitle">搜尋工程</h3>
+      <div class="sgrp"><label>日期</label>
+        <div class="sdate">
+          <input type="date" id="sFrom" value="${c.f}"><span>至</span>
+          <input type="date" id="sTo" value="${c.t}">
+        </div>
+      </div>
+      <div class="sgrp"><label>工程名稱</label>
+        <input type="text" id="sName" placeholder="輸入工程名稱" value="${esc(c.n)}"></div>
+      <div class="sgrp"><label>建立人</label>
+        <select id="sBy"><option value="">選擇建立人</option>${
+          CREATORS.map(n=>`<option${c.by===n?' selected':''}>${n}</option>`).join('')}</select></div>
+      <div class="srow">
+        <button class="btn" onclick="resetSearch()">重設</button>
+        <button class="btn primary" onclick="runSearch()">搜尋</button>
+      </div>`);
+  }
+  function runSearch(){
+    const v = id => (document.getElementById(id)||{}).value || '';
+    let f = v('sFrom'), t = v('sTo');
+    /* Jason 2026-08-28：揀反咗就自動掉轉，⛔ 唔彈提示。
+       ⛔ 冇任何情況下有人真心想搵「8月25號至8月20號」，所以掉轉一定係佢想要嘅結果。 */
+    if(f && t && f > t){ const x = f; f = t; t = x }
+    const n = v('sName').trim(), by = v('sBy');
+    srch = (f||t||n||by) ? {f,t,n,by} : null;      // 全部空白 = 當冇搜尋
+    closeSheet(); renderAll();
+  }
+  /* 重設＝清空條件、收返個 dialog、返晒全部工程。⛔ 唔係淨係抹空格仔。 */
+  function resetSearch(){
+    srch = null; closeSheet(); renderAll();
+  }
+  function matchSearch(p){
+    if(!srch) return true;
+    const d = p.date || '';
+    if(srch.f && (!d || d < srch.f)) return false;
+    if(srch.t && (!d || d > srch.t)) return false;
+    if(srch.n && !p.name.toLowerCase().includes(srch.n.toLowerCase())) return false;
+    if(srch.by && (p.by||'') !== srch.by) return false;
+    return true;
+  }
+  /* 已報價嘅工程喺工程列表出「報咗 N 日」（Jason 2026-08-25 揀「只加天數，首頁唔動」）。
+     ⛔ 首頁唔郁 —— 佢話明只出待報價。 */
+  function quotedLine(p){
+    if((p.q||'pending') !== 'quoted') return '';
+    const n = daysSince(p.quotedAt);
+    if(n === null) return '';
+    return `<div class="ln" style="color:${n>=14?'#B8862B':'var(--muted)'}">報咗 ${n} 日</div>`;
+  }
+  function renderAll(){
+    const box = document.getElementById('allList'); if(!box) return;
+    document.getElementById('allChips').innerHTML = QTABS.map(([k,l])=>
+      `<button class="chip2${allFilter===k?' on':''}" onclick="setAllFilter('${k}')">${l}</button>`).join('');
+    const sub = document.getElementById('allSub');
+    if(sub) sub.textContent = srch ? '搜尋結果' : '全部工程';
+    const rows = projects.filter(p=>(allFilter==='all' || (p.q||'pending')===allFilter) && matchSearch(p));
+    box.innerHTML = rows.map(p=>swipeWrap(
+      `<div class="card pcard" onclick="openProj('${p.name}')">
+        <div class="top"><span class="nm">${p.name}</span>
+          <span class="st">${qPill(p.q)}</span></div>
+        <div class="ln">${p.sub}</div>
+        ${p.addr?`<div class="ln">${p.addr}</div>`:''}
+        ${p.by?`<div class="ln">建立人：${p.by}</div>`:''}
+        ${quotedLine(p)}
+      </div>`, `askDeleteProject('${p.name}')`)).join('');
+    if(srch){
+      const bits = [];
+      if(srch.f || srch.t) bits.push((srch.f||'不限') + ' 至 ' + (srch.t||'不限'));
+      if(srch.n)  bits.push('名稱含「' + srch.n + '」');
+      if(srch.by) bits.push('建立人：' + srch.by);
+      box.insertAdjacentHTML('afterbegin',
+        `<div class="srchtag">${bits.join('　·　')}　·　${rows.length} 個結果</div>`);
+    }
+    if(!rows.length) box.innerHTML =
+      `<div class="card" style="text-align:center;color:var(--muted);font-size:14px">`
+      + (srch ? '沒有符合的工程' : '沒有工程') + `</div>`;
+  }
+  /* 同步頁：⛔ 零粒掣、零個彈窗、零個 admin 限制（跟 tree app）。
+     成版唯一撳得嘅係「專案同步狀態」逐行 —— 撳落去跳去嗰個工程。 */
+  const syFails = [];        // 樣板：{proj, tag, spot, advice, err}
+  function countPhotos(){
+    let ok=0, wait=0;
+    projects.forEach(pr=>{
+      Object.values(pr.photos||{}).forEach(byKey=>
+        Object.values(byKey).forEach(arr=>arr.forEach(ph=>ph.synced?ok++:wait++)));
+      (pr.env||[]).forEach(ph=>ph.synced?ok++:wait++);          // 環境相都要計
+    });
+    return {ok, wait, fail:syFails.length};
+  }
+  function renderSync(){
+    const c = countPhotos();
+    document.getElementById('syOk').textContent   = c.ok;
+    document.getElementById('syWait').textContent = c.wait;
+    document.getElementById('syFail').textContent = c.fail;
+    const done = c.wait===0 && c.fail===0;
+    document.getElementById('syTitle').textContent = done ? '已自動同步' : '尚未完成同步';
+    const sub = document.getElementById('sySub');
+    sub.classList.toggle('hidden', !done);          // ⚠️ 只喺「已自動同步」先出
+    document.getElementById('syWaitNote').classList.toggle('hidden', c.wait===0);
+    const fn = document.getElementById('syFailNote');
+    fn.classList.toggle('hidden', c.fail===0);
+    if(c.fail) fn.textContent = `有 ${c.fail} 張未能複製到 Google Drive，原因列於下方，無須前往其他頁面查看。`;
+    document.getElementById('syFailList').innerHTML = syFails.map(f=>
+      `<div class="fail3"><div class="f1">⚠️ ${f.proj}・${f.tag}・${f.spot}</div>
+        <div class="f2">${f.advice}</div>
+        <div class="f3">錯誤原文：${f.err}</div></div>`).join('');
+    const box = document.getElementById('syProjs');
+    if(!projects.length){ box.innerHTML = `<div class="card" style="color:var(--muted);font-size:14px">尚無工程</div>`; return }
+    box.innerHTML = projects.map(p=>{
+      let w2=0; Object.values(p.photos||{}).forEach(byKey=>
+        Object.values(byKey).forEach(arr=>arr.forEach(ph=>{ if(!ph.synced) w2++ })));
+      (p.env||[]).forEach(ph=>{ if(!ph.synced) w2++ });
+      let cls='ok', txt='✓ 已同步';
+      if(w2){ cls='wait'; txt=`${w2} 張待同步` }
+      return `<div class="card syrow" onclick="openProj('${p.name}')">
+        <span class="nm2">${p.name}</span><span class="sypill ${cls}">${txt}</span></div>`;
+    }).join('');
+  }
+  /* 環境相：成個工程一份，⛔ 唔屬於任何一棵樹。 */
+  function envArr(){ if(!curProj.env) curProj.env = []; return curProj.env }
+  function renderEnv(){
+    const arr = envArr();
+    const tiles = arr.map((ph,i)=>{
+      const nn = String(i+1).padStart(2,'0');
+      return `<div class="frame">
+        <div class="tile ${ph.synced?'':'up'}" onclick="zoom('環境 ${nn}')">
+          ${ph.synced?'':'<div class="upnote">上載中⋯</div>'}
+          <button class="x" onclick="event.stopPropagation();dropEnv(${i})" aria-label="刪相">✕</button>
+          <span class="chip l">環境 ${nn}</span>
+          <button class="chip r" onclick="event.stopPropagation();toast('標記功能屬 P3d，尚未開發')"><span class="dot"></span>標記</button>
+        </div>
+        <button class="notebtn${ph.note?'':' empty'}" onclick="openNote('env','',${i})">${ph.note ? esc(ph.note) : '＋ 備註'}</button>
+      </div>`;
+    }).join('');
+    document.getElementById('envBox').innerHTML = `<div class="card">
+      <h2>環境相</h2>
+      ${arr.length?`<div class="strip">${tiles}</div>`:''}
+      <div class="slotbtns">
+        <button class="btn primary" onclick="shootEnv()">拍攝</button>
+        <button class="btn" onclick="shootEnv()">相簿</button></div></div>`;
+    const c = document.getElementById('pjEnvCount');
+    if(c) c.textContent = arr.length ? arr.length + ' 張' : '尚未拍攝';
+  }
+  function shootEnv(){
+    const ph = {synced:false}; envArr().push(ph); renderEnv();
+    setTimeout(()=>{ ph.synced = true; renderEnv() }, 1800);
+  }
+  function dropEnv(i){
+    openConfirm('刪除相片？', '此相片將被移除（可重新拍攝）。', ()=>{
+      envArr().splice(i,1); renderEnv();
+    });
+  }
+  function showEnv(){ renderEnv(); setNav('tabProj'); hideAll();
+    document.getElementById('envSub').textContent = projName;
+    document.getElementById('screenEnv').classList.remove('hidden'); window.scrollTo(0,0) }
+
+  /* 單價設定（P4 第一稿）。⛔ 呢啲項目唔係作出嚟 —— 逐項對返「工程資料」嗰邊嘅選項。
+     ⚠️ 價錢係樣板數字，唔係真價。 */
+  /* ── 單價表（Jason 2026-08-26 真實成本表）────────────────────
+     ⭐ 呢啲全部係**成本**，⛔ 唔係收客價。
+     ⭐ 一個數 ＝ 全部情況同價；一個物件 ＝ 分地區（nt／kl／hk），可以有 night。
+     ⛔ null ＝ 逐次報價，⛔ 唔准當 $0。 */
+  const PRICE = [
+    ['人手', [
+      ['climber','攀樹師',   '每人每日', 2000],
+      ['crew',   '地面工人', '每人每日', 1000],
+    ]],
+    ['固定', [
+      ['overhead','Overhead Cost','每日（自動計入）', 2000],
+    ]],
+    ['夾車', [
+      ['t24','24噸夾車','每架', {nt:900, kl:1100, hk:1300}],
+      ['t30','30噸夾車','每架', 1500],
+      ['t9', '9噸碎垃圾','每次', 300],
+    ]],
+    ['吊雞', [
+      ['crane_tung',  '東哥 - 30噸',        '每日', {nt:3500, kl:3500, hk:3900, night:5000}],
+      ['crane_fai30', '輝哥 - 30噸 + 科同', '每日', 4500],
+      ['crane_fai86', '輝哥 8+6',           '每日', {nt:7800, kl:7800, hk:8000, night:10500}],
+      ['crane_fai100','輝哥 100T 8+6尾',    '每日', 11500],
+    ]],
+    ['升降台', [
+      ['lift_18','18M','每日', 2600],
+      ['lift_25','25M','每日', 3400],
+      ['lift_32','32M','每日', 5500],
+      ['lift_37','37M','每日', 9000],
+      ['lift_46','46M','每日', 10000],
+      ['lift_other','其他','逐次報價', null],
+    ]],
+    ['起樹頭', [
+      ['yes_self', '自己起',   '逐次報價', null],
+      ['yes_chuen','銓哥報價', '逐次報價', null],
+    ]],
+  ];
+  const priceVal = {};
+  PRICE.forEach(([,rows])=>rows.forEach(([k,,,v])=>priceVal[k]= (v && typeof v==='object') ? {...v} : v));
+
+  /* ⭐ 攞一項嘅實際單價：睇工程地區，夜晚有夜價就用夜價。
+     ⛔ 夜晚價唔分區（真表得一個數）—— Jason 2026-08-28 拍板確認，全港一個價。
+     ⛔ 冇夜價嘅項目（輝哥30噸、輝哥100T、升降台、夾車、人手）照用日頭價，⛔ 唔准自己加成。 */
+  function priceOf(k){
+    const v = priceVal[k];
+    if(v === null || v === undefined) return v;
+    if(typeof v === 'number') return v;
+    if(isNight() && v.night !== undefined && v.night !== '') return +v.night || 0;
+    return +v[areaKey()] || 0;
+  }
+  const AREA_COLS = [['nt','新界'],['kl','九龍'],['hk','香港、大嶼山'],['night','夜晚']];
+  function renderPrice(){
+    document.getElementById('priceBox').innerHTML = PRICE.map(([head,rows])=>
+      `<div class="card"><div class="gh2">${head}</div>${rows.map(([k,l,u,v])=>{
+        if(v === null)
+          return `<div class="prow"><div class="pl">${l}<div class="pu">${u}</div></div>
+            <span class="pq">逐次報價</span></div>`;
+        /* ⭐ 分地區嘅項目一行一個價，⛔ 唔可以塞埋一格 —— 睇唔到就改唔到。 */
+        if(typeof v === 'object'){
+          const sub = AREA_COLS.filter(([c])=>priceVal[k][c] !== undefined).map(([c,cl])=>
+            `<div class="prow sub">
+              <div class="pl">${cl}</div>
+              <span class="pv"><span class="dollar">$</span>
+                <input type="text" inputmode="numeric" id="pz_${k}_${c}"
+                  value="${priceVal[k][c]}" oninput="onPrice('${k}',this,'${c}')"></span>
+            </div>`).join('');
+          return `<div class="prow head"><div class="pl">${l}<div class="pu">${u}</div></div></div>${sub}`;
+        }
+        return `<div class="prow"><div class="pl">${l}<div class="pu">${u}</div></div>
+          <span class="pv"><span class="dollar">$</span>
+            <input type="text" inputmode="numeric" id="pz_${k}" value="${priceVal[k]}"
+              oninput="onPrice('${k}',this)"></span></div>`;
+      }).join('')}</div>`).join('');
+  }
+  function onPrice(k,el,col){
+    const n = el.value.replace(/[^0-9]/g,'');
+    if(n !== el.value) el.value = n;
+    if(col) priceVal[k][col] = n === '' ? 0 : +n;
+    else    priceVal[k] = n === '' ? 0 : +n;
+  }
+  function savePrice(){ showSettings(); toast('樣板：單價已儲存') }
+  /* 揀相（P4.5 第一稿）：揀邊啲相入報價 PDF。⛔ 唔揀唔等於刪，Drive 照留。 */
+  function allShots(){
+    const out = [];
+    // ⛔ 環境相唔入 PDF（Jason 2026-08-25）—— 淨係喺 app 入面睇，所以呢度唔收佢。
+    trees.forEach(t=>{
+      const byKey = photos[t.tag]||{};
+      // ⭐ 一棵樹加咗幾多個工序，就一行英文寫曬出嚟（Jason 2026-08-25）
+      const worksEn = [...t.works].sort((a,b)=>rank(a)-rank(b))
+        .map(k=> TOKEN[k] ? TOKEN[k][1] : k).join(', ');
+      Object.keys(byKey).forEach(k=>{
+        const label = k==='whole' ? '全景相' : (TOKEN[k]?TOKEN[k][0]:k);
+        const token = k==='whole' ? 'Whole View' : (k==='other' ? 'Other-1' : (TOKEN[k]?TOKEN[k][1]:k));
+        (byKey[k]||[]).forEach((ph,i)=>out.push({ph, grp:'樹 '+t.tag,
+          cap: label+' '+String(2*i+1).padStart(2,'0'),
+          tag: t.tag, work: label, gkey: t.tag+'|'+k, whole: k==='whole', worksEn,
+          file: t.tag+'_'+token+'_'+String(2*i+1).padStart(2,'0')}));
+      });
+    });
+    return out;
+  }
+  /* 報價 PDF 預覽（P5 第一稿）。
+     ⭐ 標誌用真圖（見 LOGO）。⛔ 冇簽名（Jason 2026-08-25 拍板拆走）。
+     ⭐ 價錢由「工程資料」揀咗嘅嘢 × 「單價設定」計出嚟，⛔ 唔係寫死。 */
+  /* ⛔ 唔再由 DOM 讀 —— 成本卡而家喺工程頁，嗰陣「工程資料」啲格根本未填。
+     ⭐ 一律讀工程自己存嗰份（bindProj 保證每個工程各自一份）。 */
+  function num(id){
+    const map = { mCrew:'crew', mClimb:'climb', mDays:'days' };
+    const st = (curProj && curProj.site) || {};
+    const key = map[id];
+    if(key !== undefined) return parseInt(st[key], 10) || 0;
+    const el = document.getElementById(id); return el ? (parseInt(el.value,10)||0) : 0;
+  }
+  /* 喺「工程資料」打字嗰陣即刻寫返個工程，唔使等儲存 —— 否則成本卡讀到舊數。 */
+  function onManpower(el){
+    const n = el.value.replace(/[^0-9]/g,'');
+    if(n !== el.value) el.value = n;
+    const map = { mCrew:'crew', mClimb:'climb', mDays:'days' };
+    if(curProj && curProj.site && map[el.id]) curProj.site[map[el.id]] = n;
+    renderCost();
+  }
+  /* ⭐ 成本計法（Jason 2026-08-26 拍板）：
+     人手 ＝ 人數 × 日數 × 價
+     Overhead ＝ 日數 × 價，⛔ 自動計入，唔使剔
+     夾車 ＝ **車程數 × 價**，⛔ 唔乘日數
+     吊雞／升降台 ＝ 日數 × 價
+     起樹頭 ＝ 兩項都係逐次報價（Jason 2026-08-28 拍板），⛔ 唔入成本，出返「未計入」
+     地區同日夜由 priceOf() 處理。 */
+  function quoteLines(){
+    const days = num('mDays') || 1;
+    const out = [], ask = [];
+    const crew = num('mCrew'), climb = num('mClimb');
+    if(climb) out.push(['攀樹師 '+climb+' 人 × '+days+' 日', climb*days*priceOf('climber')]);
+    if(crew)  out.push(['地面工人 '+crew+' 人 × '+days+' 日', crew*days*priceOf('crew')]);
+    /* 第四輪第 6 條（Jason 2026-08-28）：Overhead 同人手一套規矩 —— 都係跟日數，
+       日數留空當一日。⛔ 唔再有「未填日數就唔加」呢個例外。 */
+    out.push(['Overhead ' + days + ' 日', days*priceOf('overhead')]);
+    WASTE.forEach(([k,l,hasQty])=>{
+      if(!picked.has(k) || k==='none') return;
+      const n = hasQty ? (parseInt(qtys[k],10)||1) : 1;
+      /* ⛔ 唔乘日數（Jason 2026-08-26）。9 噸碎冇架數欄，n 一律係 1。 */
+      out.push([l + (hasQty ? ' '+n+' 架' : ''), n*(priceOf(k)||0)]);
+    });
+    CRANE.concat(LIFT).forEach(([k,l])=>{
+      if(!picked.has(k)) return;
+      if(priceOf(k) === null){ ask.push(l); return }
+      out.push([l+' × '+days+' 日', days*(priceOf(k)||0)]);
+    });
+    STUMP.forEach(([k,l])=>{
+      if(!picked.has(k)) return;
+      if(priceOf(k) === null){ ask.push(l); return }
+      out.push([l, priceOf(k)||0]);
+    });
+    return {out, ask, days};
+  }
+  function money(n){ return '$' + n.toLocaleString('en-US') }
+  /* ── 成本（Jason 2026-08-25）──────────────────────────────────
+     ⭐ 「單價設定」入面嗰啲數係**成本**，⛔ 唔係收客價。
+     所以呢度計出嚟嘅係成本總額。收客價要你自己打，app 計個差額。
+     ⛔ 成本同收客價永遠唔會上 PDF。 */
+  function renderCost(){
+    const box = document.getElementById('costBox'); if(!box) return;
+    const {out, ask} = quoteLines();
+    const total = out.reduce((a,[,v])=>a+v, 0);
+    let html = out.map(([l,v])=>
+      `<div class="crow"><span class="cl">${l}</span><span class="cv">${money(v)}</span></div>`).join('');
+    /* ⛔ 「逐次報價」嗰啲冇固定單價，⛔ 唔可以當零 —— 一定要出返，
+       否則個總成本睇落好靚，實際上漏咗成部吊雞。 */
+    html += ask.map(l=>
+      `<div class="crow ask"><span class="cl">${l}</span><span class="cv">逐次報價，未計入</span></div>`).join('');
+    if(!out.length && !ask.length)
+      html = `<div style="color:var(--muted);font-size:14px;padding:6px 0">尚未選取任何項目</div>`;
+    else
+      html += `<div class="crow sum"><span class="cl">總成本</span>
+        <span class="cv">${money(total)}</span></div>`;
+    box.innerHTML = html;
+    paintGain(total, ask.length);
+  }
+  /* 加成％ → 報價價錢（Jason 2026-08-25）。
+     ⭐ 加成 50% ＝ 成本 × 1.5。⚠️ ⛔ 唔係「賺一半」（嗰個要 ÷ 0.5 ＝ ×2）。
+     兩者差好遠：成本 $48,000 → 加成 50% 出 $72,000，賺一半出 $96,000。 */
+  /* 第四輪第 4 條（Jason 2026-08-28）：收得小數。
+     ⛔ 舊寫法用 parseInt ＋ 抹走所有非數字，「5.5」會變 55。 */
+  function markupPct(){
+    const v = (curProj && curProj.markup !== undefined) ? curProj.markup : '50';
+    const n = parseFloat(String(v));
+    return isNaN(n) ? 0 : n;
+  }
+  /* 第四輪第 7 條（Jason 2026-08-28）：剔咗逐次報價 ⛔ 唔需要任何反應同提示。
+     拆走咗個 ⚠、拆走咗滑鼠提示（手機本身都撳唔出）、拆走咗「（未計 N 項）」。
+     ⭐ 成本明細嗰行「逐次報價，未計入」照留 —— 嗰行係內容，唔係提示。 */
+  function paintGain(total, askN){
+    const el = document.getElementById('gainBox'); if(!el) return;
+    el.classList.remove('bad','good');
+    if(!total){ el.textContent = '—'; return }
+    const pct = markupPct();
+    el.textContent = money(Math.round(total * (1 + pct/100)));
+    el.classList.add('good');
+  }
+  function onMarkup(el){
+    /* ⭐ 留返一個小數點（「5.5」要打得出）。⛔ 第二個點、字母、負號照樣抹走。 */
+    let n = el.value.replace(/[^0-9.]/g,'');
+    const i = n.indexOf('.');
+    if(i > -1) n = n.slice(0, i+1) + n.slice(i+1).replace(/\./g,'');
+    if(n !== el.value) el.value = n;
+    if(curProj) curProj.markup = n;
+    renderCost();
+  }
+  /* 相片報告版面（Jason 2026-08-25 提供五張真實 PDF 樣本）：
+     A4 直度、每行兩張相、相底＝檔名 ＋ 備註。
+     ⛔ 得一個版本 —— 同事版拆咗（Jason 2026-08-25）。 */
+  const P1_SHOTS = 4, PN_SHOTS = 4;   // 每個 A4 頁面四張相（Jason 2026-08-25）
+  /* ⭐ 森伝園藝標誌 —— 用返成個 logo 連字（圓標 ＋ 森伝園藝有限公司 ＋ SYLVAN LANDSCAPING
+     LIMITED），Jason 2026-08-28 改主意，⛔ 唔再淨係用個圓標。扁成單色 #748974。
+     ⛔ 唔好改成連結 —— 要離線都出到，所以直接嵌落 HTML。 */
+  const LOGO = 'data:image/png;base64,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';
+
+  function pdfGroups(picks){ return picks.map(x=>({x})) }
+  /* 相底（Jason 2026-08-25）：
+     第一行＝檔名，第二行＝呢棵樹嘅工序，英文，加咗幾多個就一行寫曬。
+     第三行＝備註，⛔ 冇填就唔出，唔留白位。 */
+  /* ⛔ 三段字全部要 esc()（第四輪第 8 條）。 */
+  function pdfCap(it){
+    const x = it.x, note = (x.ph.note||'').trim();
+    return '<span class="fn">' + esc(x.file) + '</span>' +
+      (x.worksEn ? '<span class="wk">'+esc(x.worksEn)+'</span>' : '') +
+      (note ? '<span class="nt">'+esc(note)+'</span>' : '');
+  }
+  function pdfCell(it){
+    return '<div class="rcell"><div class="im"></div><div class="cp">'+pdfCap(it)+'</div></div>';
+  }
+  /* ⛔ 呢個唔係一版畫面 —— Jason 2026-08-25 話「無預覽頁」。
+     保留佢係因為呢度就係真 PDF 嘅版面規格：真 app 產生 PDF 時照呢個排。
+     ⚠️ 冇 #pdfBox 就自動唔做，唔會出錯。 */
+  function renderPdf(){
+    const box = document.getElementById('pdfBox');
+    if(!box) return;
+    const items = pdfGroups(allShots().filter(x=>x.ph.pick && exTreeOn.has(x.tag)));
+
+    // 分頁：第一頁有抬頭，相少啲；之後每頁四張
+    const chunks = [];
+    let rest = items.slice();
+    chunks.push(rest.splice(0, P1_SHOTS));
+    while(rest.length) chunks.push(rest.splice(0, PN_SHOTS));
+    const total = chunks.length;
+
+    // 樹木數量：只出真係有嘅分類
+    const nPrune = trees.filter(hasPrune).length, nRem = trees.filter(hasRemoval).length;
+    const cnt = [];
+    if(nPrune) cnt.push('修剪 '+nPrune+' 棵');
+    if(nRem)   cnt.push('移除 '+nRem+' 棵');
+    const cntTxt = cnt.length ? cnt.join('｜') : ('共 '+trees.length+' 棵');
+
+    // 抬頭每頁都出：左邊標誌，右上角三項資料，盡量矮，留位擺相
+    const head = `<div class="ptop">
+        <img class="mark" src="${LOGO}" alt="">
+        <div class="hd3">
+          ${exVal('exName', projName)}
+          ${exVal('exDate', TODAY)}
+          ${exVal('exCount', cntTxt)}
+        </div>
+      </div>`;
+
+    const foot = (n)=>`<div class="pfoot"><span>第 ${n}/${total}</span></div>`;
+
+    if(!items.length){
+      box.innerHTML = `<div class="pdfpg">${head}
+        <div style="color:var(--muted);text-align:center;margin:auto">未有可用相片</div>
+        ${foot(1)}</div>`;
+      return;
+    }
+
+    let html = '';
+    chunks.forEach((c,i)=>{
+      html += `<div class="pdfpg">${head}
+        <div class="rgrid">${c.map(pdfCell).join('')}</div>
+        ${foot(i+1)}</div>`;
+    });
+    box.innerHTML = html;
+  }
+
+  /* ── 匯出 PDF（Jason 2026-08-25）──────────────────────────────
+     三格資料預設填好，改咗淨係影響今次 PDF，⛔ 唔會改返工程本身。
+     三個 pill：客戶＝淨係全景相、同事＝全部相、全部清除＝一張都唔要。
+     ⛔ 冇預覽頁 —— 撳「匯出 PDF」就直接出。 */
+  let exTreeOn = new Set();   // ⛔ 跟工程走，見 bindProj()
+  /* 第四輪第 8 條（Jason 2026-08-28）：容許打任何字。
+     ⛔ 一定要 esc() —— 唔 esc 嘅話，打個「<」就會食咗後面成段字
+     （例如備註寫「傾斜 <15度」）。 */
+  function exVal(id, dflt){
+    const el = document.getElementById(id);
+    const v = el ? el.value.trim() : dflt;
+    return v ? '<div>'+esc(v)+'</div>' : '';   // ⛔ 留空就唔顯示
+  }
+  /* 第四輪第 1 條（Jason 2026-08-28）：樹木數量 ⛔ 唔再數成個工程嘅樹，
+     ⭐ 改成數「今次匯出真係有相出嘅樹」—— 修剪同移除都計。
+     ⛔ 揀返一棵樹匯出，就唔可以再寫「修剪 3 棵」。 */
+  function exportedTrees(){
+    return trees.filter(t=>
+      exTreeOn.has(t.tag) && allShots().some(x=>x.tag===t.tag && x.ph.pick));
+  }
+  function exCountText(){
+    const list = exportedTrees();
+    const nPrune = list.filter(hasPrune).length, nRem = list.filter(hasRemoval).length;
+    const cnt = [];
+    if(nPrune) cnt.push('修剪 '+nPrune+' 棵');
+    if(nRem)   cnt.push('移除 '+nRem+' 棵');
+    return cnt.length ? cnt.join('｜') : (list.length ? '共 '+list.length+' 棵' : '');
+  }
+  /* 揀樹／揀相改咗，個數量要跟住郁。
+     ⛔ 但如果你自己喺個格入面改過字，就唔准覆蓋你 —— 呢個格本來就係畀你改嘅。 */
+  let exCountTouched = false;
+  function onExCount(){ exCountTouched = true }
+  function paintExCount(){
+    const el = document.getElementById('exCount');
+    if(el && !exCountTouched) el.value = exCountText();
+  }
+  /* ⛔ 跟工程走。用 function 唔用變數，因為要讀寫返 curProj。 */
+  function exWho(){ return (curProj && curProj.ex) ? curProj.ex.who : '' }
+  function setExWho(v){ if(curProj && curProj.ex) curProj.ex.who = v }
+  function exPick(k){
+    setExWho(k);
+    if(k === 'clear'){
+      exTreeOn.clear();
+      allShots().forEach(x=>x.ph.pick = false);
+    } else {
+      /* ⛔ 冇相嘅樹唔加入去（第四輪第 10 條）。 */
+      const has = new Set(allShots().map(x=>x.tag));
+      trees.forEach(t=>{ if(has.has(t.tag)) exTreeOn.add(t.tag) });
+      allShots().forEach(x=>x.ph.pick = (k === 'crew') ? true : !!x.whole);
+    }
+    renderExport();
+  }
+  let exOpen = new Set();     // ⛔ 跟工程走，見 bindProj()
+  function exOpenTree(tag){
+    exOpen.has(tag) ? exOpen.delete(tag) : exOpen.add(tag);
+    renderExport();
+  }
+  function exToggleTree(tag){
+    /* ⛔ 冇相嘅樹剔唔到（第四輪第 10 條）。 */
+    if(!allShots().some(x=>x.tag===tag)){ toast('此樹尚未拍攝相片'); return }
+    exTreeOn.has(tag) ? exTreeOn.delete(tag) : exTreeOn.add(tag);
+    setExWho('');
+    renderExport();
+  }
+  /* 逐張揀（Jason 2026-08-25）。揀返一張，棵樹自動剔返，
+     ⛔ 唔可以出現「揀咗相但棵樹冇剔」呢種靜靜雞唔出相嘅情況。 */
+  function exToggleShot(i){
+    const x = allShots()[i]; if(!x) return;
+    x.ph.pick = !x.ph.pick;
+    if(x.ph.pick) exTreeOn.add(x.tag);
+    setExWho('');
+    renderExport();
+  }
+  function renderExport(){
+    document.getElementById('exChips').innerHTML =
+      [['client','客戶'],['crew','同事'],['clear','全部清除']].map(([k,l])=>
+        `<button class="chip2${exWho()===k?' on':''}" onclick="exPick('${k}')">${l}</button>`).join('');
+    const all = allShots();
+    document.getElementById('exTrees').innerHTML = trees.map(t=>{
+      const mine = all.filter(x=>x.tag===t.tag);
+      /* 第四輪第 10 條（Jason 2026-08-28）：一張相都冇嘅樹 ⛔ 唔准剔。
+         剔到嘅話個匯出頁會話你揀咗，但 PDF 出嚟根本冇嗰棵樹。 */
+      const empty = mine.length === 0;
+      const on = !empty && exTreeOn.has(t.tag), open = exOpen.has(t.tag);
+      const n = mine.filter(x=>x.ph.pick).length;
+      const row = `<div class="chk exrow${on?' on':''}${open?' open':''}${empty?' dim':''}"
+          onclick="exOpenTree('${esc(t.tag)}')">
+        <span class="box" onclick="event.stopPropagation();exToggleTree('${esc(t.tag)}')">${on?'✓':''}</span>
+        <span>${esc(t.tag)}</span>
+        <span style="margin-left:auto;font-size:13px;color:var(--muted)">${
+          empty ? '未有相片' : n + ' 張'}</span>
+        <span class="chev">▾</span></div>`;
+      if(!open) return row;
+      const cells = mine.length ? `<div class="exgrid">${mine.map(x=>{
+        const i = all.indexOf(x);
+        return `<div class="excell${x.ph.pick?' on':''}" onclick="exToggleShot(${i})">
+          <span class="tick">${x.ph.pick?'✓':''}</span>
+          <span class="cap">${x.file.slice(String(t.tag).length+1)}</span></div>`;
+      }).join('')}</div>` : '<div class="exnone">此樹尚未拍攝相片</div>';
+      return row + `<div class="exwrap">${cells}</div>`;
+    }).join('') || '<div style="color:var(--muted);font-size:14px">尚未加樹</div>';
+    const shots = allShots().filter(x=>x.ph.pick && exTreeOn.has(x.tag)).length;
+    document.getElementById('exSel').textContent =
+      '（' + exportedTrees().length + '/' + trees.length + ' 棵、' + shots + ' 張相）';
+    paintExCount();          // ⭐ 揀樹／揀相一改，抬頭個數量即刻跟住郁
+  }
+  /* 第 3 條（2026-08-25）：⛔ 匯出唔再問「是否轉為已報價」。
+     舊寫法會將已中標嘅工程降返已報價。狀態一律喺工程頁自己改。 */
+  function doExport(){
+    const shots = allShots().filter(x=>x.ph.pick && exTreeOn.has(x.tag)).length;
+    if(!shots){ toast('未有可匯出的相片'); return }
+    showProject();
+    toast('樣板：已匯出 PDF（' + shots + ' 張相）');
+  }
+  function showPdf(){ setNav('tabProj'); hideAll();
+    document.getElementById('pdfSub').textContent = projName;
+    document.getElementById('exName').value  = projName;
+    /* ⭐ 預設用工程日期，⛔ 唔再寫死（Jason 2026-08-25）。留空就 PDF 唔出呢一行。 */
+    document.getElementById('exDate').value  = (curProj && curProj.date) || '';
+    paintDates();
+    exCountTouched = false;                       // ⛔ 每次入返匯出頁都重新計過
+    document.getElementById('exCount').value = exCountText();
+    if(!exTreeOn.size) exPick('client'); else renderExport();
+    document.getElementById('screenPdf').classList.remove('hidden');
+    window.scrollTo(0,0) }
+
+  /* ── 客戶簿（Jason 2026-08-25）────────────────────────────────
+     一個客戶會有幾個聯絡人（同一個房屋署，唔同屋邨唔同管工），
+     所以一筆記錄係「客戶 ＋ 聯絡人 ＋ 電話」成組，⛔ 唔係淨係記個客戶名。
+     ⛔ 改客戶簿唔會改返已經填咗入工程嗰啲 —— 工程係當時嘅快照。 */
+  const clients = [
+    {co:'房屋署', person:'陳生', tel:'9123 4567'},
+    {co:'房屋署', person:'李小姐', tel:'9876 5432'},
+    {co:'領展', person:'黃經理', tel:'2345 6789'},
+  ];
+  let editClient = null;                 // null = 新增
+  function cbLabel(c){ return [c.co, c.person, c.tel].filter(Boolean).join(' · ') }
+  function renderClients(){
+    const box = document.getElementById('cbList'); if(!box) return;
+    box.innerHTML = clients.length ? clients.map((c,i)=>swipeWrap(
+      `<div class="card pcard" onclick="openClient(${i})">
+        <div class="top"><span class="nm">${esc(c.co||'（未填客戶）')}</span></div>
+        ${c.person?`<div class="ln">${esc(c.person)}</div>`:''}
+        ${c.tel?`<div class="ln">${esc(c.tel)}</div>`:''}
+      </div>`, `askDeleteClient(${i})`)).join('')
+      : `<div class="card" style="text-align:center;color:var(--muted);font-size:14px">未有客戶</div>`;
+    const sub = document.getElementById('cbSub');
+    if(sub) sub.textContent = clients.length + ' 個客戶';
+    const cnt = document.getElementById('cbCount');
+    if(cnt) cnt.textContent = clients.length + ' 個客戶';
+  }
+  function openClient(i){
+    editClient = (typeof i === 'number') ? i : null;
+    const c = editClient===null ? {co:'',person:'',tel:''} : clients[editClient];
+    openSheet(`<h3 id="sheetTitle">${editClient===null?'新增客戶':'修改客戶'}</h3>
+      <div class="grp"><label>客戶</label>
+        <input type="text" id="cbCo" value="${esc(c.co)}"></div>
+      <div class="grp"><label>聯絡人</label>
+        <input type="text" id="cbPerson" value="${esc(c.person)}"></div>
+      <div class="grp"><label>電話</label>
+        <input type="text" inputmode="tel" id="cbTel" value="${esc(c.tel)}"></div>
+      <div class="sheetrow">
+        <button class="btn" onclick="closeSheet()">取消</button>
+        <button class="btn primary" onclick="saveClient()">儲存</button>
+      </div>`);
+  }
+  function saveClient(){
+    const v = id => (document.getElementById(id)||{}).value.trim() || '';
+    const c = {co:v('cbCo'), person:v('cbPerson'), tel:v('cbTel')};
+    if(!c.co && !c.person && !c.tel){ toast('請至少填一項'); return }
+    /* ⛔ 完全一樣嘅一筆唔好再入多次 —— 客戶簿最易變垃圾就係因為重複。 */
+    const dup = clients.findIndex((x,j)=>j!==editClient
+      && x.co===c.co && x.person===c.person && x.tel===c.tel);
+    if(dup > -1){ toast('客戶簿已有相同記錄'); closeSheet(); return }
+    const fromPick = !document.getElementById('screenClients')
+      || document.getElementById('screenClients').classList.contains('hidden');
+    if(editClient===null) clients.push(c); else clients[editClient] = c;
+    editClient = null; closeSheet(); renderClients();
+    toast('樣板：已儲存客戶');
+    /* ⛔ 由「揀客戶」入面撳新增，儲存完要返返個清單，唔好掉低佢喺度。 */
+    if(fromPick){ cbQuery = c.co || c.person || ''; openPickClient(); }
+  }
+  function askDeleteClient(i){
+    const c = clients[i]; if(!c) return;
+    openConfirm('刪除客戶？',
+      `「${esc(cbLabel(c))}」將從客戶簿移除。已填入工程的資料不會改變。`, ()=>{
+      clients.splice(i,1); renderClients(); toast('樣板：已刪除');
+    });
+  }
+  /* 喺「客戶資料」揀返一個。⛔ 揀完係複製一份入個工程，
+     之後客戶簿改咗都唔會影響呢個工程。 */
+  let cbQuery = '';
+  function openPickClient(){
+    openSheet(`<h3 id="sheetTitle">搜尋 · 客戶</h3>
+      <div class="grp"><input type="text" id="cbSearch" placeholder="輸入客戶、聯絡人或電話"
+        value="${esc(cbQuery)}" oninput="paintPickClient()"></div>
+      <div class="cbscroll" id="cbPickList"></div>
+      <div class="sheetrow">
+        <button class="btn primary" onclick="openClient()">新增</button>
+        <button class="btn" onclick="closeSheet()">關閉</button>
+      </div>`);
+    paintPickClient();
+    const el = document.getElementById('cbSearch'); if(el) el.focus();
+  }
+  function paintPickClient(){
+    const box = document.getElementById('cbPickList'); if(!box) return;
+    const el = document.getElementById('cbSearch');
+    cbQuery = el ? el.value.trim().toLowerCase() : '';
+    const hit = clients
+      .map((c,i)=>({c,i}))
+      .filter(({c})=> !cbQuery || cbLabel(c).toLowerCase().includes(cbQuery));
+    box.innerHTML = hit.length ? hit.map(({c,i})=>
+      `<button class="cbrow" onclick="usePickClient(${i})">
+        <b>${esc(c.co||'（未填客戶）')}</b>
+        <small>${esc([c.person,c.tel].filter(Boolean).join(' · ')||'—')}</small>
+      </button>`).join('')
+      : `<div style="text-align:center;color:var(--muted);font-size:14px;padding:18px 0">${
+          clients.length ? '沒有符合的客戶' : '客戶簿未有記錄'}</div>`;
+  }
+  function usePickClient(i){
+    const c = clients[i]; if(!c) return;
+    const set = (id,v)=>{ const e=document.getElementById(id); if(e) e.value = v };
+    set('bfClient', c.co); set('bfPerson', c.person); set('bfPhone', c.tel);
+    if(curProj){ curProj.client.co = c.co; curProj.client.person = c.person; curProj.client.tel = c.tel }
+    closeSheet(); toast('已填入「'+(c.co||c.person)+'」');
+  }
+  function showClients(){ renderClients(); setNav('tabSet'); hideAll();
+    document.getElementById('screenClients').classList.remove('hidden'); window.scrollTo(0,0) }
+
+  function showPrice(){ renderPrice(); setNav('tabSet'); hideAll();
+    document.getElementById('screenPrice').classList.remove('hidden'); window.scrollTo(0,0) }
+
+  function showSync(){ renderSync(); setNav('tabSync'); hideAll();
+    document.getElementById('screenSync').classList.remove('hidden'); window.scrollTo(0,0) }
+
+  /* 登出：有確認，而且句子跟住「有冇未上傳」變（跟 tree app）。 */
+  function openLogout(){
+    const un = countPhotos().wait;
+    openConfirm('登出帳戶？',
+      un > 0 ? `尚有 ${un} 張相未上傳。登出不會刪除本裝置的相片，下次於本裝置登入可繼續上傳。`
+             : '將返回登入畫面，本裝置資料保留。',
+      ()=>toast('樣板：已登出'));
+    document.getElementById('cOk').textContent = '登出';
+  }
+  function openPw(){
+    openSheet(`<h3 id="sheetTitle">✎ 更改密碼</h3>
+      <p class="sub">為你的帳戶設定新密碼。更改後，其他裝置需使用新密碼重新登入。</p>
+      <div class="grp"><label>新密碼</label><input type="text" placeholder="至少 6 字元"></div>
+      <div class="grp"><label>確認新密碼</label><input type="text"></div>
+      <div class="sheetrow">
+        <button class="btn" onclick="closeSheet()">取消</button>
+        <button class="btn primary" onclick="closeSheet();toast('樣板：密碼已更改')">更改</button>
+      </div>`);
+  }
+  function showAllList(){ renderAll(); setNav('tabProj'); hideAll();
+    document.getElementById('screenAll').classList.remove('hidden'); window.scrollTo(0,0) }
+
+  /* 改樹牌會真係去 Drive 改檔名（Jason 2026-08-24 拍板，⛔ 同 tree app 唔同 —— tree app 唔改）。
+     六張相就六個 PATCH，改到一半斷網就會一半新名一半舊名。
+     ⛔ 唔可以靜靜雞：樹木頁即時出返，設定嗰邊都要記住。 */
+  const renameFails = {};                       // { 樹牌: 改唔到嘅張數 }
+  function paintRenameFail(){
+    const box = document.getElementById('renameFail');
+    const n = renameFails[cur] || 0;
+    box.classList.toggle('hidden', !n);
+    if(n) box.innerHTML = `<span>⚠️</span><span>有 ${n} 張相的檔名未能更改，Drive 上仍為舊樹牌號。</span>
+      <button onclick="retryRename()">再試</button>`;
+    const d = document.getElementById('diagRename');
+    const tags = Object.keys(renameFails).filter(t=>renameFails[t]>0);
+    if(d) d.textContent = tags.length ? tags.map(t=>t+'（'+renameFails[t]+' 張）').join('、') : '無';
+    const ok = document.getElementById('diagOk');
+    if(ok) ok.textContent = tags.length
+      ? '有問題：' + tags.length + ' 個樹牌的 Drive 檔名更改中途停止，請返回該樹木按「再試」。'
+      : '無問題：全部相片已上傳，沒有待處理項目。';
+  }
+  function fakeRenameFail(){
+    const t = trees[0]; if(!t) return;
+    renameFails[t.tag] = 3; paintRenameFail();
+    toast('樣板：模擬「'+t.tag+'」有 3 張相改名失敗');
+  }
+  function retryRename(){
+    const box = document.getElementById('renameFail');
+    box.innerHTML = '<span>⏳</span><span>重試中…</span>';
+    setTimeout(()=>{ delete renameFails[cur]; paintRenameFail(); toast('樣板：已全部更正，Drive 與畫面一致') }, 900);
+  }
+
+  function showList(){ renderList(); setNav('tabProj'); hideAll();
+    document.getElementById('screenList').classList.remove('hidden'); window.scrollTo(0,0) }
+
+  /* ---------- sheets ---------- */
+  const sheet = document.getElementById('scrim');
+  const body  = document.getElementById('sheetBody');
+  /* 備註輸入欄因應文字放大，顯示晒所有字（Jason 2026-08-25）。
+     ⛔ 唔准淨係喺 oninput 叫 —— 開版／填返舊資料嗰陣都要叫一次，
+     否則預填好嘅長備註一開就已經縮住。 */
+  function grow(el){
+    if(!el) return;
+    el.style.height = 'auto';
+    el.style.height = el.scrollHeight + 'px';
+  }
+  function growAll(root){
+    (root||document).querySelectorAll('textarea').forEach(grow);
+  }
+  function esc(t){ return String(t).replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])) }
+  /* 每張相一個備註（Jason 2026-08-25）。呢句會出喺 PDF 相底：樹牌號 備註－工序。 */
+  let noteRef = null;
+  function noteOf(kind,key,i){
+    return kind==='env' ? (envArr()[i]||null) : ((photos[cur][key]||[])[i]||null);
+  }
+  function openNote(kind,key,i){
+    const ph = noteOf(kind,key,i); if(!ph) return;
+    noteRef = {kind,key,i};
+    openSheet(`<h3 id="sheetTitle">相片備註</h3>
+      <p class="sub">${kind==='env'
+        ? '環境相不會加入 PDF，此備註只在本程式內顯示。'
+        : '此句會顯示於 PDF 相片下方。'}</p>
+      <div class="grp"><label>備註</label>
+        <textarea id="noteIn" rows="1" maxlength="120"
+          placeholder="例如：港鐵路軌圍欄樹木" oninput="grow(this)">${esc(ph.note||'')}</textarea></div>
+      <div class="sheetrow">
+        <button class="btn" onclick="closeSheet()">取消</button>
+        <button class="btn primary" onclick="saveNote()">儲存</button>
+      </div>`);
+    const el = document.getElementById('noteIn'); if(el) el.focus();
+  }
+  function saveNote(){
+    if(!noteRef) return;
+    const el = document.getElementById('noteIn');
+    const ph = noteOf(noteRef.kind, noteRef.key, noteRef.i);
+    if(ph) ph.note = el ? el.value.trim() : '';
+    const kind = noteRef.kind; noteRef = null; closeSheet();
+    if(kind==='env') renderEnv(); else renderTree();
+  }
+  function openSheet(html){ body.innerHTML=html; sheet.classList.add('show'); growAll(body) }
+  function closeSheet(){ sheet.classList.remove('show'); pendingTag=null }
+
+  function optRow(k,l,en,disabled){
+    return `<button class="opt" ${disabled?'disabled':''} onclick="chose('${k}')">${l}${disabled?'（已加）':''}</button>`;
+  }
+
+  /* 加樹：第一頁 = 樹牌號 + 三個工序大類 */
+  function openAdd(){
+    pendingTag = null; renamingTag = null;
+    openSheet(`
+      <h3 id="sheetTitle">新增樹木</h3>
+      <div class="grp">
+        <label>樹牌號</label>
+        <input type="text" class="mono" id="tagIn" value="${nextTag()}"
+          placeholder="例如 T758A / 1035 / TR-15" autocorrect="off" spellcheck="false" oninput="checkTag()">
+        <p class="warn hidden" id="tagWarn">此樹牌號已存在</p>
+        <p class="warn hidden" id="tagFmt" style="color:#8A6A24"></p>
+      </div>
+      <div class="grp">
+        <button class="opt big" onclick="goPrune()">修剪</button>
+        <button class="opt big" onclick="chose('removal')">移除</button>
+        <button class="opt big" onclick="goOther()">其他</button>
+      </div>
+      <button class="close" onclick="closeSheet()">取消</button>`);
+    setTimeout(checkTag,0);
+  }
+  function checkTag(){
+    const el=document.getElementById('tagIn'); if(!el) return true;
+    const v = el.value.trim();
+    const others = trees.filter(t=>t.tag!==renamingTag);
+    const dup = v!=='' && others.some(t=>normalizeTag(t.tag)===normalizeTag(v));
+    const fmt = dup ? {ok:true} : widthCheck(v, others.map(t=>t.tag));  // 一次只出一個警告，跟 tree app
+    el.classList.toggle('err', dup || !fmt.ok);
+    document.getElementById('tagWarn').classList.toggle('hidden', !dup);
+    const f = document.getElementById('tagFmt');
+    f.classList.toggle('hidden', fmt.ok); if(!fmt.ok) f.textContent = fmt.msg;
+    const btn = document.getElementById('tagSave');
+    if(btn) btn.disabled = dup || v==='' || v===(T(renamingTag)||{}).tag;   // 跟 tree app canSubmit
+    return !dup && v!=='';      // 格式唔統一係提醒，⛔ 唔阻你加
+  }
+  function grabTag(){
+    if(renamingTag) return true;
+    const el=document.getElementById('tagIn');
+    if(el){
+      if(!checkTag()){ toast('請填寫樹牌號，且不可重複'); return false }
+      pendingTag = el.value.trim();
+    }
+    return true;
+  }
+  function goPrune(){
+    if(!grabTag()) return;
+    const t = pendingTag?null:T(cur);
+    openSheet(`<h3 id="sheetTitle">修剪</h3>      <div class="grp">${PRUNE.map(([k,l,e])=>optRow(k,l,e,t&&t.works.includes(k))).join('')}</div>
+      <button class="close" onclick="${pendingTag?'openAdd()':'openPicker()'}">‹ 返回上一頁</button>`);
+  }
+  function goOther(){
+    if(!grabTag()) return;
+    const t = pendingTag?null:T(cur);
+    const rows = OTHER.map(([k,l,e])=>{
+      const had = t && t.works.includes(k);
+      const clash = k==='cabling' && hasRemoval(t);      // ⛔ 移除同拉索加固唔會同時出現
+      const fn = k==='other' ? 'openOtherText()' : `chose('${k}')`;
+      return `<button class="opt" ${(had||clash)?'disabled':''} onclick="${fn}">${l}${
+        had?'（已加）':(clash?'（此樹已列為移除）':'')}
+        </button>`;
+    }).join('');
+    openSheet(`<h3 id="sheetTitle">其他</h3>
+      <div class="grp">${rows}</div>
+      <button class="close" onclick="${pendingTag?'openAdd()':'openPicker()'}">‹ 返回上一頁</button>`);
+  }
+
+  function openOtherText(){
+    openSheet(`<h3 id="sheetTitle">其他</h3>
+      <div class="grp">
+        <label>處理方法</label>
+        <input type="text" id="otherIn" placeholder="例如：移除斷枝"
+          autocorrect="off" onkeydown="if(event.key==='Enter')confirmOther()">
+      </div>
+      <button class="opt" style="background:var(--header);color:#F6F1E9;border-color:var(--header);
+        justify-content:center;font-weight:650" onclick="confirmOther()">確定</button>
+      <button class="close" onclick="goOther()">‹ 返回上一頁</button>`);
+    setTimeout(()=>{const e=document.getElementById('otherIn'); if(e) e.focus()},60);
+  }
+  function confirmOther(){
+    const e=document.getElementById('otherIn');
+    const txt=(e&&e.value.trim())||'';
+    if(!txt){ toast('請先填寫處理方法'); return }
+    pendingOther = txt;
+    chose('other');
+  }
+
+  function openData(){
+    if(!isOffice()) return needOffice('修改樹牌號');
+    const t=T(cur); renamingTag = cur;
+    openSheet(`<h3 id="sheetTitle">✎ 改樹牌號</h3>
+      <div class="grp">
+        <label>樹牌號</label>
+        <input type="text" class="mono" id="tagIn" value="${t.tag}"
+          placeholder="例如 T758A / 1035 / TR-15" autocorrect="off" spellcheck="false" oninput="checkTag()">
+        <p class="warn hidden" id="tagWarn">此樹牌號已存在</p>
+        <p class="warn hidden" id="tagFmt" style="color:#8A6A24"></p>
+      </div>
+      <div class="sheetrow">
+        <button class="btn" onclick="renamingTag=null;closeSheet()">取消</button>
+        <button class="btn primary" id="tagSave" onclick="saveData()" disabled>儲存</button>
+      </div>`);
+    setTimeout(checkTag,0);
+  }
+
+  function saveData(quiet){
+    const t=T(cur); if(!t) return;
+    const el=document.getElementById('tagIn');
+    const v = el ? el.value.trim() : t.tag;
+    if(el && !checkTag()){ toast('請填寫樹牌號，且不可重複'); return }
+    renamingTag = null;
+    if(v && v !== t.tag){
+      const old = t.tag; t.tag = v;
+      photos[v] = photos[old]; delete photos[old];
+      cur = v; if(curProj) curProj.cur = v;
+      const btn=document.getElementById('tagSave');
+      if(btn){ btn.disabled=true; btn.textContent='儲存中…' }
+      toast('樹牌號已改為 '+v);
+    }
+    if(!quiet){ closeSheet(); renderTree(); renderList() }
+  }
+
+  /* 喺樹版加多一個工序：同一套，但冇樹牌號 */
+  function openPicker(){
+    pendingTag=null;
+    const t = T(cur);
+    const noPrune = hasRemoval(t);          // 已經係移除 → 唔俾再加修剪
+    const noRemove = hasPrune(t) || hasRemoval(t);
+    openSheet(`<h3 id="sheetTitle">加一個工序</h3>      <div class="grp">
+        <button class="opt big" ${noPrune?'disabled':''} onclick="goPrune()">修剪${noPrune?'（此樹已列為移除）':''}</button>
+        <button class="opt big" ${noRemove?'disabled':''} onclick="chose('removal')">移除${hasRemoval(t)?'（已加）':(hasPrune(t)?'（此樹已有修剪工序）':'')}</button>
+        <button class="opt big" onclick="goOther()">其他</button>
+      </div>
+      <button class="close" onclick="closeSheet()">取消</button>`);
+  }
+
+  function chose(k){
+    if(!TOKEN[k]) TOKEN[k]=[REMOVAL[1],REMOVAL[2]];
+    if(pendingTag===null && document.getElementById('tagIn')){ if(!grabTag()) return }
+    const otherTxt = pendingOther;
+    if(pendingTag){
+      const tag=pendingTag;
+      trees.push({tag, works:[k], legacy:false, otherText:otherTxt||''});
+      photos[tag]={whole:[]}; photos[tag][k]=[];
+      closeSheet(); openTree(tag);
+      toast('已新增 '+tag+'，可開始拍攝');
+    }else{
+      const t=T(cur);
+      /* 移除係獨立（Jason 2026-08-24），⛔ 兩個方向都要攔。
+         2026-08-25 補返呢個方向：先揀咗修剪，再揀移除 → 直接抹走所有修剪工序。
+         ⛔ 唔問、唔確認 —— Jason 拍板要快。⚠️ 連已影嘅工序相一齊冇。 */
+      if(k === 'removal'){
+        PRUNE_KEYS.forEach(pk=>{
+          const i = t.works.indexOf(pk);
+          if(i > -1){ t.works.splice(i,1); delete photos[t.tag][pk] }
+        });
+      }
+      if(!t.works.includes(k)){ t.works.push(k); photos[t.tag][k]=[] }
+      if(otherTxt) t.otherText = otherTxt;
+      closeSheet(); renderTree();
+    }
+    pendingOther = null;
+  }
+
+  function zoom(cap){
+    document.getElementById('lbCap').textContent = cap;
+    document.getElementById('lightbox').classList.add('show');
+  }
+  function closeZoom(){ document.getElementById('lightbox').classList.remove('show') }
+  document.addEventListener('keydown', e=>{ if(e.key==='Escape') closeZoom() });
+
+  let tt; function toast(m){ const e=document.getElementById('toast');
+    e.textContent=m; e.classList.add('show'); clearTimeout(tt); tt=setTimeout(()=>e.classList.remove('show'),2400) }
+
+
+  /* =========================================================================
+     向左掃刪除 —— 照抄 tree app SwipeToDelete（src/ui/screens.tsx:267-299）
+     ACTION_W = 76、行過 8px 先當「真係掃緊」（會食咗嗰下 click，唔會撳入卡）、
+     放手 dx < -38 就彈開，唔夠就彈返 0。⛔ 掃到盡都唔會自己刪，一定要再撳個垃圾桶。
+     tree app 淨係用喺工程卡（screens.tsx:316）同樹木卡（screens.tsx:364），相片卡冇。
+     ========================================================================= */
+  const ACTION_W = 76;
+  const TRASH_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+    stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/>
+    <path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>`;
+  function swipeWrap(inner, onDelete){
+    return `<div class="swipe-wrap">
+      <div class="swipe-bg" aria-hidden="true"></div>
+      <button class="swipe-trash" aria-label="刪除" tabindex="-1"
+        onclick="event.stopPropagation();${onDelete}">${TRASH_SVG}</button>
+      <div class="swipe-card" data-dx="0">${inner}</div>
+    </div>`;
+  }
+  let sw = null, swMoved = false;
+  function swSet(card, dx, animate){
+    card.dataset.dx = dx;
+    card.style.transition = animate ? 'transform 0.2s ease' : 'none';
+    card.style.transform = `translateX(${dx}px)`;
+    const t = card.parentNode.querySelector('.swipe-trash');
+    if(t) t.tabIndex = dx <= -ACTION_W/2 ? 0 : -1;
+  }
+  function swStart(x, target){
+    const card = target.closest ? target.closest('.swipe-card') : null;
+    if(!card) return;
+    sw = { card, startX:x, startDx:parseFloat(card.dataset.dx||0), moved:false };
+    card.style.transition = 'none';
+  }
+  function swMove(x){
+    if(!sw) return false;
+    const delta = x - sw.startX;
+    if(Math.abs(delta) > 8) sw.moved = true;
+    swSet(sw.card, Math.max(-ACTION_W, Math.min(0, sw.startDx + delta)), false);
+    return sw.moved;
+  }
+  function swEnd(){
+    if(!sw) return;
+    const card = sw.card, dx = parseFloat(card.dataset.dx||0);
+    const shouldOpen = dx < -ACTION_W/2;
+    swSet(card, shouldOpen ? -ACTION_W : 0, true);
+    card.dataset.open = shouldOpen ? '1' : '';
+    swMoved = sw.moved; sw = null;
+  }
+  document.addEventListener('touchstart', e=>{
+    if(e.touches.length===1) swStart(e.touches[0].clientX, e.target);
+  }, {passive:true});
+  /* ⛔ 冇 preventDefault —— tree app 都冇。掃卡唔可以搶咗上下碌嗰下。 */
+  document.addEventListener('touchmove', e=>{
+    if(sw) swMove(e.touches[0].clientX);
+  }, {passive:true});
+  document.addEventListener('touchend', swEnd, {passive:true});
+  document.addEventListener('touchcancel', swEnd, {passive:true});
+  /* 電腦上用滑鼠都掃得到 —— 原型方便你喺 Mac 試，真 app 唔需要 */
+  document.addEventListener('mousedown', e=>{ if(e.button===0) swStart(e.clientX, e.target) });
+  document.addEventListener('mousemove', e=>{ if(sw) swMove(e.clientX) });
+  document.addEventListener('mouseup', swEnd);
+  /* 跟 tree app onClickCapture：開住就撳一下閂返；啱啱掃過就食咗嗰下 click */
+  document.addEventListener('click', e=>{
+    const card = e.target.closest ? e.target.closest('.swipe-card') : null;
+    if(!card) { swMoved = false; return }
+    if(card.dataset.open === '1'){
+      e.preventDefault(); e.stopPropagation();
+      card.dataset.open=''; swSet(card, 0, true); swMoved=false; return;
+    }
+    if(swMoved){ e.preventDefault(); e.stopPropagation(); swMoved=false }
+  }, true);
+
+  /* =========================================================================
+     刪除確認 —— 照抄 tree app ConfirmModal（screens.tsx:253-264）
+     擋住成版嘅 modal，⛔ 唔係 window.confirm，⛔ 冇預設焦點（唔會撳錯）。
+     ========================================================================= */
+  /* opts.danger === false：唔係刪除（例如轉已中標）—— ⛔ 唔好出垃圾桶圖示同紅掣，
+     否則同事會以為自己撳緊刪嘢。 */
+  function openConfirm(title, msg, run, opts){
+    const danger = !(opts && opts.danger === false);
+    document.getElementById('cTitle').textContent = title;
+    document.getElementById('cMsg').innerHTML = msg;
+    const icon = document.querySelector('.modal-del-icon');
+    if(icon) icon.style.display = danger ? '' : 'none';
+    const ok = document.getElementById('cOk'), cancel = document.getElementById('cCancel');
+    ok.classList.toggle('danger', danger);
+    ok.disabled = false; cancel.disabled = false;
+    ok.textContent = danger ? '刪除' : '確定';         // 叫嘅人可以覆蓋
+    ok.onclick = () => {
+      ok.disabled = true; cancel.disabled = true;
+      if(danger) ok.textContent = '刪除中…';
+      setTimeout(()=>{ run(); closeConfirm() }, 600);   // 真 app 要等伺服器，原型都照等
+    };
+    document.getElementById('cscrim').classList.add('show');
+  }
+  function closeConfirm(){ document.getElementById('cscrim').classList.remove('show') }
+  /* 第 8 條（2026-08-25）：真删，相片一併入 Google 垃圾桶（留 30 日）。
+     ⛔ 確認框一定要講明幾多張相 —— 唔准靜靜雞删。 */
+  function countTreePhotos(tag){
+    const byKey = photos[tag] || {};
+    return Object.keys(byKey).reduce((n,k)=>n + (byKey[k]||[]).length, 0);
+  }
+  function askDeleteProject(name){
+    if(!isOffice()) return needOffice('刪除工程');
+    const n = trees.reduce((a,t)=>a + countTreePhotos(t.tag), 0) + (curProj.env||[]).length;
+    openConfirm('刪除工程？',
+      `「${name}」及其 ${trees.length} 棵樹、${n} 張相片將一併移入 Google 雲端硬碟的垃圾桶，保留 30 日。`, ()=>{
+      const i = projects.findIndex(p=>p.name===name);
+      if(i>-1) projects.splice(i,1);
+      /* ⛔ 删咗之後唔可以仲指住嗰個工程。原本 curProj / projName / trees / photos
+         仲係指住已删嘅工程，跟住落去任何一句掂到佢哋都係讀緊死人資料。 */
+      if(name === projName){
+        const nxt = projects[0] || null;
+        if(nxt){ projName = nxt.name; bindProj(nxt); }
+        else   { projName = ''; curProj = null; trees = []; photos = {}; }
+      }
+      const onProj = !document.getElementById('screenProject').classList.contains('hidden');
+      renderProjects();
+      if(onProj) showHome();          // 個工程冇咗，唔可以留喺嗰版
+      toast('樣板：已刪除工程「'+name+'」');
+    });
+  }
+  function askDeleteTree(tag){
+    if(!isOffice()) return needOffice('刪除樹木');
+    const n = countTreePhotos(tag);
+    openConfirm('刪除樹？',
+      `「${tag}」及其 ${n} 張相片將一併移入 Google 雲端硬碟的垃圾桶，保留 30 日。`, ()=>{
+      const i = trees.findIndex(t=>t.tag===tag);
+      if(i>-1) trees.splice(i,1);
+      delete photos[tag];
+      const onTree = !document.getElementById('screenTree').classList.contains('hidden');
+      renderList();
+      if(onTree) showList();          // 棵樹冇咗，唔可以留喺嗰版
+      toast('樣板：已刪除樹木「'+tag+'」');
+    });
+  }
+
+  /* =========================================================================
+     下拉重新整理 —— 照抄 tree app usePullToRefresh（screens.tsx:467-513）
+     THRESHOLD 64 / MAX 90 / RESIST 0.5（手指行 128px＝畫面行 64px）。
+     ⛔ 唔用瀏覽器原生 overscroll —— iOS 同 Android 唔一致，所以自己寫。
+     tree app 得五版有；Jason 2026-08-23 講明「全部頁面」，所以七版全部有。
+     ========================================================================= */
+  (function(){
+    const THRESHOLD = 64, MAX = 90, RESIST = 0.5;
+    const el = document.getElementById('ptr'), ic = document.getElementById('ptrIc');
+    const st = { startY:0, active:false, dist:0, busy:false };
+    function paint(pull, refreshing){
+      el.style.transform = `translateY(${refreshing ? 22 : pull*0.6}px)`;
+      el.style.opacity   = refreshing ? 1 : Math.min(pull/48, 1);
+      ic.classList.toggle('spin', refreshing);
+      ic.style.transform = refreshing ? '' : `rotate(${pull*4}deg)`;
+    }
+    function atTop(){ return (window.scrollY || document.documentElement.scrollTop || 0) <= 0 }
+    function onStart(y){
+      if(st.busy) return;
+      if(atTop()){ st.active = true; st.startY = y; st.dist = 0 } else st.active = false;
+    }
+    function onMove(y, ev){
+      if(!st.active) return;
+      const dy = y - st.startY;
+      if(dy > 0 && atTop()){
+        const d = Math.min(dy * RESIST, MAX);
+        st.dist = d; paint(d, false);
+        if(ev && ev.cancelable) ev.preventDefault();
+      } else { st.active = false; st.dist = 0; paint(0, false) }
+    }
+    function onEnd(){
+      if(!st.active) return;
+      st.active = false;
+      const d = st.dist; st.dist = 0;
+      if(d >= THRESHOLD && !st.busy){
+        st.busy = true; paint(THRESHOLD, true);
+        doRefresh().finally(()=>{ st.busy = false; paint(0, false) });
+      } else paint(0, false);
+    }
+    function doRefresh(){
+      return new Promise(res=>setTimeout(()=>{      // 真 app 要等網絡，原型都照等
+        renderProjects(); renderList(); toast('已更新'); res();
+      }, 900));
+    }
+    document.addEventListener('touchstart', e=>{ if(e.touches.length===1) onStart(e.touches[0].clientY) }, {passive:true});
+    document.addEventListener('touchmove',  e=>{ if(st.active) onMove(e.touches[0].clientY, e) }, {passive:false});
+    document.addEventListener('touchend',   onEnd, {passive:true});
+    document.addEventListener('touchcancel',onEnd, {passive:true});
+    let mouseDown = false;
+    document.addEventListener('mousedown', e=>{ mouseDown = true; onStart(e.clientY) });
+    document.addEventListener('mousemove', e=>{ if(mouseDown && st.active) onMove(e.clientY, null) });
+    document.addEventListener('mouseup',   ()=>{ mouseDown = false; onEnd() });
+  })();
+
+  TOKEN['removal']=['移除','Removal'];
+  renderTree(); showHome(); paintProjName();
+
+  /* ── 開機（2026-08-25）─────────────────────────────────────────
+     ⛔ 一定要喺呢度先叫 —— bindProj 要用到成段 script 入面所有 let，
+     擺喺中間會 TDZ 爆。第一個工程一樣要行 bindProj，
+     否則佢冇 site / client / ex，一儲存就爆。 */
+  bindProj(projects[0]);
+  renderProjects();
+</script>

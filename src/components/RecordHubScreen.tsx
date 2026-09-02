@@ -7,6 +7,7 @@ import type { PriceApi, PriceTable, PriceSnapshot } from '../lib/prices'
 import { quoteLines, type Quote, type PricingInput } from '../lib/pricing'
 import type { Nav } from '../ui/routes'
 import { BackChip, BotanicalHeader, FloatBody, HeaderTitle } from '../ui/shell'
+import { Icon, ICONS } from '../ui/Icon'
 import CostCard from './CostCard'
 
 type Props = {
@@ -153,12 +154,15 @@ export default function RecordHubScreen({
           data-testid="hub-basic"
           onClick={() => nav.go({ name: 'record-form', recordId: record.id })}
         >
+          <span className="hub-ic">
+            <Icon name={ICONS.projectInfo} />
+          </span>
           <span className="hub-main">
             <span className="hub-title">基本資料</span>
             <span className="hub-sub">日期、日／夜、地址、地區、客戶、聯絡人、電話</span>
           </span>
-          <span className="hub-chev" aria-hidden="true">
-            ›
+          <span className="hub-chev">
+            <Icon name={ICONS.chevron} />
           </span>
         </button>
 
@@ -167,14 +171,17 @@ export default function RecordHubScreen({
           data-testid="hub-trees"
           onClick={() => nav.go({ name: 'trees', recordId: record.id })}
         >
+          <span className="hub-ic">
+            <Icon name={ICONS.treeList} />
+          </span>
           <span className="hub-main">
             <span className="hub-title">樹木清單</span>
             <span className="hub-sub">
               {treeCount === null ? '每棵樹嘅品種、尺寸、處理方法' : `共 ${treeCount} 棵`}
             </span>
           </span>
-          <span className="hub-chev" aria-hidden="true">
-            ›
+          <span className="hub-chev">
+            <Icon name={ICONS.chevron} />
           </span>
         </button>
 
@@ -183,12 +190,15 @@ export default function RecordHubScreen({
           data-testid="hub-site-form"
           onClick={() => nav.go({ name: 'site-form', recordId: record.id })}
         >
+          <span className="hub-ic">
+            <Icon name={ICONS.districtPin} />
+          </span>
           <span className="hub-main">
             <span className="hub-title">現場資料表</span>
             <span className="hub-sub">人手、垃圾處理、機械、起樹頭</span>
           </span>
-          <span className="hub-chev" aria-hidden="true">
-            ›
+          <span className="hub-chev">
+            <Icon name={ICONS.chevron} />
           </span>
         </button>
 

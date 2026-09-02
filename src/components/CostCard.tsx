@@ -1,4 +1,4 @@
-import { markupHow, type Quote } from '../lib/pricing'
+import type { Quote } from '../lib/pricing'
 
 type Props = {
   quote: Quote
@@ -17,10 +17,13 @@ const money = (n: number) => '$' + Math.round(n).toLocaleString('en-US')
  * ⛔ 呢度啲數係**成本**，唔係收客價（Jason 2026-08-25）。
  * ⛔ 成本同收客價永遠唔會上 PDF。
  *
- * ⭐ 兩樣一定要出返嚟，⛔ 唔准慳：
- *   一、「逐次報價，未計入」嗰啲行 —— 唔出嘅話個總數睇落好靚，實際漏咗成部吊雞。
- *   二、報價價錢下面嗰句「成本 × 1.5」—— 「加成五成」有人會理解成「賺一半」，
- *       兩者差 $72,000 同 $96,000（Jason 2026-09-01）。
+ * ⭐「逐次報價，未計入」嗰啲行一定要出返，⛔ 唔准慳 ——
+ *    唔出嘅話個總數睇落好靚，實際漏咗成部吊雞。
+ *
+ * ⚠️ 2026-09-02 Jason 拎走咗三樣：報價價錢唔再變橙、「（未包 N 項逐次報價）」、
+ *    同埋「成本 × 1.5（加成 50%）」嗰句。
+ *    ⛔ 最後嗰句本來係擋住「加成五成」被理解成「賺一半」（$72,000 對 $96,000，
+ *    一單爭 $24,000），推翻咗 2026-09-01 嘅拍板 —— 個風險而家冇咗畫面提示。
  */
 export default function CostCard({
   quote,
@@ -32,7 +35,6 @@ export default function CostCard({
   const { lines, ask, total } = quote
   const pct = markupPct ?? 0
   const asking = Math.round(total * (1 + pct / 100))
-  const how = markupHow(markupPct)
 
   return (
     <section className="cost-card" data-testid="cost-card">
@@ -71,28 +73,29 @@ export default function CostCard({
           <div className="cost-foot">
             <label className="cost-field">
               <span className="cost-field-label">
-                加成％{canEditMarkup ? '' : '（需辦公室權限）'}
+                加成{canEditMarkup ? '' : '（需辦公室權限）'}
               </span>
-              <input
-                type="text"
-                inputMode="numeric"
-                data-testid="markup-input"
-                value={markupPct === null ? '' : String(markupPct)}
-                readOnly={!canEditMarkup}
-                className={canEditMarkup ? '' : 'locked'}
-                onChange={(e) => onMarkupChange(e.target.value)}
-              />
+              {/* ％ 喺格入面，⛔ 唔喺標籤度 —— 跟 stage57 .pv2 ＋ .dollar。 */}
+              <span className={`cost-input${canEditMarkup ? '' : ' locked'}`}>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  data-testid="markup-input"
+                  value={markupPct === null ? '' : String(markupPct)}
+                  readOnly={!canEditMarkup}
+                  onChange={(e) => onMarkupChange(e.target.value)}
+                />
+                <span className="cost-unit" aria-hidden="true">
+                  %
+                </span>
+              </span>
             </label>
 
             <div className="cost-field">
               <span className="cost-field-label">報價價錢</span>
               <div className="cost-asking" data-testid="asking-price">
                 {money(asking)}
-                {ask.length > 0 && (
-                  <span className="cost-partial">（未包 {ask.length} 項逐次報價）</span>
-                )}
               </div>
-              {how !== '' && <div className="cost-how">{how}</div>}
               {pct <= 0 && <div className="cost-how">未設加成，等於成本價</div>}
             </div>
           </div>

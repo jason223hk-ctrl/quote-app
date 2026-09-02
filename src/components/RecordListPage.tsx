@@ -9,6 +9,7 @@ import {
   UserPill,
   type UserInfo,
 } from '../ui/shell'
+import { ICONS } from '../ui/Icon'
 import RecordCard from './RecordCard'
 
 type Props = {
@@ -54,7 +55,7 @@ export default function RecordListPage({
           <>
             <span className="page-title">工程</span>
             <ChipButton
-              glyph="⌕"
+              icon={ICONS.search}
               label="搜尋"
               testid="search-toggle"
               small
