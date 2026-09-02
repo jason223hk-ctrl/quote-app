@@ -37,9 +37,10 @@ export function BotanicalHeader({
    * 三個變體（內距同標題大細由原型逐個度返）：
    *   `true`      表單類（基本資料、現場資料表、樹木頁、單價設定）—— 12/18/10、標題 27px
    *   `'project'` 工程詳情 —— 22/18/14、標題 27px
-   *   `'big'`     工程列表、設定 —— 14/18/17、標題 33px 兼左邊縮入 .5em
+   *   `'big'`     設定 —— 內距同表單一樣、標題 33px 兼左邊縮入 .5em
+   *   `'list'`    工程列表 —— 14/18/17、標題 33px
    */
-  compact?: boolean | 'project' | 'big'
+  compact?: boolean | 'project' | 'big' | 'list'
 }) {
   const variant = typeof compact === 'string' ? ` bheader--${compact}` : ''
   return (
@@ -263,15 +264,20 @@ export function ScrollBody({
   children,
   testid,
   compact,
+  className,
 }: {
   children: ReactNode
   testid?: string
+  /** 個別畫面自己嘅微調（例如工程列表上內距唔同）。 */
+  className?: string
   /** 配 `BotanicalHeader compact` —— 冇波浪就唔使留波浪嗰段位。 */
   compact?: boolean
 }) {
   return (
     <div
-      className={`float-cards-scroll scroll-body${compact ? ' scroll-body--compact' : ''}`}
+      className={`float-cards-scroll scroll-body${compact ? ' scroll-body--compact' : ''}${
+        className ? ' ' + className : ''
+      }`}
       data-testid={testid}
     >
       {children}

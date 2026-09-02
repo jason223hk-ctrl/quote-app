@@ -87,6 +87,58 @@ const SCREENS = {
       ['報價價錢', '.cost-asking', '#costCard .gain', 'nosize'],
     ],
   },
+  settings: {
+    proto: 'showSettings',
+    pairs: [
+      ['頭部', '.bheader', '#screenSettings header', 'anchor'],
+      ['頁面標題', '.page-title', '#screenSettings h1', 'anchor'],
+      ['卡', '.card', '#screenSettings .card', 'anchorNoSize'],
+      ['卡標題', '.card__title', '#screenSettings .gh2', 'font'],
+      ['入口行', '.hub-row', '#screenSettings .rowcard', 'nosize'],
+    ],
+  },
+  records: {
+    proto: 'showAllList',
+    pairs: [
+      ['頭部', '.bheader', '#screenAll header', 'anchor'],
+      ['頁面標題', '.page-title', '#screenAll h1', 'anchor'],
+      ['chip 一行', '.chips', '#screenAll .chips', 'anchor'],
+      ['chip', '.chip2', '#screenAll .chip2', 'nosize'],
+      ['亮起嘅 chip', '.chip2.on', '#screenAll .chip2.on', 'nosize'],
+      ['工程卡（位）', '.proj-card', '#allList .pcard', 'anchorNoSize'],
+    ],
+  },
+  basic: {
+    proto: 'showBasic',
+    pairs: [
+      ['頭部', '.bheader', '#screenBasic header', 'anchor'],
+      ['標籤', '.field__label', '#screenBasic label', 'font'],
+      [
+        '輸入格',
+        '.field__input',
+        '#screenBasic input[type=text]',
+        'nosize',
+        {
+          fontSize: '同單價格一樣：原型 15px，但 iOS Safari 細過 16px 會自動放大成版。',
+          lineHeight: '跟住 fontSize 嚟。',
+        },
+      ],
+      ['卡', '.card', '#screenBasic .card', 'nosize'],
+    ],
+  },
+  trees: {
+    proto: 'showList',
+    pairs: [
+      ['頭部', '.bheader', '#screenList header', 'anchor'],
+      // 同工程詳情一樣：標題欄闊度由副標撐出嚟，而原型副標多咗個建立人。
+      ['頁面標題', '.head-name', '#screenList h1', 'font'],
+      ['副標', '.head-sub', '#screenList header .sub', 'font'],
+      ['樹卡', '.proj-card--tree', '#treeList .treecard', 'nosize'],
+      ['樹卡標題', '.proj-title', '#treeList .treecard .name', 'font'],
+      ['樹卡副行', '.proj-meta', '#treeList .treecard .meta', 'font'],
+      ['FAB', '.fab--round', '#screenList .fab', 'box'],
+    ],
+  },
   price: {
     proto: 'showPrice',
     pairs: [

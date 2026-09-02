@@ -1,12 +1,14 @@
 import { useState } from 'react'
 import { configResult } from '../lib/supabase'
 import { BotanicalHeader, ScrollBody, UserPill, type UserInfo } from '../ui/shell'
+import { Icon, ICONS } from '../ui/Icon'
 import { VERSION_LABEL } from '../ui/version'
 
 type Props = {
   user: UserInfo
   userId: string
   recordCount: number
+  onOpenPrices: () => void
   onSignOut: () => Promise<unknown>
 }
 
@@ -14,7 +16,13 @@ type Props = {
  * 08 設定。照 tree-app-v7 `SettingsScreen` 嘅殼（ScrollBody，冇浮起嘅統計卡）。
  * 登出用畫面內兩段式確認，唔用瀏覽器彈窗（P1 定落嘅規矩）。
  */
-export default function SettingsScreen({ user, userId, recordCount, onSignOut }: Props) {
+export default function SettingsScreen({
+  user,
+  userId,
+  recordCount,
+  onOpenPrices,
+  onSignOut,
+}: Props) {
   const [confirming, setConfirming] = useState(false)
   const [busy, setBusy] = useState(false)
 
@@ -80,6 +88,19 @@ export default function SettingsScreen({ user, userId, recordCount, onSignOut }:
             )}
           </div>
         </section>
+
+        <button className="hub-row" data-testid="settings-prices" onClick={onOpenPrices}>
+          <span className="hub-ic">
+            <Icon name={ICONS.unitPrice} />
+          </span>
+          <span className="hub-main">
+            <span className="hub-title">單價設定</span>
+            <span className="hub-sub">報價時自動套用</span>
+          </span>
+          <span className="hub-chev">
+            <Icon name={ICONS.chevron} />
+          </span>
+        </button>
 
         <section className="card">
           <h2 className="card__title">單價設定</h2>

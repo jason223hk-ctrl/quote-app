@@ -1,16 +1,18 @@
 import { useMemo, useState } from 'react'
+import type { QuoteStatus } from '../lib/records'
 import { EMPTY_FILTERS, filterRecords, type RecordFilters } from '../lib/filters'
 import type { QuoteRecord } from '../lib/records'
-import {
-  BotanicalHeader,
-  ChipButton,
-  FloatBody,
-  StatCard,
-  UserPill,
-  type UserInfo,
-} from '../ui/shell'
+import { BotanicalHeader, ChipButton, ScrollBody, UserPill, type UserInfo } from '../ui/shell'
 import { Icon, ICONS } from '../ui/Icon'
 import RecordCard from './RecordCard'
+
+/** 四個狀態 chip。⭐ 同原型 `QTABS` 一模一樣，⛔ 唔加唔減。 */
+const QTABS: [QuoteStatus | 'all', string][] = [
+  ['all', '全部'],
+  ['pending', '待報價'],
+  ['quoted', '已報價'],
+  ['won', '已中標'],
+]
 
 type Props = {
   records: QuoteRecord[]
@@ -37,9 +39,13 @@ export default function RecordListPage({
 }: Props) {
   const [filters, setFilters] = useState<RecordFilters>(EMPTY_FILTERS)
   const [popover, setPopover] = useState(false)
+  /** 狀態 chip。⭐ 同搜尋係疊埋一齊用，⛔ 唔係二揀一（原型 2026-08-25）。 */
+  const [tab, setTab] = useState<QuoteStatus | 'all'>('all')
 
-  const visible = useMemo(() => filterRecords(records, filters), [records, filters])
-  const live = useMemo(() => filterRecords(records, EMPTY_FILTERS), [records])
+  const visible = useMemo(() => {
+    const rows = filterRecords(records, filters)
+    return tab === 'all' ? rows : rows.filter((r) => r.status === tab)
+  }, [records, filters, tab])
 
   function patchFilters(patch: Partial<RecordFilters>) {
     setFilters((current) => ({ ...current, ...patch }))
@@ -51,7 +57,7 @@ export default function RecordListPage({
   return (
     <>
       <BotanicalHeader
-        compact="big"
+        compact="list"
         left={
           <>
             <span className="page-title">工程</span>
@@ -68,21 +74,21 @@ export default function RecordListPage({
         right={<UserPill user={user} />}
       />
 
-      <FloatBody
-        compact
-        testid="record-scroll"
-        pills={
-          <div className="stat-row">
-            <StatCard value={live.length} label="工程" />
-            <StatCard value={live.filter((r) => r.status === 'site').length} label="現場中" />
-            <StatCard
-              value={live.filter((r) => r.status === 'pending').length}
-              label="待報價"
-              tone="amber"
-            />
-          </div>
-        }
-      >
+      {/* ⛔ 原型呢版冇統計卡，係四個狀態 chip。 */}
+      <div className="chips" data-testid="status-chips">
+        {QTABS.map(([key, label]) => (
+          <button
+            key={key}
+            className={`chip2${tab === key ? ' on' : ''}`}
+            data-testid={`chip-${key}`}
+            onClick={() => setTab(key)}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      <ScrollBody testid="record-scroll" compact className="records-scroll">
         {error && (
           <p className="notice notice--error" role="alert">
             攞唔到清單：{error}{' '}
@@ -107,7 +113,7 @@ export default function RecordListPage({
             </li>
           ))}
         </ul>
-      </FloatBody>
+      </ScrollBody>
 
       {/* 圓形 FAB，同首頁同一個 —— 原型全 app 只有一款加掣。
           ⛔ 之前係一個長條「＋ 新增工程」，位同形狀都同原型對唔上。 */}

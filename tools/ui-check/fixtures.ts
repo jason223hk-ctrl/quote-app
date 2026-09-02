@@ -47,7 +47,28 @@ export const RECORDS: QuoteRecord[] = [
 
 export const RECORD = RECORDS[0]
 
-export const trees = { list: async () => new Array(7).fill({}) } as unknown as TreesApi
+/** 樹木清單用。數字同工序照原型嗰五棵，⛔ 唔好亂改 —— 改咗量出嚟嘅闊度就唔同。 */
+const tree = (id: string, no: string, species: string, mitigations: string[], note = '') =>
+  ({
+    id, tree_no: no, species, mitigations, mitigation_other: '', note,
+    height_m: null, dbh_mm: null, crown_m: null,
+  }) as unknown as import('../../src/lib/trees').QuoteTree
+
+export const TREES = [
+  tree('1', '1', '', ['crown_clean', 'crown_reduce']),
+  tree('2', '2', '', ['prune']),
+  tree('3', '3', '', []),
+  tree('4', '4', '', ['crown_clean']),
+  tree('5', '5', '', ['crown_clean']),
+]
+
+export const trees = { list: async () => TREES } as unknown as TreesApi
+
+export const photosApi = {
+  listByRecord: async () => [],
+  findByOperationId: async () => null,
+  create: async () => ({}),
+} as unknown as import('../../src/lib/photos').PhotosApi
 
 const FORM = {
   work_days: 3,

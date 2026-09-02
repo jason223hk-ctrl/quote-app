@@ -1880,11 +1880,15 @@ h2,
 .proj-meta {
   font-size: 13px;
   line-height: 1.5;
+  /* ⚠️ 第一行係第二層資訊（#BDB6A6），⛔ 唔係最暗嗰層。
+     成張卡本來全部用咗最暗嗰隻，暗咗一級。 */
+  color: var(--q-text-2);
 }
 
-/* 第二行（客戶 ／ 地址）比第一行再暗一級 —— 三層資訊層次。 */
+/* 第二行（客戶 ／ 地址）先至再暗一級 —— 三層資訊層次。 */
 .proj-meta + .proj-meta {
   font-size: 12.5px;
+  color: var(--q-text-secondary);
 }
 
 /* 分隔由一條直間改做一點，同原型「2026-08-22 · 九龍 · 日更」對返。 */
@@ -2381,12 +2385,16 @@ h3 {
   padding: calc(22px + env(safe-area-inset-top, 0px)) 18px 14px;
 }
 
-.bheader--big {
+/* ⚠️ 「大標題」同「大內距」係兩件事：設定係大標題但內距同表單一樣，
+   工程列表先至兩樣都大。⛔ 溝埋一齊嘅話設定條 header 會高咗 9px。 */
+.bheader--list {
   padding: calc(14px + env(safe-area-inset-top, 0px)) 18px 17px;
 }
 
 .bheader--big .head-name,
-.bheader--big .page-title {
+.bheader--big .page-title,
+.bheader--list .head-name,
+.bheader--list .page-title {
   font-size: 33px;
   padding-left: 0.5em;
 }
@@ -2474,4 +2482,91 @@ h3 {
   font-size: 16px;
   line-height: 1.15;
   margin-top: 4px;
+}
+
+/* 樹卡（原型 `.treecard`）：同工程卡同一款，只係矮 8px。 */
+.proj-card--tree {
+  min-height: 88px;
+}
+
+.proj-card--tree .proj-title {
+  letter-spacing: 0.02em;
+}
+
+/* ── 表單（原型 `.mqform`）逐項對數修正 ─────────────────────────
+   一次過影響基本資料、現場資料表、樹木頁、設定 —— 佢哋共用呢幾條。 */
+.card {
+  padding: 18px 17px;
+}
+
+.field__label {
+  margin-bottom: 6px;
+  font-size: 12.5px;
+  /* 原型個標籤唔粗體 —— 佢靠字細同暗色做層次，⛔ 唔靠加粗。 */
+  font-weight: 400;
+  letter-spacing: 0.06em;
+  color: var(--q-text-2);
+}
+
+.field__input {
+  padding: 13px;
+  border-radius: 13px;
+}
+
+/* ⛔ 唔准寫 outline:none —— 同單價格一樣，剩返邊框做提示喺日光下睇唔出。 */
+.field__input:focus {
+  outline: 2px solid var(--q-accent);
+  outline-offset: 2px;
+  border-color: rgba(157, 169, 105, 0.44);
+  background: rgba(152, 165, 107, 0.09);
+}
+
+/* ── 狀態 chip（原型 `#screenAll .chip2`）──────────────────────── */
+.chips {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 0 18px 2px;
+  -webkit-overflow-scrolling: touch;
+}
+
+.chips::-webkit-scrollbar {
+  height: 0;
+}
+
+.chip2 {
+  flex: none;
+  padding: 7px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--q-border);
+  background: rgba(255, 255, 255, 0.03);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--q-text-2);
+  white-space: nowrap;
+}
+
+.chip2.on {
+  background: rgba(152, 165, 107, 0.16);
+  border-color: rgba(157, 169, 105, 0.42);
+  color: var(--q-accent);
+  font-weight: 600;
+}
+
+/* ⚠️ 呢幾條要行喺 `.bheader--compact .page-title` 後面 ——
+   specificity 一樣，後者贏。之前工程列表同設定個標題一直細咗 6px。 */
+.bheader--big .head-name,
+.bheader--big .page-title,
+.bheader--list .head-name,
+.bheader--list .page-title {
+  font-size: 33px;
+  padding-left: 0.5em;
+}
+
+/* 工程列表個內容上內距係 11px（原型 `#screenAll>main{padding-top:11px}`），
+   ⛔ 唔係表單類嗰個 6px —— 佢上面有排 chip，要留多少少罅。 */
+/* ⚠️ 要夠 specificity 蓋過上面嗰條三 class 嘅規則。 */
+.float-cards-scroll.scroll-body.scroll-body--compact.records-scroll {
+  padding-top: 11px;
 }

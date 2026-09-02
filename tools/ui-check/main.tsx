@@ -2,6 +2,12 @@ import { createRoot } from 'react-dom/client'
 import HomeScreen from '../../src/components/HomeScreen'
 import RecordHubScreen from '../../src/components/RecordHubScreen'
 import PriceScreen from '../../src/components/PriceScreen'
+import TreesScreen from '../../src/components/TreesScreen'
+import RecordFormPage from '../../src/components/RecordFormPage'
+import SiteFormScreen from '../../src/components/SiteFormScreen'
+import TreeFormPage from '../../src/components/TreeFormPage'
+import RecordListPage from '../../src/components/RecordListPage'
+import SettingsScreen from '../../src/components/SettingsScreen'
 import { IconSprite } from '../../src/ui/Icon'
 import { BottomNav } from '../../src/ui/shell'
 import * as fx from './fixtures'
@@ -15,8 +21,56 @@ import '../../src/styles/app.css'
  */
 const screen = new URLSearchParams(location.search).get('screen') ?? 'home'
 
+const noop = async () => {}
+
 const body =
-  screen === 'price' ? (
+  screen === 'settings' ? (
+    <SettingsScreen
+      user={{ email: 'jason223hk@gmail.com', initial: 'J' }}
+      userId="00000000-0000-0000-0000-000000000000"
+      recordCount={6}
+      onOpenPrices={() => {}}
+      onSignOut={noop}
+    />
+  ) : screen === 'records' ? (
+    <RecordListPage
+      records={fx.RECORDS}
+      loading={false}
+      error={null}
+      user={{ email: 'jason@x.com', initial: 'J' }}
+      onOpen={() => {}}
+      onCreate={() => {}}
+      onRetry={() => {}}
+    />
+  ) : screen === 'basic' ? (
+    <RecordFormPage
+      record={fx.RECORD}
+      onSave={noop}
+      onArchiveToggle={noop}
+      onDelete={noop}
+      onBack={() => {}}
+    />
+  ) : screen === 'site' ? (
+    <SiteFormScreen api={fx.siteFormApi} record={fx.RECORD} onBack={() => {}} />
+  ) : screen === 'tree' ? (
+    <TreeFormPage
+      tree={fx.TREES[0]}
+      suggestedTreeNo="6"
+      otherTreeNos={['2', '3']}
+      recordName="彩"
+      onSave={noop}
+      onDelete={noop}
+      onBack={() => {}}
+    />
+  ) : screen === 'trees' ? (
+    <TreesScreen
+      api={fx.trees}
+      photos={fx.photosApi}
+      accessToken=""
+      record={fx.RECORD}
+      onBack={() => {}}
+    />
+  ) : screen === 'price' ? (
     <PriceScreen api={fx.fullPriceApi} canEdit onBack={() => {}} />
   ) : screen === 'hub' ? (
     <RecordHubScreen
@@ -38,7 +92,7 @@ createRoot(document.getElementById('root')!).render(
     <div className="app app--float">
       {body}
       <BottomNav
-        active={screen === 'price' ? 'settings' : screen === 'hub' ? 'records' : 'home'}
+        active={screen === 'price' ? 'settings' : screen === 'home' ? 'home' : 'records'}
         nav={fx.nav}
       />
     </div>

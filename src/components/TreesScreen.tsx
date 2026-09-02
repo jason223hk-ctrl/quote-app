@@ -10,7 +10,9 @@ import {
 import type { QuoteRecord } from '../lib/records'
 import type { PhotosApi } from '../lib/photos'
 import PhotoSlot from './PhotoSlot'
-import { BackChip, BotanicalHeader, FloatBody, HeaderTitle, StatCard } from '../ui/shell'
+import { BackChip, BotanicalHeader, HeaderTitle, ScrollBody } from '../ui/shell'
+import { Icon, ICONS } from '../ui/Icon'
+import { regionLabel } from '../lib/labels'
 import TreeFormPage from './TreeFormPage'
 
 type Props = {
@@ -125,21 +127,14 @@ export default function TreesScreen({ api, photos, accessToken, record, onBack }
           <HeaderTitle
             back={<BackChip onClick={onBack} />}
             name="樹木清單"
-            sub={record.name}
+            sub={`${record.name} · ${record.record_date} · ${regionLabel(record.region)}`}
           />
         }
       />
 
-      <FloatBody
-        compact
-        testid="tree-scroll"
-        pills={
-          <div className="stat-row">
-            <StatCard value={trees.length} label="樹木" />
-            <StatCard value={duplicates.length} label="撞編號" tone={duplicates.length ? 'amber' : undefined} />
-          </div>
-        }
-      >
+      {/* ⛔ 原型呢版一張統計卡都冇。「撞編號」個數本來就喺下面條警告度講返，
+          留住兩張卡只係阻住睇樹。 */}
+      <ScrollBody testid="tree-scroll" compact>
         {duplicates.length > 0 && (
           <p className="notice notice--warning" role="status">
             有樹撞咗編號：{duplicates.join('、')}。照儲存得，記住之後分得返邊棵就得。
@@ -165,7 +160,7 @@ export default function TreesScreen({ api, photos, accessToken, record, onBack }
           {trees.map((tree) => (
             <li key={tree.id}>
               <button
-                className="proj-card"
+                className="proj-card proj-card--tree"
                 data-testid="tree-row"
                 onClick={() => setView({ kind: 'form', id: tree.id })}
               >
@@ -198,10 +193,15 @@ export default function TreesScreen({ api, photos, accessToken, record, onBack }
             </li>
           ))}
         </ul>
-      </FloatBody>
+      </ScrollBody>
 
-      <button className="fab" data-testid="fab-new-tree" onClick={() => setView({ kind: 'form', id: null })}>
-        ＋ 加樹
+      <button
+        className="fab fab--round"
+        data-testid="fab-new-tree"
+        aria-label="加樹"
+        onClick={() => setView({ kind: 'form', id: null })}
+      >
+        <Icon name={ICONS.add} />
       </button>
     </>
   )
