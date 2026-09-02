@@ -102,6 +102,7 @@ export default function TreeFormPage({
   return (
     <>
       <BotanicalHeader
+        compact
         left={
           <HeaderTitle
             back={<BackChip onClick={onBack} label="返樹木清單" />}
@@ -111,7 +112,7 @@ export default function TreeFormPage({
         }
       />
 
-      <ScrollBody testid="tree-form-scroll">
+      <ScrollBody testid="tree-form-scroll" compact>
         <form className="card" onSubmit={handleSubmit} noValidate>
         <label className="field">
           <span className="field__label">樹編號</span>

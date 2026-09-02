@@ -129,6 +129,7 @@ export default function SiteFormScreen({ api, record, onBack }: Props) {
   return (
     <>
       <BotanicalHeader
+        compact
         left={
           <HeaderTitle
             back={<BackChip onClick={onBack} />}
@@ -138,7 +139,7 @@ export default function SiteFormScreen({ api, record, onBack }: Props) {
         }
       />
 
-      <ScrollBody testid="site-form-scroll">
+      <ScrollBody testid="site-form-scroll" compact>
       {loading ? (
         <p className="loading">載入中…</p>
       ) : (

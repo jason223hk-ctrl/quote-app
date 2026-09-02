@@ -15,6 +15,7 @@ import RecordFormPage from './RecordFormPage'
 import TreesScreen from './TreesScreen'
 import SiteFormScreen from './SiteFormScreen'
 import SettingsScreen from './SettingsScreen'
+import PriceScreen from './PriceScreen'
 
 type Props = {
   client: SupabaseClient
@@ -245,7 +246,17 @@ export function RecordsScreen({ api, office, user, userId, accessToken, onSignOu
             user={user}
             userId={userId}
             recordCount={records.length}
+            onOpenPrices={() => nav.go({ name: 'prices' })}
             onSignOut={onSignOut}
+          />
+        )
+
+      case 'prices':
+        return (
+          <PriceScreen
+            api={api.prices}
+            canEdit={office}
+            onBack={() => nav.go({ name: 'settings' })}
           />
         )
     }

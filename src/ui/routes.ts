@@ -12,6 +12,8 @@ export type Route =
   | { name: 'trees'; recordId: string }
   | { name: 'site-form'; recordId: string }
   | { name: 'settings' }
+  /** 單價設定。⛔ 只有辦公室改得（RLS 把關）。 */
+  | { name: 'prices' }
 
 export interface Nav {
   go: (r: Route) => void
@@ -23,6 +25,7 @@ export function activeTab(route: Route): 'home' | 'records' | 'settings' {
     case 'home':
       return 'home'
     case 'settings':
+    case 'prices':
       return 'settings'
     default:
       return 'records'

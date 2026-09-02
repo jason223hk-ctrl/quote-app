@@ -149,6 +149,7 @@ export default function RecordFormPage({
   return (
     <>
       <BotanicalHeader
+        compact
         left={
           <HeaderTitle
             back={<BackChip onClick={onBack} label="返回" />}
@@ -158,7 +159,7 @@ export default function RecordFormPage({
         }
       />
 
-      <ScrollBody testid="record-form-scroll">
+      <ScrollBody testid="record-form-scroll" compact>
         <form className="card" onSubmit={handleSubmit} noValidate>
         <label className="field">
           <span className="field__label">日期</span>

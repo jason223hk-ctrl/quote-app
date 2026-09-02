@@ -63,6 +63,19 @@ const SCREENS = {
   hub: {
     proto: 'showProject',
     pairs: [
+      ['頭部', '.bheader', '#screenProject header', 'anchor'],
+      ['工程名', '.head-name', '#screenProject h1', 'anchor'],
+      ['返回掣', '.chip-btn', '#screenProject .back', 'anchor', {
+          fontFamily: '粒掣入面得一個 icon，冇字。',
+          fontSize: '同上，冇字。',
+          lineHeight: '同上，冇字。',
+        }],
+      ['副標', '.head-sub', '#screenProject header .sub', 'anchorNoSize'],
+      ['三格（成行）', '.stats--project', '#screenProject .stats', 'nosize'],
+      ['一格', '.stats--project .stat', '#screenProject .stat', 'nosize'],
+      ['格入面 icon', '.stats--project .sic .ico', '#screenProject .stat .sic .ico'],
+      ['格標籤', '.stats--project .k', '#screenProject .stat .k', 'font'],
+      ['格數字', '.stats--project .v', '#screenProject .stat .v', 'font'],
       ['入口卡', '.hub-row', '#screenProject .rowcard', 'nosize'],
       ['入口 icon', '.hub-ic .ico', '#screenProject .rowcard .ric .ico'],
       ['入口標題', '.hub-title', '#screenProject .rowcard b', 'font'],
@@ -72,6 +85,46 @@ const SCREENS = {
       ['只供內部參考', '.cost-note', '#costCard .note2', 'nosize'],
       ['加成格', '.cost-input', '#costCard .pv2'],
       ['報價價錢', '.cost-asking', '#costCard .gain', 'nosize'],
+    ],
+  },
+  price: {
+    proto: 'showPrice',
+    pairs: [
+      ['頭部', '.bheader', '#screenPrice header', 'anchor'],
+      ['頁面標題', '.head-name', '#screenPrice h1', 'anchor'],
+      ['副標', '.head-sub', '#screenPrice header .sub', 'anchorNoSize'],
+      [
+        '返回掣',
+        '.chip-btn',
+        '#screenPrice .back',
+        'anchor',
+        {
+          fontFamily: '粒掣入面得一個 icon，冇字 —— 原型冇同佢寫 font:inherit 啫。',
+          fontSize: '同上，冇字。',
+          lineHeight: '同上，冇字。',
+        },
+      ],
+      ['說明格', '.note-box', '#screenPrice .note2', 'anchorNoSize'],
+      ['第一張類別卡（位）', '.price-card', '#priceBox > .card', 'anchorNoSize'],
+      ['類別卡', '.price-card', '#priceBox > .card', 'nosize'],
+      ['類別標題', '.price-group', '#priceBox .gh2', 'font'],
+      ['一行', '.prow', '#screenPrice .prow', 'nosize'],
+      ['項目名', '.price-label', '#screenPrice .prow .pl', 'font'],
+      ['單位細字', '.price-unit', '#screenPrice .prow .pu', 'font'],
+      ['價錢格', '.price-input', '#screenPrice .prow .pv'],
+      [
+        '價錢格入面個 input',
+        '.price-input input',
+        '#screenPrice .prow .pv input',
+        null,
+        {
+          fontSize:
+            '原型全部格都係 15px。iOS Safari 喺細過 16px 嘅格㩒落去會自動放大成版，' +
+            '真 app 特登用 16px 擋住（Jason 2026-09-02 拍板保留）。',
+          lineHeight: '跟住 fontSize 嚟。',
+        },
+      ],
+      ['錢號', '.price-dollar', '#screenPrice .prow .dollar', 'font'],
     ],
   },
 }
@@ -125,6 +178,7 @@ const READ = ([sel, box, css]) => {
   for (const k of box) out[k] = Math.round(r[k] * 10) / 10
   out.left = Math.round(r.left * 10) / 10
   out.right = Math.round((innerWidth - r.right) * 10) / 10
+  out.top = Math.round(r.top * 10) / 10
   for (const k of css) out[k] = cs[k]
   out.serif = /serif/i.test(cs.fontFamily) && !/sans-serif/i.test(cs.fontFamily)
   return out
@@ -182,7 +236,7 @@ for (const [name, spec] of Object.entries(SCREENS)) {
   await proto.waitForTimeout(700)
 
   console.log(`\n══ ${name} ══`)
-  for (const [label, a, b, mode] of spec.pairs) {
+  for (const [label, a, b, mode, except] of spec.pairs) {
     const ra = await real.evaluate(READ, [a, BOX, CSS])
     const rb = await proto.evaluate(READ, [b, BOX, CSS])
     if (!ra || !rb) {
@@ -192,30 +246,40 @@ for (const [name, spec] of Object.entries(SCREENS)) {
     // font ＝ 樣本文字唔同，量闊高冇意思，淨係對字型／顏色。
     // box  ＝ 對尺寸位置，唔對字（例如 FAB 入面根本冇字）。
     // nosize ＝ 對位置同樣式，唔對高度（內容行數唔同）。
+    /**
+     * ⚠️ `top` 預設唔量 —— 佢隨上面有幾多內容而變，樣本唔同就一定唔同。
+     * 淨係 `anchor` 模式先量，用喺 header 同第一件內容 —— 嗰兩樣係定位嘅根。
+     */
     const SKIP = {
-      font: ['width', 'height', 'left', 'right'],
-      box: ['fontFamily', 'fontSize', 'fontWeight', 'lineHeight', 'color', 'paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft'],
-      nosize: ['height'],
-    }[mode] ?? []
+      font: ['width', 'height', 'left', 'right', 'top'],
+      box: ['fontFamily', 'fontSize', 'fontWeight', 'lineHeight', 'color', 'paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft', 'top'],
+      nosize: ['height', 'top'],
+      anchor: [],
+      anchorNoSize: ['height'],
+    }[mode] ?? ['top']
 
     const diffs = []
+    /** 明知會唔同、而且已經拍板嘅項目。⛔ 唔係「當佢冇事」—— 要寫明點解。 */
+    const notes = []
     for (const k of Object.keys(rb)) {
       if (SKIP.includes(k)) continue
       const x = ra[k]
       const y = rb[k]
-      if (typeof y === 'number') {
-        if (Math.abs(x - y) > TOL) diffs.push(`${k} ${x} ≠ ${y}`)
-      } else if (String(x) !== String(y)) {
-        diffs.push(`${k} ${x} ≠ ${y}`)
-      }
+      const differs =
+        typeof y === 'number' ? Math.abs(x - y) > TOL : String(x) !== String(y)
+      if (!differs) continue
+      if (except?.[k]) notes.push(`${k} ${x} ≠ ${y} —— ${except[k]}`)
+      else diffs.push(`${k} ${x} ≠ ${y}`)
     }
     checked++
     if (diffs.length === 0) {
       console.log(`  ✓ ${label}`)
+      for (const n of notes) console.log(`      ⚠ 已拍板嘅例外：${n}`)
     } else {
       bad++
       console.log(`  ✗ ${label}`)
       for (const d of diffs) console.log(`      ${d}`)
+      for (const n of notes) console.log(`      ⚠ 已拍板嘅例外：${n}`)
     }
   }
   await real.close()

@@ -1641,9 +1641,7 @@ h2,
   font-variant-numeric: tabular-nums;
 }
 
-.cost-input input:focus {
-  outline: none;
-}
+
 
 /* ⚠️ 個綠光要出喺**外面個格**度 —— 淨係寫 input:focus 嘅話，
    個光會困喺格入面，睇落似漏色。 */
@@ -2110,4 +2108,370 @@ h3 {
 .nav-item,
 .nav-item.active {
   font-weight: 600;
+}
+
+/* ══ 單價設定（09）════════════════════════════════════════════════
+   版面照原型 stage57 `#screenPrice`。⭐ 尺寸全部由原型度返。 */
+
+/* 說明格。同成本卡「只供內部參考」係同一款（原型 `.note2`）。 */
+.note-box {
+  margin: 0;
+  padding: 12px 14px;
+  border: 1px solid var(--q-border);
+  border-radius: 14px;
+  background: rgba(152, 165, 107, 0.1);
+  color: var(--q-text-2);
+  font-size: 12.5px;
+  line-height: 1.55;
+}
+
+.note-box--warn {
+  border-color: rgba(182, 138, 69, 0.4);
+  background: rgba(182, 138, 69, 0.14);
+  color: var(--q-incomplete);
+}
+
+.price-card {
+  padding: 18px 17px;
+}
+
+.price-group {
+  margin: 0 0 11px;
+  font-family: var(--q-font-serif);
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.prow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--q-border);
+}
+
+/* 一個項目入面最後嗰行，同成張卡最後嗰行，都唔要底線。 */
+.price-item:last-child .prow:last-child {
+  border-bottom: 0;
+}
+
+/* 分地區嗰啲縮入去，一眼睇得出係從屬關係。 */
+.prow--sub {
+  padding-left: 14px;
+}
+
+.prow--sub .price-label {
+  font-size: 14px;
+  color: var(--q-text-2);
+}
+
+.price-label {
+  flex: 1;
+  min-width: 0;
+  font-size: 15px;
+}
+
+.price-unit {
+  margin-top: 1px;
+  font-size: 12.5px;
+  color: var(--q-text-2);
+}
+
+.price-input {
+  position: relative;
+  flex: none;
+  width: 118px;
+}
+
+.price-input input {
+  width: 100%;
+  padding: 11px 12px 11px 28px;
+  font: inherit;
+  font-size: 16px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--q-text-primary);
+  background: rgba(0, 0, 0, 0.22);
+  border: 1px solid var(--q-border);
+  border-radius: 12px;
+}
+
+.price-input input:focus {
+  border-color: rgba(157, 169, 105, 0.44);
+}
+
+.price-dollar {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--q-text-secondary);
+  font-size: 14px;
+  pointer-events: none;
+}
+
+/* 冇權限：⛔ 唔准收埋 —— 見到但改唔到。 */
+.price-input.locked input {
+  border-style: dashed;
+  color: var(--q-text-secondary);
+}
+
+/* ⛔ 打空咗／打錯：一定要睇得出係邊格，唔可以淨係鎖住個掣。 */
+.price-input.invalid input {
+  border-color: var(--q-danger);
+  background: rgba(179, 93, 74, 0.16);
+}
+
+/* 逐次報價 —— ⛔ 唔可以出個 $0 格喺度扮有價。 */
+.price-ask {
+  flex: none;
+  padding: 6px 12px;
+  border: 1px solid var(--q-border);
+  border-radius: 999px;
+  background: rgba(152, 165, 107, 0.13);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--q-text-2);
+}
+
+/* 儲存掣釘喺 nav 上面，⛔ 唔使碌到最底先撳到。
+   未改過就淡色，改咗先着 —— 一眼睇得出有冇嘢未存。 */
+.price-save-bar {
+  position: absolute;
+  left: 18px;
+  right: 18px;
+  bottom: calc(69px + 16px + 12px + env(safe-area-inset-bottom, 0px));
+  z-index: 6;
+}
+
+.price-save-bar .button {
+  padding: 16px;
+  border-radius: 16px;
+  /* ⚠️ 底一定要夠實 —— 佢浮喺內容上面，半透明就會見到下面張卡穿過嚟。
+     用返同 nav 一樣嗰款深底，全 app 只得一種「浮起嘅條」。 */
+  background: linear-gradient(180deg, rgba(28, 36, 29, 0.96), rgba(19, 26, 20, 0.96));
+  border: 1px solid var(--q-border);
+  color: var(--q-text-secondary);
+  box-shadow: 0 12px 30px -12px rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.price-save-bar .button:not(:disabled) {
+  background: #68794d;
+  border-color: rgba(157, 169, 105, 0.55);
+  color: #f1ebdd;
+}
+
+/* ⛔ 唔准寫 outline:none —— 原型 2026-08-30 試過，剩返邊框做提示只差 1.28:1，
+   戶外日光下根本睇唔出邊格 focus 緊。要一條 2px 橄欖外框（5.79:1）。 */
+.price-input input:focus,
+.cost-input input:focus {
+  outline: 2px solid var(--q-accent);
+  outline-offset: 2px;
+}
+
+/* ── 緊湊 header（原型全部畫面都係咁）────────────────────────────
+   ⭐ 原型改版嗰陣已經拆咗波浪：`.curve{display:none}`，
+      header 變成透明底 ＋ 右上角一團淡橄欖光。
+   ⚠️ 而家淨係單價設定用緊，其他版下一輪先搬。 */
+.bheader--compact {
+  aspect-ratio: auto;
+  position: relative;
+  overflow: visible;
+  padding: calc(12px + env(safe-area-inset-top, 0px)) 18px 10px;
+  background: transparent;
+  align-items: center;
+}
+
+.bheader--compact::after {
+  content: '';
+  position: absolute;
+  right: -56px;
+  top: -64px;
+  width: 236px;
+  height: 236px;
+  pointer-events: none;
+  background: radial-gradient(
+    50% 50% at 50% 50%,
+    rgba(132, 148, 93, 0.14) 0%,
+    rgba(132, 148, 93, 0) 72%
+  );
+}
+
+.bheader--compact .head-name {
+  font-size: 27px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.bheader--compact .head-sub {
+  margin-top: 5px;
+  font-size: 13px;
+  opacity: 1;
+  color: var(--q-text-2);
+}
+
+/* 返回掣：橄欖淡底 ＋ 一條邊，⛔ 唔係半透明白（嗰個係波浪底時代嘅嘢）。 */
+.bheader--compact .chip-btn {
+  width: 34px;
+  height: 34px;
+  background: rgba(152, 165, 107, 0.12);
+  border: 1px solid var(--q-border);
+  color: var(--q-text-2);
+}
+
+.bheader--compact .chip-btn .ico {
+  width: 20px;
+  height: 20px;
+}
+
+/* 冇波浪就唔使留波浪嗰段位。
+   ⚠️ 要夠 specificity 蓋過 `.float-cards-scroll.scroll-body`（兩個 class），
+      唔係嘅話個 184px 波浪內距會照計。
+   ⚠️ 亦都要由「絕對定位蓋住成版」改返做「header 下面嘅正常一格」——
+      原型個 main 就係 header 之後嘅流內元素。 */
+.float-cards-scroll.scroll-body.scroll-body--compact {
+  position: relative;
+  inset: auto;
+  flex: 1;
+  min-height: 0;
+  gap: 12px;
+  /* 底部要讓返 nav（69+16）＋ 儲存掣（58+12）＋ 呼吸位。 */
+  padding: 6px 18px calc(69px + 16px + 12px + 58px + 14px + env(safe-area-inset-bottom, 0px));
+  mask-image: none;
+  -webkit-mask-image: none;
+}
+
+.scroll-body--compact > .note-box {
+  margin-top: 13px;
+}
+
+/* 返回掣 ＋ 文字欄。原型 `header .row`：gap 12px、上下置中。 */
+.head-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+/* 標題同副標喺原型度係暖白 #F6F1E9，⛔ 唔係內文嗰隻 #F1EBDD。 */
+.bheader--compact .head-title,
+.bheader--compact .head-name {
+  color: #f6f1e9;
+}
+
+/* header 自己個 color。⛔ 唔止標題 —— `.bheader` 本身都要，
+   否則對數量嗰陣個 header 元素同原型爭一隻色。 */
+.bheader--compact {
+  color: #f6f1e9;
+}
+
+/* ⚠️ `.button:disabled{opacity:.6}` 令成粒掣半透明，
+   下面張卡就會穿透上嚟（實測「夾車」個標題透咗出嚟）。
+   ⭐ 呢粒掣「未有嘢改」係常態，唔係出事 —— 所以唔用透明度去表示，
+      改用色深淺；⛔ 底一定要實。 */
+.price-save-bar .button:disabled {
+  opacity: 1;
+}
+
+/* 緊湊 header 三個變體。內距同標題大細由原型逐個度返。 */
+.bheader--project {
+  padding: calc(22px + env(safe-area-inset-top, 0px)) 18px 14px;
+}
+
+.bheader--big {
+  padding: calc(14px + env(safe-area-inset-top, 0px)) 18px 17px;
+}
+
+.bheader--big .head-name,
+.bheader--big .page-title {
+  font-size: 33px;
+  padding-left: 0.5em;
+}
+
+/* 冇返回掣嗰啲（工程列表、設定）個標題都要跟同一套字。 */
+.bheader--compact .page-title {
+  font-family: var(--q-font-serif);
+  font-size: 27px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: #f6f1e9;
+}
+
+/* 副標第二行（客戶／地址）比第一行細一級、暗一級。原型 `.sub .l2`。 */
+.bheader--compact .head-sub-line + .head-sub-line {
+  margin-top: 3px;
+  font-size: 12.5px;
+  color: var(--q-text-secondary);
+}
+
+/* ── 工程詳情頂部三格（原型 `#screenProject .stats`）────────────────
+   ⭐ 由一條長 band 改返三張獨立卡，每張左邊一個 icon。
+   尺寸實測：卡內距 9/9/10、欄距 7、icon 26px、標籤 12.5px、數字 26px 襯線。 */
+.stats--project {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 9px;
+  margin: 4px 0 0;
+}
+
+.stats--project .stat {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-areas: 'ic k' 'ic v';
+  align-items: center;
+  column-gap: 6px;
+  padding: 9px 8px 10px;
+  text-align: left;
+  background: var(--q-card-bg);
+  border: 1px solid var(--q-border);
+  border-radius: 16px;
+  box-shadow: var(--q-shadow-card);
+}
+
+.stats--project .sic {
+  grid-area: ic;
+  align-self: center;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  color: var(--q-accent);
+}
+
+.stats--project .sic .ico {
+  width: 26px;
+  height: 26px;
+}
+
+.stats--project .k {
+  grid-area: k;
+  align-self: end;
+  min-width: 0;
+  font-size: 12.5px;
+  line-height: 1.15;
+  white-space: nowrap;
+  letter-spacing: 0.04em;
+  color: var(--q-text-2);
+}
+
+.stats--project .v {
+  grid-area: v;
+  align-self: start;
+  margin-top: 2px;
+  font-family: var(--q-font-serif);
+  font-size: 26px;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 狀態同地區係文字唔係數字，⛔ 唔可以用 26px —— 「待報價」會迫爆格。 */
+.stats--project .v--sm {
+  font-size: 16px;
+  line-height: 1.15;
+  margin-top: 4px;
 }

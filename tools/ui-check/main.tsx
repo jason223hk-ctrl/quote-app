@@ -1,6 +1,7 @@
 import { createRoot } from 'react-dom/client'
 import HomeScreen from '../../src/components/HomeScreen'
 import RecordHubScreen from '../../src/components/RecordHubScreen'
+import PriceScreen from '../../src/components/PriceScreen'
 import { IconSprite } from '../../src/ui/Icon'
 import { BottomNav } from '../../src/ui/shell'
 import * as fx from './fixtures'
@@ -15,7 +16,9 @@ import '../../src/styles/app.css'
 const screen = new URLSearchParams(location.search).get('screen') ?? 'home'
 
 const body =
-  screen === 'hub' ? (
+  screen === 'price' ? (
+    <PriceScreen api={fx.fullPriceApi} canEdit onBack={() => {}} />
+  ) : screen === 'hub' ? (
     <RecordHubScreen
       api={fx.trees}
       siteFormApi={fx.siteFormApi}
@@ -34,7 +37,10 @@ createRoot(document.getElementById('root')!).render(
     <IconSprite />
     <div className="app app--float">
       {body}
-      <BottomNav active={screen === 'hub' ? 'records' : 'home'} nav={fx.nav} />
+      <BottomNav
+        active={screen === 'price' ? 'settings' : screen === 'hub' ? 'records' : 'home'}
+        nav={fx.nav}
+      />
     </div>
   </>,
 )

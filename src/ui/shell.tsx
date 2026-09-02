@@ -23,11 +23,29 @@ export function userInfoFrom(email: string): UserInfo {
   return { email, initial }
 }
 
-export function BotanicalHeader({ left, right }: { left: ReactNode; right?: ReactNode }) {
+export function BotanicalHeader({
+  left,
+  right,
+  compact,
+}: {
+  left: ReactNode
+  right?: ReactNode
+  /**
+   * 緊湊 header：透明底、冇波浪、右上角一團淡橄欖光。
+   * ⭐ 原型 stage57 全部畫面都係咁 —— `.curve{display:none}`，波浪喺改版嗰陣拆咗。
+   *
+   * 三個變體（內距同標題大細由原型逐個度返）：
+   *   `true`      表單類（基本資料、現場資料表、樹木頁、單價設定）—— 12/18/10、標題 27px
+   *   `'project'` 工程詳情 —— 22/18/14、標題 27px
+   *   `'big'`     工程列表、設定 —— 14/18/17、標題 33px 兼左邊縮入 .5em
+   */
+  compact?: boolean | 'project' | 'big'
+}) {
+  const variant = typeof compact === 'string' ? ` bheader--${compact}` : ''
   return (
-    <header className="bheader">
+    <header className={`bheader${compact ? ' bheader--compact' + variant : ''}`}>
       {/* 波浪係獨立背景層，header 內容永遠唔會被遮罩剪到 */}
-      <div className="bheader-bg" />
+      {!compact && <div className="bheader-bg" />}
       <div className="bheader-row">
         <div className="bheader-left">{left}</div>
         <div className="bheader-right">{right}</div>
@@ -108,13 +126,18 @@ export function HeaderTitle({
   sub?: ReactNode
   back?: ReactNode
 }) {
+  /**
+   * ⚠️ 返回掣要係文字欄**外面**嘅兄弟，⛔ 唔可以淨係同標題同一行 ——
+   * 咁樣副標先會同標題左邊對齊（原型 `header .row` 就係咁）。
+   * 舊寫法個副標由 18px 起，同標題差咗成 46px。
+   */
   return (
-    <div className="head-title">
-      <div className="head-name-row">
-        {back}
+    <div className="head-row">
+      {back}
+      <div className="head-title">
         <div className="head-name">{name}</div>
+        {sub && <div className="head-sub">{sub}</div>}
       </div>
-      {sub && <div className="head-sub">{sub}</div>}
     </div>
   )
 }
@@ -186,10 +209,16 @@ export function FloatBody({
   pills,
   children,
   testid,
+  compact,
 }: {
   pills: ReactNode
   children: ReactNode
   testid?: string
+  /**
+   * 冇波浪嘅版本：統計卡唔再浮喺波浪頂，變返捲動層入面第一件嘢。
+   * ⛔ 唔使 ResizeObserver 度高度 —— 冇嘢要疊，就冇嘢要度。
+   */
+  compact?: boolean
 }) {
   const pillsRef = useRef<HTMLDivElement>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -205,6 +234,18 @@ export function FloatBody({
     return () => ro.disconnect()
   }, [])
 
+  if (compact) {
+    return (
+      <div
+        className="float-cards-scroll scroll-body scroll-body--compact"
+        data-testid={testid}
+      >
+        {pills}
+        {children}
+      </div>
+    )
+  }
+
   return (
     <>
       <div ref={scrollRef} className="float-cards-scroll" data-testid={testid}>
@@ -218,9 +259,21 @@ export function FloatBody({
 }
 
 /** 冇浮起統計卡嗰啲版（表單、設定）：第一張卡就係普通捲動子元素。 */
-export function ScrollBody({ children, testid }: { children: ReactNode; testid?: string }) {
+export function ScrollBody({
+  children,
+  testid,
+  compact,
+}: {
+  children: ReactNode
+  testid?: string
+  /** 配 `BotanicalHeader compact` —— 冇波浪就唔使留波浪嗰段位。 */
+  compact?: boolean
+}) {
   return (
-    <div className="float-cards-scroll scroll-body" data-testid={testid}>
+    <div
+      className={`float-cards-scroll scroll-body${compact ? ' scroll-body--compact' : ''}`}
+      data-testid={testid}
+    >
       {children}
     </div>
   )

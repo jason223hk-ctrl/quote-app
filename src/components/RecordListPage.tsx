@@ -51,6 +51,7 @@ export default function RecordListPage({
   return (
     <>
       <BotanicalHeader
+        compact="big"
         left={
           <>
             <span className="page-title">工程</span>
@@ -68,6 +69,7 @@ export default function RecordListPage({
       />
 
       <FloatBody
+        compact
         testid="record-scroll"
         pills={
           <div className="stat-row">

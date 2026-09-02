@@ -1,7 +1,7 @@
 import type { QuoteRecord } from '../../src/lib/records'
 import type { TreesApi } from '../../src/lib/trees'
 import type { SiteForm, SiteFormApi } from '../../src/lib/siteForm'
-import type { PriceApi, PriceTable } from '../../src/lib/prices'
+import type { PriceApi, PriceRow, PriceTable } from '../../src/lib/prices'
 
 /**
  * 對數用嘅假資料。⛔ 唔會入正式 bundle。
@@ -73,3 +73,51 @@ const PRICES = [
 export const priceApi = { list: async () => PRICES } as unknown as PriceApi
 
 export const nav = { go: () => {} } as never
+
+/**
+ * 單價表：⭐ 十八行同 `P4-單價表-migration.sql` 第 3 段一模一樣，
+ * ⛔ 唔准自己改數 —— 改咗就唔係量緊真嘢。
+ */
+const pr = (
+  key: string,
+  category: string,
+  label: string,
+  calc_mode: string,
+  has_qty: boolean,
+  nt: number | null,
+  kl: number | null,
+  hk: number | null,
+  night: number | null,
+  sort_order: number,
+): PriceRow =>
+  ({
+    key, category, label, calc_mode, has_qty,
+    price_nt: nt, price_kl: kl, price_hk: hk, price_night: night,
+    sort_order, archived_at: null, updated_by: null, updated_at: '', created_at: '',
+  }) as unknown as PriceRow
+
+export const PRICE_TABLE: PriceTable = [
+  pr('climber', 'manpower', '攀樹師', 'per_person_day', true, 2000, 2000, 2000, null, 10),
+  pr('crew', 'manpower', '地面工人', 'per_person_day', true, 1000, 1000, 1000, null, 20),
+  pr('overhead', 'fixed', 'Overhead', 'auto_per_day', false, 2000, 2000, 2000, null, 30),
+  pr('t24', 'waste', '24噸夾車', 'per_unit', true, 900, 1100, 1300, null, 40),
+  pr('t30', 'waste', '30噸夾車', 'per_unit', true, 1500, 1500, 1500, null, 50),
+  pr('t9', 'waste', '9噸碎', 'once', false, 300, 300, 300, null, 60),
+  pr('crane_fatboy', 'crane', '肥仔 - 30噸', 'per_day', true, 3500, 3500, 3900, 5000, 70),
+  pr('crane_fai30', 'crane', '輝哥 - 30噸 + 科同', 'per_day', true, 4500, 4500, 4500, null, 80),
+  pr('crane_fai86', 'crane', '輝哥 8+6', 'per_day', true, 7800, 7800, 8000, 10500, 90),
+  pr('crane_fai100', 'crane', '輝哥 100T 8+6尾', 'per_day', true, 11500, 11500, 11500, null, 100),
+  pr('lift_18', 'lift', '18M', 'per_day', true, 2600, 2600, 2600, null, 110),
+  pr('lift_25', 'lift', '25M', 'per_day', true, 3400, 3400, 3400, null, 120),
+  pr('lift_32', 'lift', '32M', 'per_day', true, 5500, 5500, 5500, null, 130),
+  pr('lift_37', 'lift', '37M', 'per_day', true, 9000, 9000, 9000, null, 140),
+  pr('lift_46', 'lift', '46M', 'per_day', true, 10000, 10000, 10000, null, 150),
+  pr('lift_other', 'lift', 'Other', 'per_day', true, null, null, null, null, 160),
+  pr('yes_self', 'stump', '自己起', 'once', false, null, null, null, null, 170),
+  pr('yes_chuen', 'stump', '銓哥報價', 'once', false, null, null, null, null, 180),
+]
+
+export const fullPriceApi = {
+  list: async () => PRICE_TABLE,
+  update: async () => PRICE_TABLE[0],
+} as unknown as PriceApi

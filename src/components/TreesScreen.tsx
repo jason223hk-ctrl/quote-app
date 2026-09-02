@@ -120,6 +120,7 @@ export default function TreesScreen({ api, photos, accessToken, record, onBack }
   return (
     <>
       <BotanicalHeader
+        compact
         left={
           <HeaderTitle
             back={<BackChip onClick={onBack} />}
@@ -130,6 +131,7 @@ export default function TreesScreen({ api, photos, accessToken, record, onBack }
       />
 
       <FloatBody
+        compact
         testid="tree-scroll"
         pills={
           <div className="stat-row">

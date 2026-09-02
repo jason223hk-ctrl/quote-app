@@ -107,6 +107,7 @@ export default function RecordHubScreen({
   return (
     <>
       <BotanicalHeader
+        compact="project"
         left={
           <HeaderTitle
             back={<BackChip onClick={() => nav.go({ name: 'records' })} />}
@@ -124,25 +125,30 @@ export default function RecordHubScreen({
       />
 
       <FloatBody
+        compact
         testid="hub-scroll"
         pills={
-          <div className="stat-band" data-testid="record-summary">
-            <div className="stat-col">
-              <span className="stat-label">狀態</span>
-              <span className={`status status--${record.status}`}>
-                <span className="status__dot" aria-hidden="true" />
-                {statusLabel(record.status)}
+          <div className="stats stats--project" data-testid="record-summary">
+            <div className="stat">
+              <span className="sic">
+                <Icon name={ICONS.statusQuote} />
               </span>
+              <span className="k">狀態</span>
+              <span className="v v--sm">{statusLabel(record.status)}</span>
             </div>
-            <div className="stat-col">
-              <span className="stat-label">樹木</span>
-              <span className="stat-value">{treeCount ?? '—'}</span>
-            </div>
-            <div className="stat-col">
-              <span className="stat-label">地區</span>
-              <span className="stat-value" style={{ fontSize: 15 }}>
-                {regionLabel(record.region)}
+            <div className="stat">
+              <span className="sic">
+                <Icon name={ICONS.treeCount} />
               </span>
+              <span className="k">樹木</span>
+              <span className="v">{treeCount ?? '—'}</span>
+            </div>
+            <div className="stat">
+              <span className="sic">
+                <Icon name={ICONS.districtPin} />
+              </span>
+              <span className="k">地區</span>
+              <span className="v v--sm">{regionLabel(record.region)}</span>
             </div>
           </div>
         }

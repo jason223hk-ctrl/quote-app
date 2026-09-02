@@ -29,11 +29,12 @@ export default function SettingsScreen({ user, userId, recordCount, onSignOut }:
   return (
     <>
       <BotanicalHeader
+        compact="big"
         left={<span className="page-title">設定</span>}
         right={<UserPill user={user} />}
       />
 
-      <ScrollBody testid="settings-scroll">
+      <ScrollBody testid="settings-scroll" compact>
         <section className="card">
           <h2 className="card__title">帳戶</h2>
           <div className="acct-row">
