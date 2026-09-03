@@ -14,6 +14,7 @@ import RecordHubScreen from './RecordHubScreen'
 import RecordFormPage from './RecordFormPage'
 import TreesScreen from './TreesScreen'
 import ClientFormScreen from './ClientFormScreen'
+import EnvPhotosScreen from './EnvPhotosScreen'
 import SettingsScreen from './SettingsScreen'
 import PriceScreen from './PriceScreen'
 
@@ -162,6 +163,7 @@ export function RecordsScreen({ api, office, user, userId, accessToken, onSignOu
         return (
           <RecordHubScreen
             api={api.trees}
+            photosApi={api.photos}
             siteFormApi={api.siteForm}
             priceApi={api.prices}
             record={record}
@@ -241,6 +243,19 @@ export function RecordsScreen({ api, office, user, userId, accessToken, onSignOu
                 () => ({ name: 'client-form', recordId: record.id }),
               )
             }
+            onBack={() => nav.go({ name: 'record', recordId: record.id })}
+          />
+        )
+      }
+
+      case 'env-photos': {
+        const record = findRecord(route.recordId)
+        if (!record) return loading ? <div className="content"><p className="loading">載入中…</p></div> : missingRecord()
+        return (
+          <EnvPhotosScreen
+            api={api.photos}
+            accessToken={accessToken}
+            record={record}
             onBack={() => nav.go({ name: 'record', recordId: record.id })}
           />
         )

@@ -25,7 +25,12 @@ type Props = {
   api: PhotosApi
   accessToken: string
   recordId: string
-  treeId: string
+  /** ⛔ null ＝ 環境相：成個工程一份，唔屬於任何一棵樹。 */
+  treeId: string | null
+  /** 卡面標題。唔寫就用返全景相嗰個。 */
+  title?: string
+  /** 標題下面一行細字。寫 `null` 就唔出。 */
+  hint?: string | null
 }
 
 /** 畫面上一格相：本機嗰份（有縮圖）加雲端嗰行（有狀態）。 */
@@ -40,7 +45,7 @@ type SlotItem = {
 function mergeItems(
   pending: PendingPhoto[],
   rows: QuotePhoto[],
-  treeId: string,
+  treeId: string | null,
   attempts: (photoId: string) => number,
 ): SlotItem[] {
   const byOperation = new Map(rows.map((row) => [row.operation_id, row]))
@@ -86,7 +91,14 @@ function mergeItems(
  * 條路：撳「拍攝／相簿」→ 壓一次 → 寫落部機 → 上 R2 → 讀返出嚟對數 → 寫一行。
  * ⛔ 每一步失敗都要有一句寫得出嘅中文，唔准靜靜過骨。
  */
-export default function PhotoSlot({ api, accessToken, recordId, treeId }: Props) {
+export default function PhotoSlot({
+  api,
+  accessToken,
+  recordId,
+  treeId,
+  title = '全景相（成棵樹）',
+  hint = 'P3a 只做呢一格。近景、工程相、畫線係之後嘅階段。',
+}: Props) {
   const [pending, setPending] = useState<PendingPhoto[]>([])
   const [rows, setRows] = useState<QuotePhoto[]>([])
   const [busy, setBusy] = useState(false)
@@ -302,8 +314,8 @@ export default function PhotoSlot({ api, accessToken, recordId, treeId }: Props)
 
   return (
     <section className="card photo-slot" data-testid="photo-slot">
-      <h3 className="photo-slot__title">全景相（成棵樹）</h3>
-      <p className="hint">P3a 只做呢一格。近景、工程相、畫線係之後嘅階段。</p>
+      <h3 className="photo-slot__title">{title}</h3>
+      {hint !== null && <p className="hint">{hint}</p>}
 
       {!workerReady && (
         <p className="notice notice--warning" role="status">

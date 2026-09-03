@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { pairedNumber, photoFilename, projectFolderName, safeFilename } from './names.mjs'
+import {
+  pairedNumber,
+  photoFilename,
+  projectFolderName,
+  safeFilename,
+  sitePhotoFilename,
+} from './names.mjs'
 
 describe('safeFilename（tree app 原文）', () => {
   it('非法字元換底線', () => {
@@ -63,5 +69,19 @@ describe('photoFilename', () => {
   it('⛔ 冇 token 就砌唔到，回 null —— 唔准靠估', () => {
     expect(photoFilename('T1', null, 1)).toBeNull()
     expect(photoFilename('T1', '', 1)).toBeNull()
+  })
+})
+
+describe('sitePhotoFilename（環境相）', () => {
+  it('順序數，⛔ 唔係成對編號', () => {
+    expect(sitePhotoFilename(1)).toBe('Site_01.jpg')
+    expect(sitePhotoFilename(2)).toBe('Site_02.jpg')
+    expect(sitePhotoFilename(12)).toBe('Site_12.jpg')
+  })
+
+  it('⛔ seq 唔啱就回 null，唔准靜靜補救成 1', () => {
+    expect(sitePhotoFilename(0)).toBeNull()
+    expect(sitePhotoFilename(-1)).toBeNull()
+    expect(sitePhotoFilename(NaN)).toBeNull()
   })
 })

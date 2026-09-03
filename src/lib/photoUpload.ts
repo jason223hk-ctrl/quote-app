@@ -10,7 +10,8 @@ export type PendingPhoto = {
   /** 影相編號。同 R2 檔名、同 quote_photos 嗰行嘅 operation_id 係同一個。 */
   operationId: string
   recordId: string
-  treeId: string
+  /** ⛔ null ＝ 環境相。 */
+  treeId: string | null
   capturedAt: string
   size: number
   sha256: string

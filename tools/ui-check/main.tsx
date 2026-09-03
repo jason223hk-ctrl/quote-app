@@ -5,6 +5,7 @@ import PriceScreen from '../../src/components/PriceScreen'
 import TreesScreen from '../../src/components/TreesScreen'
 import RecordFormPage from '../../src/components/RecordFormPage'
 import ClientFormScreen from '../../src/components/ClientFormScreen'
+import EnvPhotosScreen from '../../src/components/EnvPhotosScreen'
 import TreeFormPage from '../../src/components/TreeFormPage'
 import RecordListPage from '../../src/components/RecordListPage'
 import SettingsScreen from '../../src/components/SettingsScreen'
@@ -51,6 +52,8 @@ const body =
       onDelete={noop}
       onBack={() => {}}
     />
+  ) : screen === 'env' ? (
+    <EnvPhotosScreen api={fx.photosApi} accessToken="" record={fx.RECORD} onBack={() => {}} />
   ) : screen === 'client' ? (
     <ClientFormScreen record={fx.RECORD} onSave={noop} onBack={() => {}} />
   ) : screen === 'tree' ? (
@@ -78,6 +81,7 @@ const body =
       api={fx.trees}
       siteFormApi={fx.siteFormApi}
       priceApi={fx.priceApi}
+      photosApi={fx.photosApi}
       record={fx.RECORD}
       canEditMarkup
       onMarkupSave={async () => {}}

@@ -144,7 +144,8 @@ export async function sha256Hex(bytes: ArrayBuffer): Promise<string> {
 
 export type PhotoInsert = {
   recordId: string
-  treeId: string
+  /** ⛔ null ＝ 環境相（成個工程一份，唔屬於任何一棵樹）。 */
+  treeId: string | null
   operationId: string
   seq: number
   r2Key: string

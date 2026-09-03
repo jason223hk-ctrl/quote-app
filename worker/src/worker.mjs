@@ -11,7 +11,12 @@
  * 用戶 id 係 Worker 自己驗返嚟嘅。所以邊個都改唔到人哋個資料夾。
  */
 
-import { MITIGATION_TOKENS, photoFilename, projectFolderName } from './names.mjs'
+import {
+  MITIGATION_TOKENS,
+  photoFilename,
+  projectFolderName,
+  sitePhotoFilename,
+} from './names.mjs'
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
@@ -355,14 +360,19 @@ async function mirror(request, env, origin) {
       return json({ ok: false, message: '揾唔到呢張相屬邊一單，或者你冇權睇。' }, 403, origin)
     }
 
-    let treeNo = ''
+    // ⭐ 冇樹 ＝ 環境相（成個工程一份）。檔名另一套：`Site_01.jpg`（Jason 2026-08-24 拍板）。
+    // ⛔ 唔可以行返樹相嗰條路 —— `safeFilename('')` 會出 `untitled`，
+    //    Drive 上面就會見到 `untitled_Whole View_01_Before.jpg`。
+    let filename
     if (photo.tree_id) {
       const trees = await pg(env, userToken, `quote_trees?id=eq.${photo.tree_id}&select=tree_no`)
-      treeNo = trees[0]?.tree_no ?? ''
+      const treeNo = trees[0]?.tree_no ?? ''
+      const token = photo.mitigation ? MITIGATION_TOKENS[photo.mitigation] : 'Whole View'
+      filename = photoFilename(treeNo, token, photo.seq)
+    } else {
+      filename = sitePhotoFilename(photo.seq)
     }
 
-    const token = photo.mitigation ? MITIGATION_TOKENS[photo.mitigation] : 'Whole View'
-    const filename = photoFilename(treeNo, token, photo.seq)
     if (!filename) {
       // 砌唔到檔名有兩個原因，兩個都要講到明，⛔ 唔好靜靜跳過、更加唔准靠估。
       const why =

@@ -52,6 +52,21 @@ export function photoFilename(treeNo, token, seq) {
 }
 
 /**
+ * 環境相檔名：`Site_01.jpg`、`Site_02.jpg`⋯（Jason 2026-08-24 拍板）
+ *
+ * ⛔ 唔用中文、⛔ 唔帶工程名 —— 帶咗嘅話改工程名就要連檔名一齊改。
+ * ⛔ 亦都唔用樹相嗰套成對編號（Before／After）：環境相冇「事前事後」呢個概念，
+ *    所以 `seq` 係順序數，1 → `Site_01`，2 → `Site_02`。
+ *
+ * ⛔ seq 唔啱就回 null，⛔ 唔准靜靜咁補救成 1 —— 同 `pairedNumber` 一樣嘅理由：
+ *    靜靜補救會出一個睇落正常但係錯嘅檔名，冇人會發現。
+ */
+export function sitePhotoFilename(seq) {
+  if (!Number.isFinite(seq) || seq < 1) return null
+  return `Site_${String(Math.floor(seq)).padStart(2, '0')}.jpg`
+}
+
+/**
  * mitigation 代號 → Drive 檔名嘅類別 token。
  * ⛔ 同 `src/lib/options.ts` 嗰啲 `en` 一個字都唔可以差，
  *    因為呢五個係 tree app `PRUNING_WORK_TYPES` 原文。

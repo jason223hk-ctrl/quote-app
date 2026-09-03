@@ -12,6 +12,8 @@ export type Route =
   /** 客戶資料：客戶、聯絡人、電話 */
   | { name: 'client-form'; recordId: string }
   | { name: 'trees'; recordId: string }
+  /** 環境相：成個工程一份，⛔ 唔屬於任何一棵樹 */
+  | { name: 'env-photos'; recordId: string }
   | { name: 'settings' }
   /** 單價設定。⛔ 只有辦公室改得（RLS 把關）。 */
   | { name: 'prices' }

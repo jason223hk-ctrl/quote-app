@@ -4,6 +4,7 @@ import type { QuoteRecord } from '../lib/records'
 import type { TreesApi } from '../lib/trees'
 import type { SiteFormApi, SiteForm } from '../lib/siteForm'
 import type { PriceApi, PriceTable, PriceSnapshot } from '../lib/prices'
+import type { PhotosApi } from '../lib/photos'
 import { quoteLines, type Quote, type PricingInput } from '../lib/pricing'
 import type { Nav } from '../ui/routes'
 import { BackChip, BotanicalHeader, FloatBody, HeaderTitle } from '../ui/shell'
@@ -12,6 +13,7 @@ import CostCard from './CostCard'
 
 type Props = {
   api: TreesApi
+  photosApi: PhotosApi
   siteFormApi: SiteFormApi
   priceApi: PriceApi
   record: QuoteRecord
@@ -32,6 +34,7 @@ const EMPTY_QUOTE: Quote = { lines: [], ask: [], total: 0 }
  */
 export default function RecordHubScreen({
   api,
+  photosApi,
   siteFormApi,
   priceApi,
   record,
@@ -40,6 +43,8 @@ export default function RecordHubScreen({
   nav,
 }: Props) {
   const [treeCount, setTreeCount] = useState<number | null>(null)
+  /** null ＝ 未影過（或者數唔到）。⛔ 數唔到唔可以扮 0。 */
+  const [envCount, setEnvCount] = useState<number | null>(null)
   const [quote, setQuote] = useState<Quote>(EMPTY_QUOTE)
   const [costLoading, setCostLoading] = useState(true)
   const [markupInput, setMarkupInput] = useState<string>(
@@ -61,6 +66,24 @@ export default function RecordHubScreen({
       active = false
     }
   }, [api, record.id])
+
+  useEffect(() => {
+    let active = true
+    void photosApi
+      .listByRecord(record.id)
+      // 環境相 ＝ 冇樹嗰啲。⛔ 唔可以連樹相一齊數。
+      .then((rows) => {
+        if (!active) return
+        const n = rows.filter((row) => row.tree_id === null).length
+        setEnvCount(n === 0 ? null : n)
+      })
+      .catch(() => {
+        if (active) setEnvCount(null)
+      })
+    return () => {
+      active = false
+    }
+  }, [photosApi, record.id])
 
   // 成本：要現場資料表 ＋ 單價表兩樣先計到。
   useEffect(() => {
@@ -203,6 +226,23 @@ export default function RecordHubScreen({
             <span className="hub-sub">
               {treeCount === null ? '每棵樹嘅品種、尺寸、處理方法' : `共 ${treeCount} 棵`}
             </span>
+          </span>
+          <span className="hub-chev">
+            <Icon name={ICONS.chevron} />
+          </span>
+        </button>
+
+        <button
+          className="hub-row"
+          data-testid="hub-env"
+          onClick={() => nav.go({ name: 'env-photos', recordId: record.id })}
+        >
+          <span className="hub-ic">
+            <Icon name={ICONS.envCamera} />
+          </span>
+          <span className="hub-main">
+            <span className="hub-title">環境相</span>
+            <span className="hub-sub">{envCount === null ? '尚未拍攝' : `${envCount} 張`}</span>
           </span>
           <span className="hub-chev">
             <Icon name={ICONS.chevron} />
