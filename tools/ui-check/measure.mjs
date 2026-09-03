@@ -64,13 +64,17 @@ const SCREENS = {
     proto: 'showProject',
     pairs: [
       ['頭部', '.bheader', '#screenProject header', 'anchor'],
-      ['工程名', '.head-name', '#screenProject h1', 'anchor'],
+      // ⚠️ 呢兩項唔量闊度：`.head-title` 係「有幾闊算幾闊」，量到嘅闊其實係
+      //    副標嗰句字撐出嚟。原型副標第三格出建立人（阿耀），真 app 出日／夜 ——
+      //    兩句字唔同闊，量幾多次都唔會啱。
+      //    ⛔ 呢個唔係版面問題，係真嘅內容差異，仲喺待辦上面。
+      ['工程名', '.head-name', '#screenProject h1', 'font'],
       ['返回掣', '.chip-btn', '#screenProject .back', 'anchor', {
           fontFamily: '粒掣入面得一個 icon，冇字。',
           fontSize: '同上，冇字。',
           lineHeight: '同上，冇字。',
         }],
-      ['副標', '.head-sub', '#screenProject header .sub', 'anchorNoSize'],
+      ['副標', '.head-sub', '#screenProject header .sub', 'font'],
       ['三格（成行）', '.stats--project', '#screenProject .stats', 'nosize'],
       ['一格', '.stats--project .stat', '#screenProject .stat', 'nosize'],
       ['格入面 icon', '.stats--project .sic .ico', '#screenProject .stat .sic .ico'],
