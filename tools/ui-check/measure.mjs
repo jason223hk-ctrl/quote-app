@@ -108,7 +108,7 @@ const SCREENS = {
       ['工程卡（位）', '.proj-card', '#allList .pcard', 'anchorNoSize'],
     ],
   },
-  basic: {
+  client: {
     proto: 'showBasic',
     pairs: [
       ['頭部', '.bheader', '#screenBasic header', 'anchor'],
@@ -124,6 +124,14 @@ const SCREENS = {
         },
       ],
       ['卡', '.card', '#screenBasic .card', 'nosize'],
+    ],
+  },
+  basic: {
+    proto: 'showSite',
+    pairs: [
+      ['頭部', '.bheader', '#screenSite header', 'anchor'],
+      ['頁面標題', '.head-name', '#screenSite h1', 'anchor'],
+      ['卡', '.card', '#screenSite .card', 'anchorNoSize'],
     ],
   },
   trees: {

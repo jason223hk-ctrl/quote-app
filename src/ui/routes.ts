@@ -7,10 +7,11 @@ export type Route =
   | { name: 'records' }
   /** 工程詳情 hub —— 基本資料／樹木清單／現場資料表三個入口 */
   | { name: 'record'; recordId: string }
-  /** 基本資料表單。recordId = null 即係新增工程 */
+  /** 工程資料（工程本身 ＋ 現場）。recordId = null 即係新增工程 */
   | { name: 'record-form'; recordId: string | null }
+  /** 客戶資料：客戶、聯絡人、電話 */
+  | { name: 'client-form'; recordId: string }
   | { name: 'trees'; recordId: string }
-  | { name: 'site-form'; recordId: string }
   | { name: 'settings' }
   /** 單價設定。⛔ 只有辦公室改得（RLS 把關）。 */
   | { name: 'prices' }

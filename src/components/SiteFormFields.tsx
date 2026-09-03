@@ -1,4 +1,3 @@
-import { useCallback, useEffect, useState, type FormEvent } from 'react'
 import { toggleValue } from '../lib/forms'
 import {
   CRANE_OPTIONS,
@@ -8,82 +7,23 @@ import {
   WASTE_OPTIONS,
   STUMP_OPTIONS,
 } from '../lib/options'
-import {
-  EMPTY_SITE_FORM_INPUT,
-  siteFormToInput,
-  validateSiteForm,
-  type SiteFormApi,
-  type SiteFormErrors,
-  type SiteFormInput,
-} from '../lib/siteForm'
-import type { QuoteRecord } from '../lib/records'
+import type { SiteFormErrors, SiteFormInput } from '../lib/siteForm'
 import OptionGroup from './OptionGroup'
-import { BackChip, BotanicalHeader, HeaderTitle, ScrollBody } from '../ui/shell'
 
 type Props = {
-  api: SiteFormApi
-  record: QuoteRecord
-  onBack: () => void
+  input: SiteFormInput
+  fieldErrors: SiteFormErrors
+  disabled: boolean
+  patch: (values: Partial<SiteFormInput>) => void
 }
 
-export default function SiteFormScreen({ api, record, onBack }: Props) {
-  const [input, setInput] = useState<SiteFormInput>(EMPTY_SITE_FORM_INPUT)
-  const [fieldErrors, setFieldErrors] = useState<SiteFormErrors>({})
-  const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [saved, setSaved] = useState(false)
-
-  const load = useCallback(async () => {
-    setLoading(true)
-    setError(null)
-    try {
-      setInput(siteFormToInput(await api.get(record.id)))
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : String(caught))
-    } finally {
-      setLoading(false)
-    }
-  }, [api, record.id])
-
-  useEffect(() => {
-    void load()
-  }, [load])
-
-  function patch(values: Partial<SiteFormInput>) {
-    setInput((current) => ({ ...current, ...values }))
-    setSaved(false)
-    setFieldErrors((current) => {
-      const next = { ...current }
-      for (const key of Object.keys(values) as (keyof SiteFormInput)[]) delete next[key]
-      return next
-    })
-  }
-
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-
-    const errors = validateSiteForm(input)
-    if (Object.keys(errors).length > 0) {
-      setFieldErrors(errors)
-      setError('有欄位未填好，請檢查返下面紅色嗰幾行。')
-      return
-    }
-
-    setFieldErrors({})
-    setSaving(true)
-    setError(null)
-    try {
-      // 用 server 回傳嘅 row 做準，唔係本機扮成功。
-      setInput(siteFormToInput(await api.save(record.id, input)))
-      setSaved(true)
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : String(caught))
-    } finally {
-      setSaving(false)
-    }
-  }
-
+/**
+ * 現場嗰堆格（人手／垃圾／機械／起樹頭）。
+ *
+ * ⭐ 抽咗出嚟係因為原型將佢哋同工程基本資料擺埋同一版「工程資料」。
+ * 呢個檔**只負責顯示**，⛔ 唔識得儲存、唔識得 DB —— 邊個用佢邊個負責寫。
+ */
+export default function SiteFormFields({ input, fieldErrors, disabled, patch }: Props) {
   function numberField(key: 'crew_total' | 'work_days' | 'climbers_per_day', label: string) {
     return (
       <label className="field">
@@ -93,7 +33,7 @@ export default function SiteFormScreen({ api, record, onBack }: Props) {
           type="text"
           inputMode="numeric"
           value={input[key]}
-          disabled={saving}
+          disabled={disabled}
           onChange={(event) => patch({ [key]: event.target.value } as Partial<SiteFormInput>)}
         />
         {fieldErrors[key] && (
@@ -114,7 +54,7 @@ export default function SiteFormScreen({ api, record, onBack }: Props) {
           type="text"
           inputMode="numeric"
           value={input[key]}
-          disabled={saving}
+          disabled={disabled}
           onChange={(event) => patch({ [key]: event.target.value } as Partial<SiteFormInput>)}
         />
         {fieldErrors[key] && (
@@ -128,22 +68,6 @@ export default function SiteFormScreen({ api, record, onBack }: Props) {
 
   return (
     <>
-      <BotanicalHeader
-        compact
-        left={
-          <HeaderTitle
-            back={<BackChip onClick={onBack} />}
-            name="現場資料表"
-            sub={record.name}
-          />
-        }
-      />
-
-      <ScrollBody testid="site-form-scroll" compact>
-      {loading ? (
-        <p className="loading">載入中…</p>
-      ) : (
-        <form className="card" onSubmit={handleSubmit} noValidate>
           <fieldset className="group">
             <legend className="group__legend">人手</legend>
             <p className="group__hint">唔知就留空。留空係「未填」，唔會當咗零。</p>
@@ -157,7 +81,7 @@ export default function SiteFormScreen({ api, record, onBack }: Props) {
             hint="必填，至少揀一個。可以同時揀多過一個。"
             options={WASTE_OPTIONS}
             values={input.waste_options}
-            disabled={saving}
+            disabled={disabled}
             error={fieldErrors.waste_options}
             onToggle={(value) => patch({ waste_options: toggleValue(input.waste_options, value) })}
             renderExtra={(value) => {
@@ -172,7 +96,7 @@ export default function SiteFormScreen({ api, record, onBack }: Props) {
             hint="選填。可以同時揀幾部。"
             options={CRANE_OPTIONS}
             values={input.machine_options}
-            disabled={saving}
+            disabled={disabled}
             onToggle={(value) =>
               patch({ machine_options: toggleValue(input.machine_options, value) })
             }
@@ -183,7 +107,7 @@ export default function SiteFormScreen({ api, record, onBack }: Props) {
             hint="選填。可以同時揀幾個高度。"
             options={LIFT_OPTIONS}
             values={input.machine_options}
-            disabled={saving}
+            disabled={disabled}
             onToggle={(value) =>
               patch({ machine_options: toggleValue(input.machine_options, value) })
             }
@@ -195,7 +119,7 @@ export default function SiteFormScreen({ api, record, onBack }: Props) {
                   placeholder="其他升降台"
                   aria-label="其他升降台"
                   value={input.lift_other}
-                  disabled={saving}
+                  disabled={disabled}
                   onChange={(event) => patch({ lift_other: event.target.value })}
                 />
               ) : null
@@ -206,7 +130,7 @@ export default function SiteFormScreen({ api, record, onBack }: Props) {
             legend="機械 — 不用"
             options={MACHINE_NONE_OPTIONS}
             values={input.machine_options}
-            disabled={saving}
+            disabled={disabled}
             onToggle={(value) =>
               patch({ machine_options: toggleValue(input.machine_options, value) })
             }
@@ -217,28 +141,10 @@ export default function SiteFormScreen({ api, record, onBack }: Props) {
             hint="選填。三個都可以獨立揀。"
             options={STUMP_OPTIONS}
             values={input.stump_options}
-            disabled={saving}
+            disabled={disabled}
             onToggle={(value) => patch({ stump_options: toggleValue(input.stump_options, value) })}
           />
 
-          {error && (
-            <p className="notice notice--error" role="alert">
-              {error}
-            </p>
-          )}
-
-          {saved && !error && (
-            <p className="notice notice--ok" role="status">
-              已經存好。
-            </p>
-          )}
-
-          <button className="button" type="submit" disabled={saving}>
-            {saving ? '儲存中…' : '儲存'}
-          </button>
-        </form>
-      )}
-      </ScrollBody>
     </>
   )
 }

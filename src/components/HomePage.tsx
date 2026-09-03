@@ -13,7 +13,7 @@ import RecordListPage from './RecordListPage'
 import RecordHubScreen from './RecordHubScreen'
 import RecordFormPage from './RecordFormPage'
 import TreesScreen from './TreesScreen'
-import SiteFormScreen from './SiteFormScreen'
+import ClientFormScreen from './ClientFormScreen'
 import SettingsScreen from './SettingsScreen'
 import PriceScreen from './PriceScreen'
 
@@ -183,6 +183,7 @@ export function RecordsScreen({ api, office, user, userId, accessToken, onSignOu
         return (
           <RecordFormPage
             record={record}
+            siteFormApi={api.siteForm}
             onSave={(input) =>
               afterWrite(
                 () => (record ? api.records.update(record.id, input) : api.records.create(input)),
@@ -228,13 +229,18 @@ export function RecordsScreen({ api, office, user, userId, accessToken, onSignOu
         )
       }
 
-      case 'site-form': {
+      case 'client-form': {
         const record = findRecord(route.recordId)
         if (!record) return loading ? <div className="content"><p className="loading">載入中…</p></div> : missingRecord()
         return (
-          <SiteFormScreen
-            api={api.siteForm}
+          <ClientFormScreen
             record={record}
+            onSave={(input) =>
+              afterWrite(
+                () => api.records.update(record.id, input),
+                () => ({ name: 'client-form', recordId: record.id }),
+              )
+            }
             onBack={() => nav.go({ name: 'record', recordId: record.id })}
           />
         )

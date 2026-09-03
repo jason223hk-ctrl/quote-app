@@ -157,15 +157,33 @@ export default function RecordHubScreen({
 
         <button
           className="hub-row"
-          data-testid="hub-basic"
+          data-testid="hub-client"
+          onClick={() => nav.go({ name: 'client-form', recordId: record.id })}
+        >
+          <span className="hub-ic">
+            <Icon name={ICONS.customer} />
+          </span>
+          <span className="hub-main">
+            <span className="hub-title">客戶資料</span>
+            <span className="hub-sub">客戶、聯絡人、電話</span>
+          </span>
+          <span className="hub-chev">
+            <Icon name={ICONS.chevron} />
+          </span>
+        </button>
+
+
+        <button
+          className="hub-row"
+          data-testid="hub-record-form"
           onClick={() => nav.go({ name: 'record-form', recordId: record.id })}
         >
           <span className="hub-ic">
             <Icon name={ICONS.projectInfo} />
           </span>
           <span className="hub-main">
-            <span className="hub-title">基本資料</span>
-            <span className="hub-sub">日期、日／夜、地址、地區、客戶、聯絡人、電話</span>
+            <span className="hub-title">工程資料</span>
+            <span className="hub-sub">日期、日／夜、地址、地區、人手、垃圾、機械、起樹頭</span>
           </span>
           <span className="hub-chev">
             <Icon name={ICONS.chevron} />
@@ -185,23 +203,6 @@ export default function RecordHubScreen({
             <span className="hub-sub">
               {treeCount === null ? '每棵樹嘅品種、尺寸、處理方法' : `共 ${treeCount} 棵`}
             </span>
-          </span>
-          <span className="hub-chev">
-            <Icon name={ICONS.chevron} />
-          </span>
-        </button>
-
-        <button
-          className="hub-row"
-          data-testid="hub-site-form"
-          onClick={() => nav.go({ name: 'site-form', recordId: record.id })}
-        >
-          <span className="hub-ic">
-            <Icon name={ICONS.districtPin} />
-          </span>
-          <span className="hub-main">
-            <span className="hub-title">現場資料表</span>
-            <span className="hub-sub">人手、垃圾處理、機械、起樹頭</span>
           </span>
           <span className="hub-chev">
             <Icon name={ICONS.chevron} />

@@ -1,4 +1,4 @@
-import { useRef, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
 import { REGION_OPTIONS, SHIFT_OPTIONS, todayIso } from '../lib/labels'
 import {
   coordsKey,
@@ -10,6 +10,15 @@ import {
   type ReverseResult,
 } from '../lib/geo'
 import { BackChip, BotanicalHeader, HeaderTitle, ScrollBody } from '../ui/shell'
+import SiteFormFields from './SiteFormFields'
+import {
+  EMPTY_SITE_FORM_INPUT,
+  siteFormToInput,
+  validateSiteForm,
+  type SiteFormApi,
+  type SiteFormErrors,
+  type SiteFormInput,
+} from '../lib/siteForm'
 import {
   EMPTY_INPUT,
   rowToInput,
@@ -24,6 +33,8 @@ import {
 type Props = {
   /** null = 新增；有 record = 編輯 */
   record: QuoteRecord | null
+  /** 現場嗰堆格由呢個 API 讀寫。⛔ 同工程本身係兩張表。 */
+  siteFormApi: SiteFormApi
   onSave: (input: RecordInput) => Promise<void>
   onArchiveToggle: () => Promise<void>
   onDelete: () => Promise<void>
@@ -32,8 +43,23 @@ type Props = {
 
 type Busy = 'save' | 'archive' | 'delete' | null
 
+/**
+ * 工程資料。版面照原型 stage57 `#screenSite`：
+ * 上面一張卡係工程本身（日期、日／夜、名稱、地區、地址、備註），
+ * 下面幾張卡係現場（人手、垃圾、機械、起樹頭）。
+ *
+ * ⚠️ 兩堆嘢寫兩張表（`quote_records` 同 `quote_site_form`），
+ *    但用家只見到一粒儲存掣 —— 撳一次，順序寫兩次，
+ *    ⛔ 第一次唔成功就停，唔會寫一半。
+ *
+ * ⚠️ 新增工程嗰陣仲未有 record id，所以現場嗰幾張卡唔會出 ——
+ *    建立咗之後入返嚟就見到。⛔ 唔係漏咗。
+ *
+ * ⛔ 客戶／聯絡人／電話搬咗去「客戶資料」（原型分開兩版），呢度冇咗。
+ */
 export default function RecordFormPage({
   record,
+  siteFormApi,
   onSave,
   onArchiveToggle,
   onDelete,
@@ -46,6 +72,33 @@ export default function RecordFormPage({
   const [busy, setBusy] = useState<Busy>(null)
   const [error, setError] = useState<string | null>(null)
   const [confirmingDelete, setConfirmingDelete] = useState(false)
+
+  const [site, setSite] = useState<SiteFormInput>(EMPTY_SITE_FORM_INPUT)
+  const [siteErrors, setSiteErrors] = useState<SiteFormErrors>({})
+  const [siteLoading, setSiteLoading] = useState(record !== null)
+
+  const recordId = record?.id ?? null
+  const loadSite = useCallback(() => {
+    if (recordId === null) return
+    setSiteLoading(true)
+    void siteFormApi
+      .get(recordId)
+      .then((row) => setSite(siteFormToInput(row)))
+      // ⛔ 攞唔到現場資料唔可以擋住改工程本身 —— 出返空白就算。
+      .catch(() => setSite(EMPTY_SITE_FORM_INPUT))
+      .finally(() => setSiteLoading(false))
+  }, [siteFormApi, recordId])
+
+  useEffect(loadSite, [loadSite])
+
+  function patchSite(values: Partial<SiteFormInput>) {
+    setSite((current) => ({ ...current, ...values }))
+    setSiteErrors((current) => {
+      const next = { ...current }
+      for (const key of Object.keys(values) as (keyof SiteFormInput)[]) delete next[key]
+      return next
+    })
+  }
 
   const [locating, setLocating] = useState(false)
   const [gpsMessage, setGpsMessage] = useState<string | null>(null)
@@ -132,8 +185,23 @@ export default function RecordFormPage({
       return
     }
 
+    // 現場嗰堆都要驗，⛔ 唔可以工程存咗、現場靜靜哋唔見咗。
+    if (record) {
+      const siteProblems = validateSiteForm(site)
+      if (Object.keys(siteProblems).length > 0) {
+        setSiteErrors(siteProblems)
+        setError('有欄位未填好，請檢查返下面紅色嗰幾行。')
+        return
+      }
+    }
+
     setFieldErrors({})
-    await run('save', () => onSave(input))
+    setSiteErrors({})
+    await run('save', async () => {
+      // ⭐ 次序：工程本身行先。⛔ 佢唔成功就停 —— 唔會出現「現場存咗、工程冇存」。
+      await onSave(input)
+      if (record) setSite(siteFormToInput(await siteFormApi.save(record.id, site)))
+    })
   }
 
   function fieldError(key: keyof RecordInput) {
@@ -153,7 +221,7 @@ export default function RecordFormPage({
         left={
           <HeaderTitle
             back={<BackChip onClick={onBack} label="返回" />}
-            name={record ? '基本資料' : '新增工程'}
+            name={record ? '工程資料' : '新增工程'}
             sub={record ? record.name : '填好之後就可以加樹同現場資料'}
           />
         }
@@ -263,39 +331,7 @@ export default function RecordFormPage({
           {fieldError('region')}
         </label>
 
-        <label className="field">
-          <span className="field__label">客戶</span>
-          <input
-            className="field__input"
-            type="text"
-            value={input.client}
-            disabled={busy !== null}
-            onChange={(event) => patch({ client: event.target.value })}
-          />
-        </label>
-
-        <label className="field">
-          <span className="field__label">聯絡人</span>
-          <input
-            className="field__input"
-            type="text"
-            value={input.contact}
-            disabled={busy !== null}
-            onChange={(event) => patch({ contact: event.target.value })}
-          />
-        </label>
-
-        <label className="field">
-          <span className="field__label">電話</span>
-          <input
-            className="field__input"
-            type="tel"
-            inputMode="tel"
-            value={input.phone}
-            disabled={busy !== null}
-            onChange={(event) => patch({ phone: event.target.value })}
-          />
-        </label>
+        {/* ⛔ 客戶／聯絡人／電話搬咗去「客戶資料」（原型分兩版）。 */}
 
         <label className="field">
           <span className="field__label">其他備註</span>
@@ -314,8 +350,18 @@ export default function RecordFormPage({
           </p>
         )}
 
+        {/* 新增嗰陣仲未有 record id，寫唔到現場資料 —— 建立咗入返嚟就有。 */}
+        {record && !siteLoading && (
+          <SiteFormFields
+            input={site}
+            fieldErrors={siteErrors}
+            disabled={busy !== null}
+            patch={patchSite}
+          />
+        )}
+
         <button className="button" type="submit" disabled={busy !== null}>
-          {busy === 'save' ? '儲存中…' : '儲存'}
+          {busy === 'save' ? '儲存中…' : record ? '儲存' : '建立工程'}
         </button>
       </form>
 

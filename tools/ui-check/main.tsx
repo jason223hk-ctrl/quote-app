@@ -4,7 +4,7 @@ import RecordHubScreen from '../../src/components/RecordHubScreen'
 import PriceScreen from '../../src/components/PriceScreen'
 import TreesScreen from '../../src/components/TreesScreen'
 import RecordFormPage from '../../src/components/RecordFormPage'
-import SiteFormScreen from '../../src/components/SiteFormScreen'
+import ClientFormScreen from '../../src/components/ClientFormScreen'
 import TreeFormPage from '../../src/components/TreeFormPage'
 import RecordListPage from '../../src/components/RecordListPage'
 import SettingsScreen from '../../src/components/SettingsScreen'
@@ -45,13 +45,14 @@ const body =
   ) : screen === 'basic' ? (
     <RecordFormPage
       record={fx.RECORD}
+      siteFormApi={fx.siteFormApi}
       onSave={noop}
       onArchiveToggle={noop}
       onDelete={noop}
       onBack={() => {}}
     />
-  ) : screen === 'site' ? (
-    <SiteFormScreen api={fx.siteFormApi} record={fx.RECORD} onBack={() => {}} />
+  ) : screen === 'client' ? (
+    <ClientFormScreen record={fx.RECORD} onSave={noop} onBack={() => {}} />
   ) : screen === 'tree' ? (
     <TreeFormPage
       tree={fx.TREES[0]}
