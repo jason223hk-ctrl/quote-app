@@ -1,4 +1,4 @@
-import { useState, type FormEvent, type ReactNode } from 'react'
+import { useState, type FormEvent } from 'react'
 import { toggleValue } from '../lib/forms'
 import {
   MITIGATION_OTHER,
@@ -14,7 +14,6 @@ import {
   treeToInput,
   validateTree,
   type QuoteTree,
-  type TreeErrors,
   type TreeInput,
 } from '../lib/trees'
 import OptionGroup from './OptionGroup'
@@ -32,8 +31,6 @@ type Props = {
   onSave: (input: TreeInput) => Promise<void>
   onDelete: () => Promise<void>
   onBack: () => void
-  /** P3a 嗰格全景相。由上面餵落嚟，呢一版唔洗識得相片係點運作。 */
-  photoSlot?: ReactNode
 }
 
 export default function TreeFormPage({
@@ -44,12 +41,10 @@ export default function TreeFormPage({
   onSave,
   onDelete,
   onBack,
-  photoSlot,
 }: Props) {
   const [input, setInput] = useState<TreeInput>(() =>
     tree ? treeToInput(tree) : { ...EMPTY_TREE_INPUT, tree_no: suggestedTreeNo },
   )
-  const [fieldErrors, setFieldErrors] = useState<TreeErrors>({})
   const [busy, setBusy] = useState<'save' | 'delete' | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [confirmingDelete, setConfirmingDelete] = useState(false)
@@ -59,11 +54,6 @@ export default function TreeFormPage({
 
   function patch(values: Partial<TreeInput>) {
     setInput((current) => ({ ...current, ...values }))
-    setFieldErrors((current) => {
-      const next = { ...current }
-      for (const key of Object.keys(values) as (keyof TreeInput)[]) delete next[key]
-      return next
-    })
   }
 
   async function run(kind: 'save' | 'delete', action: () => Promise<void>) {
@@ -79,25 +69,18 @@ export default function TreeFormPage({
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    // ⚠️ 呢三格（樹高／DBH／冠幅）2026-09-02 由畫面拎走咗，
+    //    所以錯嘅話冇一格可以標紅 —— 一定要喺表底出一句，
+    //    ⛔ 唔可以靜靜哋擋住儲存，令人以為撳咗冇反應。
     const errors = validateTree(input)
     if (Object.keys(errors).length > 0) {
-      setFieldErrors(errors)
-      setError('有欄位未填好，請檢查返下面紅色嗰幾行。')
+      setError(`舊資料有數字唔啱：${Object.values(errors).join('、')}。請截圖搵 Jason。`)
       return
     }
-    setFieldErrors({})
+
     await run('save', () => onSave(input))
   }
 
-  function fieldError(key: keyof TreeInput) {
-    const message = fieldErrors[key]
-    if (!message) return null
-    return (
-      <span className="field__error" role="alert">
-        {message}
-      </span>
-    )
-  }
 
   return (
     <>
@@ -132,59 +115,14 @@ export default function TreeFormPage({
           )}
         </label>
 
-        <label className="field">
-          <span className="field__label">品種</span>
-          <input
-            className="field__input"
-            type="text"
-            value={input.species}
-            disabled={busy !== null}
-            onChange={(event) => patch({ species: event.target.value })}
-          />
-        </label>
+        {/*
+          ⛔ 品種／樹高／DBH／冠幅四格 2026-09-02 由畫面拎走
+          （Jason：「已經唔會再需要出現係 qa」）。
+          ⚠️ `quote_trees` 嗰四個欄**冇 drop** —— 零真刪，舊樹嘅數留喺庫入面。
+          `treeToInput` 照樣讀返出嚟、`inputToRow` 照樣寫返落去，
+          所以改一棵舊樹⛔ 唔會將佢哋洗白。
+        */}
 
-        <div className="field-row">
-          <label className="field">
-            <span className="field__label">樹高 m</span>
-            <input
-              className="field__input"
-              type="text"
-              inputMode="decimal"
-              value={input.height_m}
-              disabled={busy !== null}
-              onChange={(event) => patch({ height_m: event.target.value })}
-            />
-            {fieldError('height_m')}
-          </label>
-
-          <label className="field">
-            <span className="field__label">DBH mm</span>
-            <input
-              className="field__input"
-              type="text"
-              inputMode="decimal"
-              value={input.dbh_mm}
-              disabled={busy !== null}
-              onChange={(event) => patch({ dbh_mm: event.target.value })}
-            />
-            {fieldError('dbh_mm')}
-          </label>
-
-          <label className="field">
-            <span className="field__label">冠幅 m</span>
-            <input
-              className="field__input"
-              type="text"
-              inputMode="decimal"
-              value={input.crown_m}
-              disabled={busy !== null}
-              onChange={(event) => patch({ crown_m: event.target.value })}
-            />
-            {fieldError('crown_m')}
-          </label>
-        </div>
-
-        <p className="hint">未量度就留空。留空係 null，唔會當咗零。</p>
 
         {/*
           「修剪」係群組標題，唔係一個揀得嘅選項 —— 所以佢做 legend，
@@ -284,7 +222,6 @@ export default function TreeFormPage({
         </button>
       </form>
 
-      {photoSlot}
 
       {tree && (
         <div className="card danger-zone">

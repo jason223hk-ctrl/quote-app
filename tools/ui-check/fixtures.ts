@@ -55,11 +55,11 @@ const tree = (id: string, no: string, species: string, mitigations: string[], no
   }) as unknown as import('../../src/lib/trees').QuoteTree
 
 export const TREES = [
-  tree('1', '1', '', ['crown_clean', 'crown_reduce']),
-  tree('2', '2', '', ['prune']),
+  tree('1', '1', '', ['crown_cleaning', 'crown_reduction']),
+  tree('2', '2', '', ['crown_thinning']),
   tree('3', '3', '', []),
-  tree('4', '4', '', ['crown_clean']),
-  tree('5', '5', '', ['crown_clean']),
+  tree('4', '4', '', ['crown_cleaning']),
+  tree('5', '5', '', ['crown_cleaning', 'removal']),
 ]
 
 export const trees = { list: async () => TREES } as unknown as TreesApi

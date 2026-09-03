@@ -2570,3 +2570,12 @@ h3 {
 .float-cards-scroll.scroll-body.scroll-body--compact.records-scroll {
   padding-top: 11px;
 }
+
+/* 樹牌號撳得（原型：撳個名本身就開改樹，⛔ 冇鉛筆仔）。
+   ⛔ 唔加底線唔加色 —— 佢仲係個標題，唔係一條連結。 */
+.head-name-btn {
+  font: inherit;
+  color: inherit;
+  padding: 0;
+  text-align: left;
+}

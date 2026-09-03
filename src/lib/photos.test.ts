@@ -44,6 +44,7 @@ const row: QuotePhoto = {
 const insert: PhotoInsert = {
   recordId: 'record-1',
   treeId: 'tree-1',
+  mitigation: null,
   operationId: 'op-1',
   seq: 1,
   r2Key: 'user-1/op-1.jpg',

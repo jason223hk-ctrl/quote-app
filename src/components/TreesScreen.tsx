@@ -9,11 +9,11 @@ import {
 } from '../lib/trees'
 import type { QuoteRecord } from '../lib/records'
 import type { PhotosApi } from '../lib/photos'
-import PhotoSlot from './PhotoSlot'
 import { BackChip, BotanicalHeader, HeaderTitle, ScrollBody } from '../ui/shell'
 import { Icon, ICONS } from '../ui/Icon'
 import { regionLabel } from '../lib/labels'
 import TreeFormPage from './TreeFormPage'
+import TreePhotosScreen from './TreePhotosScreen'
 
 type Props = {
   api: TreesApi
@@ -23,16 +23,11 @@ type Props = {
   onBack: () => void
 }
 
-type View = { kind: 'list' } | { kind: 'form'; id: string | null }
-
-/** 一棵樹嘅尺寸摘要。未量度嘅唔會顯示成 0。 */
-function sizeLine(tree: QuoteTree): string {
-  const parts: string[] = []
-  if (tree.height_m !== null) parts.push(`高 ${tree.height_m}m`)
-  if (tree.dbh_mm !== null) parts.push(`DBH ${tree.dbh_mm}mm`)
-  if (tree.crown_m !== null) parts.push(`冠 ${tree.crown_m}m`)
-  return parts.join(' · ')
-}
+type View =
+  | { kind: 'list' }
+  /** 樹木頁 ＝ 相片。撳個樹牌號先入「改樹」。 */
+  | { kind: 'photos'; id: string }
+  | { kind: 'form'; id: string | null }
 
 function mitigationLine(tree: QuoteTree): string {
   const labels = optionLabels(MITIGATION_OPTIONS, tree.mitigations ?? [])
@@ -44,12 +39,26 @@ function mitigationLine(tree: QuoteTree): string {
   return labels.join('、')
 }
 
+/**
+ * 卡上面嗰行摘要：`清理樹冠、縮減樹冠 · 6 張相`（原型嗰個格式）。
+ *
+ * ⛔ 數唔到相就唔出張數，⛔ 唔准出「0 張相」—— 冇影同數唔到係兩件事。
+ */
+function summaryLine(tree: QuoteTree, counts: Record<string, number> | null): string {
+  const works = mitigationLine(tree)
+  const bits = [works === '' ? '未揀工序' : works]
+  if (counts !== null) bits.push(`${counts[tree.id] ?? 0} 張相`)
+  return bits.join(' · ')
+}
+
 /** 04 樹木清單。殼照 tree-app-v7 `ProjectDetailScreen` 嘅樹卡清單。 */
 export default function TreesScreen({ api, photos, accessToken, record, onBack }: Props) {
   const [trees, setTrees] = useState<QuoteTree[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [view, setView] = useState<View>({ kind: 'list' })
+  /** 每棵樹幾多張相。⛔ null ＝ 數唔到，唔准扮 0。 */
+  const [photoCounts, setPhotoCounts] = useState<Record<string, number> | null>(null)
 
   const reload = useCallback(async () => {
     setLoading(true)
@@ -63,6 +72,28 @@ export default function TreesScreen({ api, photos, accessToken, record, onBack }
     }
   }, [api, record.id])
 
+  // 一次過攞成單嘅相，逐棵樹數。⛔ 唔好逐棵樹打一次 DB。
+  useEffect(() => {
+    let active = true
+    void photos
+      .listByRecord(record.id)
+      .then((rows) => {
+        if (!active) return
+        const map: Record<string, number> = {}
+        for (const row of rows) {
+          if (row.tree_id === null) continue
+          map[row.tree_id] = (map[row.tree_id] ?? 0) + 1
+        }
+        setPhotoCounts(map)
+      })
+      .catch(() => {
+        if (active) setPhotoCounts(null)
+      })
+    return () => {
+      active = false
+    }
+  }, [photos, record.id, view])
+
   useEffect(() => {
     void reload()
   }, [reload])
@@ -72,10 +103,34 @@ export default function TreesScreen({ api, photos, accessToken, record, onBack }
       ? (trees.find((tree) => tree.id === view.id) ?? null)
       : null
 
-  async function afterWrite(write: () => Promise<QuoteTree>) {
-    await write()
+  async function afterWrite(write: () => Promise<QuoteTree>, next: View = { kind: 'list' }) {
+    const saved = await write()
     await reload()
-    setView({ kind: 'list' })
+    // 儲存咗一棵樹就入返佢個相片頁 —— 影相先係現場真正要做嘅嘢。
+    setView(next.kind === 'photos' && next.id === '' ? { kind: 'photos', id: saved.id } : next)
+  }
+
+  if (view.kind === 'photos') {
+    const tree = trees.find((item) => item.id === view.id)
+    if (!tree) {
+      return (
+        <div className="content">
+          <p className="loading">載入中…</p>
+        </div>
+      )
+    }
+    return (
+      <TreePhotosScreen
+        photos={photos}
+        accessToken={accessToken}
+        recordId={record.id}
+        recordName={record.name}
+        tree={tree}
+        onEdit={() => setView({ kind: 'form', id: tree.id })}
+        onDelete={() => void afterWrite(() => api.softDelete(tree.id))}
+        onBack={() => setView({ kind: 'list' })}
+      />
+    )
   }
 
   if (view.kind === 'form') {
@@ -89,8 +144,10 @@ export default function TreesScreen({ api, photos, accessToken, record, onBack }
           .map((tree) => tree.tree_no.trim())
           .filter((no) => no !== '')}
         onSave={(input: TreeInput) =>
-          afterWrite(() =>
-            editing ? api.update(editing.id, input) : api.create(record.id, input, trees.length),
+          afterWrite(
+            () =>
+              editing ? api.update(editing.id, input) : api.create(record.id, input, trees.length),
+            { kind: 'photos', id: editing ? editing.id : '' },
           )
         }
         onDelete={() =>
@@ -99,19 +156,8 @@ export default function TreesScreen({ api, photos, accessToken, record, onBack }
             return api.softDelete(editing.id)
           })
         }
-        onBack={() => setView({ kind: 'list' })}
-        photoSlot={
-          // 新樹未有 id，未有 id 就冇嘢可以掛住張相。儲存咗先影得。
-          editing ? (
-            <PhotoSlot
-              api={photos}
-              accessToken={accessToken}
-              recordId={record.id}
-              treeId={editing.id}
-            />
-          ) : (
-            <p className="hint">先儲存呢棵樹，之後就影得全景相。</p>
-          )
+        onBack={() =>
+          setView(editing ? { kind: 'photos', id: editing.id } : { kind: 'list' })
         }
       />
     )
@@ -162,22 +208,14 @@ export default function TreesScreen({ api, photos, accessToken, record, onBack }
               <button
                 className="proj-card proj-card--tree"
                 data-testid="tree-row"
-                onClick={() => setView({ kind: 'form', id: tree.id })}
+                onClick={() => setView({ kind: 'photos', id: tree.id })}
               >
                 <div className="proj-main">
-                  <div className="proj-title">
-                    #{tree.tree_no || '—'} {tree.species || '（未填品種）'}
+                  {/* 原型：標題淨係樹牌號，⛔ 冇品種（品種已經唔喺 qa 出現）。 */}
+                  <div className="proj-title">{tree.tree_no || '—'}</div>
+                  <div className="proj-meta">
+                    <span className="meta-item wrap">{summaryLine(tree, photoCounts)}</span>
                   </div>
-                  {sizeLine(tree) !== '' && (
-                    <div className="proj-meta">
-                      <span className="meta-item">{sizeLine(tree)}</span>
-                    </div>
-                  )}
-                  {mitigationLine(tree) !== '' && (
-                    <div className="proj-meta">
-                      <span className="meta-item wrap">{mitigationLine(tree)}</span>
-                    </div>
-                  )}
                   {tree.note.trim() !== '' && (
                     <div className="proj-meta">
                       <span className="meta-item wrap">備註：{tree.note}</span>

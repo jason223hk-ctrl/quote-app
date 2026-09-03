@@ -12,6 +12,8 @@ export type PendingPhoto = {
   recordId: string
   /** ⛔ null ＝ 環境相。 */
   treeId: string | null
+  /** ⛔ null ＝ 全景相。 */
+  mitigation: string | null
   capturedAt: string
   size: number
   sha256: string
@@ -119,6 +121,7 @@ export async function uploadPending(
     const row = await deps.saveRow({
       recordId: item.recordId,
       treeId: item.treeId,
+      mitigation: item.mitigation ?? null,
       operationId: item.operationId,
       // P3a 一格得一張全景相，所以永遠係第一張 —— ⛔ 但係 1 唔係 0。
       seq: 1,

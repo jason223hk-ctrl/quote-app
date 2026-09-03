@@ -6,6 +6,7 @@ import TreesScreen from '../../src/components/TreesScreen'
 import RecordFormPage from '../../src/components/RecordFormPage'
 import ClientFormScreen from '../../src/components/ClientFormScreen'
 import EnvPhotosScreen from '../../src/components/EnvPhotosScreen'
+import TreePhotosScreen from '../../src/components/TreePhotosScreen'
 import TreeFormPage from '../../src/components/TreeFormPage'
 import RecordListPage from '../../src/components/RecordListPage'
 import SettingsScreen from '../../src/components/SettingsScreen'
@@ -56,6 +57,17 @@ const body =
     <EnvPhotosScreen api={fx.photosApi} accessToken="" record={fx.RECORD} onBack={() => {}} />
   ) : screen === 'client' ? (
     <ClientFormScreen record={fx.RECORD} onSave={noop} onBack={() => {}} />
+  ) : screen === 'treephotos' ? (
+    <TreePhotosScreen
+      photos={fx.photosApi}
+      accessToken=""
+      recordId="r1"
+      recordName="彩"
+      tree={fx.TREES[0]}
+      onEdit={() => {}}
+      onDelete={() => {}}
+      onBack={() => {}}
+    />
   ) : screen === 'tree' ? (
     <TreeFormPage
       tree={fx.TREES[0]}

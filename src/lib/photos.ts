@@ -146,6 +146,11 @@ export type PhotoInsert = {
   recordId: string
   /** ⛔ null ＝ 環境相（成個工程一份，唔屬於任何一棵樹）。 */
   treeId: string | null
+  /**
+   * 邊個工序。⛔ null ＝ 全景相（成棵樹）。
+   * ⚠️ 佢係「邊個工序」，全景相真係冇，同「空字串」唔同意思 —— ⛔ 唔准送空字串。
+   */
+  mitigation: string | null
   operationId: string
   seq: number
   r2Key: string
@@ -165,7 +170,7 @@ export function photoInsertToRow(input: PhotoInsert, userId: string): Record<str
   return {
     record_id: input.recordId,
     tree_id: input.treeId,
-    mitigation: null,
+    mitigation: input.mitigation,
     // ⛔ seq 由 1 數起。檔名嗰個 NN = 2 × seq − 1，寫 0 就會計出 -1。
     // 呢個規矩由寫入呢一個位負責，⛔ 唔准喺砌檔名嗰邊加特例補救。
     seq: input.seq,

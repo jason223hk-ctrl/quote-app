@@ -27,6 +27,12 @@ type Props = {
   recordId: string
   /** ⛔ null ＝ 環境相：成個工程一份，唔屬於任何一棵樹。 */
   treeId: string | null
+  /** 邊個工序。⛔ null ＝ 全景相。環境相亦都係 null。 */
+  mitigation?: string | null
+  /** ⛔ 唔畀影（例如「移除」——全景相已經足夠）。相仲係睇得晒。 */
+  readOnly?: boolean
+  /** 唔畀影嗰陣寫嘅原因。 */
+  readOnlyNote?: string
   /** 卡面標題。唔寫就用返全景相嗰個。 */
   title?: string
   /** 標題下面一行細字。寫 `null` 就唔出。 */
@@ -46,13 +52,14 @@ function mergeItems(
   pending: PendingPhoto[],
   rows: QuotePhoto[],
   treeId: string | null,
+  mitigation: string | null,
   attempts: (photoId: string) => number,
 ): SlotItem[] {
   const byOperation = new Map(rows.map((row) => [row.operation_id, row]))
   const seen = new Set<string>()
 
   const fromLocal = pending
-    .filter((item) => item.treeId === treeId)
+    .filter((item) => item.treeId === treeId && (item.mitigation ?? null) === mitigation)
     .map((item) => {
       seen.add(item.operationId)
       const row = byOperation.get(item.operationId)
@@ -73,7 +80,12 @@ function mergeItems(
 
   // 第二部機影嘅相：得 DB 一行，冇本機副本，一樣要見到。
   const fromRows = rows
-    .filter((row) => row.tree_id === treeId && !seen.has(row.operation_id))
+    .filter(
+      (row) =>
+        row.tree_id === treeId &&
+        row.mitigation === mitigation &&
+        !seen.has(row.operation_id),
+    )
     .map((row) => ({
       operationId: row.operation_id,
       status: statusOfRow(row, attempts(row.id)),
@@ -96,6 +108,9 @@ export default function PhotoSlot({
   accessToken,
   recordId,
   treeId,
+  mitigation = null,
+  readOnly = false,
+  readOnlyNote,
   title = '全景相（成棵樹）',
   hint = 'P3a 只做呢一格。近景、工程相、畫線係之後嘅階段。',
 }: Props) {
@@ -129,13 +144,14 @@ export default function PhotoSlot({
 
     const next: Record<string, string> = {}
     for (const item of localItems) {
-      if (item.treeId === treeId) next[item.operationId] = URL.createObjectURL(item.blob)
+      if (item.treeId === treeId && (item.mitigation ?? null) === mitigation)
+        next[item.operationId] = URL.createObjectURL(item.blob)
     }
     setThumbs((current) => {
       for (const url of Object.values(current)) URL.revokeObjectURL(url)
       return next
     })
-  }, [api, recordId, treeId, storeReady])
+  }, [api, recordId, treeId, mitigation, storeReady])
 
   useEffect(() => {
     void reload().catch((caught: unknown) => {
@@ -155,8 +171,8 @@ export default function PhotoSlot({
   )
 
   const items = useMemo(
-    () => mergeItems(pending, rows, treeId, attemptsOf),
-    [pending, rows, treeId, attemptsOf],
+    () => mergeItems(pending, rows, treeId, mitigation, attemptsOf),
+    [pending, rows, treeId, mitigation, attemptsOf],
   )
 
   /**
@@ -258,6 +274,7 @@ export default function PhotoSlot({
         operationId: newOperationId(),
         recordId,
         treeId,
+        mitigation,
         capturedAt: new Date().toISOString(),
         size: buffer.byteLength,
         sha256: await sha256Hex(buffer),
@@ -323,24 +340,30 @@ export default function PhotoSlot({
         </p>
       )}
 
-      <div className="photo-slot__buttons">
-        <button
-          className="button"
-          type="button"
-          disabled={busy}
-          onClick={() => cameraRef.current?.click()}
-        >
-          {busy ? '處理中…' : '拍攝'}
-        </button>
-        <button
-          className="button button--secondary"
-          type="button"
-          disabled={busy}
-          onClick={() => albumRef.current?.click()}
-        >
-          相簿
-        </button>
-      </div>
+      {/* ⛔ 唔畀影嗰陣連掣都唔出 —— 出咗個灰掣，人會一路撳一路以為壞咗。
+          相仲係睇得晒，所以唔係成張卡收埋。 */}
+      {readOnly ? (
+        <p className="hint">{readOnlyNote ?? '呢格唔使影相。'}</p>
+      ) : (
+        <div className="photo-slot__buttons">
+          <button
+            className="button"
+            type="button"
+            disabled={busy}
+            onClick={() => cameraRef.current?.click()}
+          >
+            {busy ? '處理中…' : '拍攝'}
+          </button>
+          <button
+            className="button button--secondary"
+            type="button"
+            disabled={busy}
+            onClick={() => albumRef.current?.click()}
+          >
+            相簿
+          </button>
+        </div>
+      )}
 
       <input
         ref={cameraRef}

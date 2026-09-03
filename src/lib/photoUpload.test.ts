@@ -10,6 +10,7 @@ function pending(): PendingPhoto {
     operationId: 'op-1',
     recordId: 'record-1',
     treeId: 'tree-1',
+    mitigation: null,
     capturedAt: '2026-08-22T01:00:00.000Z',
     size: bytes.byteLength,
     sha256: 'sha-good',
