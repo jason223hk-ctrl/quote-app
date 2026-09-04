@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="zh-HK">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>私隱政策 — 森伝現場報價記錄</title>
+<link rel="stylesheet" href="/_legal.css">
+</head>
+<body>
+<main>
+
+<h1>私隱政策</h1>
+<p class="sub">森伝現場報價記錄（Sylvan Quote）</p>
+<p class="updated">最後更新：2026 年 9 月 4 日</p>
+
+<p>
+本應用程式由<strong>森伝園藝有限公司</strong>（SYLVAN LANDSCAPING LIMITED，下稱「本公司」）開發及營運，
+供本公司員工在工地記錄樹木資料及拍攝相片，用以編製報價。
+</p>
+
+<div class="note">
+本應用程式<strong>不對外公開</strong>。只有本公司發出帳戶的員工可以登入使用。
+本公司<strong>不會出售、不會出租、亦不會為廣告用途分享</strong>任何資料。
+</div>
+
+<h2>一、我們收集甚麼</h2>
+
+<table>
+<tr><th>類別</th><td>內容</td></tr>
+<tr><th>帳戶</th><td>員工的電郵地址，以及登入所需的驗證資料。</td></tr>
+<tr><th>工程資料</th><td>工程名稱、日期、地址、地區、日更／夜更、客戶名稱、聯絡人、電話。</td></tr>
+<tr><th>樹木資料</th><td>樹牌號、處理工序、備註。</td></tr>
+<tr><th>相片</th><td>員工在工地拍攝的相片，以及拍攝時間、檔案大小、雜湊值（sha256）。</td></tr>
+</table>
+
+<p>
+本應用程式<strong>不會</strong>收集你的通訊錄、通話紀錄、短訊，
+亦<strong>不會</strong>在背景追蹤位置。
+</p>
+
+<h2>二、相片存放在哪裡</h2>
+
+<p>一張相片拍攝之後，會經過三個地方：</p>
+
+<ul>
+  <li><strong>你的裝置</strong> —— 拍攝後即時儲存在裝置本機，即使沒有網絡亦不會遺失。</li>
+  <li><strong>Cloudflare R2</strong> —— 有網絡時自動上載，作為雲端正本。</li>
+  <li><strong>Google Drive</strong> —— 系統再複製一份到本公司的 Google Drive，存放於 <code>Quote App Photos</code> 資料夾。</li>
+</ul>
+
+<p>
+保留兩份雲端副本，是為了避免任何單一服務出事時遺失工地紀錄。
+</p>
+
+<h2>三、我們如何使用 Google 的資料</h2>
+
+<p>
+本應用程式要求 Google Drive 的存取權限（<code>https://www.googleapis.com/auth/drive</code>），
+用途<strong>只有一個</strong>：把上述工地相片複製到本公司 Google Drive 帳戶的
+<code>Quote App Photos</code> 資料夾，並核對檔案大小以確認複製成功。
+</p>
+
+<p>
+需要說明的是：該權限在技術上的範圍涵蓋整個 Google Drive，
+但本應用程式<strong>實際上只會建立及讀取自己所建的資料夾與檔案</strong>，
+不會讀取、修改或刪除該資料夾以外的任何檔案。
+</p>
+
+<div class="note">
+本應用程式使用及轉移由 Google API 取得的資料時，均遵守
+<a href="https://developers.google.com/terms/api-services-user-data-policy" target="_blank" rel="noopener">Google API 服務使用者資料政策</a>，
+包括當中的「限制使用」（Limited Use）規定。<br><br>
+This application's use and transfer of information received from Google APIs adheres to the
+<a href="https://developers.google.com/terms/api-services-user-data-policy" target="_blank" rel="noopener">Google API Services User Data Policy</a>,
+including the Limited Use requirements.
+</div>
+
+<p>本公司<strong>不會</strong>將 Google 帳戶資料用於廣告、不會出售、亦不會轉移給第三方作其他用途。</p>
+
+<h2>四、誰看得到</h2>
+
+<ul>
+  <li>本公司獲發帳戶的員工。</li>
+  <li>下列服務供應商，僅限於為本公司提供技術服務所需的範圍：
+    <strong>Supabase</strong>（資料庫及登入）、
+    <strong>Cloudflare</strong>（相片儲存及網站寄存）、
+    <strong>Google</strong>（Drive 副本）。</li>
+</ul>
+
+<p>除法律要求外，本公司不會向其他任何人披露上述資料。</p>
+
+<h2>五、保留多久，如何刪除</h2>
+
+<p>
+工地紀錄及相片會一直保留，以備日後查閱同一地點的歷史工程。
+在應用程式內刪除的項目會標記為已刪除並不再顯示，本公司可按需要復原。
+</p>
+
+<p>
+如你需要永久刪除某些資料，或需要一份你資料的副本，
+請以下方電郵聯絡本公司。本公司會在合理時間內處理。
+</p>
+
+<h2>六、保安</h2>
+
+<ul>
+  <li>所有連線均使用 HTTPS 加密。</li>
+  <li>登入後每名員工只能存取權限範圍內的資料，由資料庫層級的規則（Row Level Security）強制執行。</li>
+  <li>相片上載後會核對檔案大小及 sha256，核對不到不會標示為已上載。</li>
+</ul>
+
+<h2>七、修改</h2>
+
+<p>本政策如有修改，會更新本頁頂部的「最後更新」日期。</p>
+
+<h2>八、聯絡我們</h2>
+
+<p>
+森伝園藝有限公司<br>
+電郵：<a href="mailto:sylvantree2026@gmail.com">sylvantree2026@gmail.com</a>
+</p>
+
+<footer>
+森伝園藝有限公司 SYLVAN LANDSCAPING LIMITED ·
+<a href="/terms.html">服務條款</a>
+</footer>
+
+</main>
+</body>
+</html>
