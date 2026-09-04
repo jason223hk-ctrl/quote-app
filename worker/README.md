@@ -4,15 +4,28 @@
 
 P3a 用。部機影完相之後問佢攞一條 R2 上傳網址，跟住**部機自己直接上 R2**。
 
-## ⛔ 未部署
+## 部署狀態
 
-**呢個 Worker 仲未部署過。** Code 喺度，但要 Jason 自己部署 ——
-部署 Worker、改 Cloudflare secrets 都係要批准嘅嘢。
+**已經部署：`https://quote-photos-sign.jason223hk.workers.dev`**
 
-## 兩條路
+⚠️ 呢一段本來寫住「⛔ 未部署」，一直冇更新過 —— 2026-09-03 查實先發現佢已經
+上咗（真相入咗 Drive、`/sign` 同 `/mirror` 都行緊）。⛔ 一份講「乜都未上」嘅
+README 比冇 README 更差：睇嘅人會以為線上冇嘢，然後放心改。
+
+⛔ 部署 Worker、改 Cloudflare secrets 一律 Jason 親手做。
+
+## 三條路
 
 - **`POST /sign`**（P3a）—— 簽 R2 上傳網址
 - **`POST /mirror`**（P3b）—— 抄一份上 Google Drive，寫返 `drive_file_id`
+- **`POST /read`**（P5，匯出 PDF）—— 出一條**淨係讀**嘅簽名網址，攞返張相嘅 bytes
+
+  ⛔ 點解唔用 `/sign`：`/sign` 個 key 係 `{呼叫者 userId}/{影相編號}.jpg`，
+  即係你淨係簽得到**自己**影嗰啲。阿耀影嘅相，Jason 喺辦公室匯出 PDF 就簽唔到，
+  出嚟嘅 PDF 會靜靜咁少咗幾張。⇒ `/read` 一律用行入面嗰個 `r2_key`。
+
+  ⭐ 把關全部交返 RLS：由頭到尾用**用家個 token** 去 select，佢睇唔到嗰行就 404。
+  ⛔ 冇用 service role key、⛔ 只出 GET、⛔ 未上到 R2 就回 409（唔出條網址扮有）。
 
 ## 佢做咩、唔做咩
 

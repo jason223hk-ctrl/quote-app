@@ -14,6 +14,10 @@ export type Route =
   | { name: 'trees'; recordId: string }
   /** 環境相：成個工程一份，⛔ 唔屬於任何一棵樹 */
   | { name: 'env-photos'; recordId: string }
+  /** 匯出 PDF。⛔ 冇預覽頁，⛔ 匯出之後唔會問轉狀態 */
+  | { name: 'export-pdf'; recordId: string }
+  /** 同步：⛔ 零粒掣、零彈窗，淨係睇 */
+  | { name: 'sync' }
   | { name: 'settings' }
   /** 單價設定。⛔ 只有辦公室改得（RLS 把關）。 */
   | { name: 'prices' }
@@ -23,10 +27,12 @@ export interface Nav {
 }
 
 /** 底部三粒掣邊粒着燈。 */
-export function activeTab(route: Route): 'home' | 'records' | 'settings' {
+export function activeTab(route: Route): 'home' | 'records' | 'sync' | 'settings' {
   switch (route.name) {
     case 'home':
       return 'home'
+    case 'sync':
+      return 'sync'
     case 'settings':
     case 'prices':
       return 'settings'

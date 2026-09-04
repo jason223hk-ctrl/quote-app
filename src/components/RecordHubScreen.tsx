@@ -249,6 +249,24 @@ export default function RecordHubScreen({
           </span>
         </button>
 
+        <button
+          className="hub-row"
+          data-testid="hub-export"
+          onClick={() => nav.go({ name: 'export-pdf', recordId: record.id })}
+        >
+          <span className="hub-ic">
+            <Icon name={ICONS.exportPdf} />
+          </span>
+          <span className="hub-main">
+            <span className="hub-title">匯出 PDF</span>
+            {/* ⛔ 唔寫「報價單」—— 呢份 PDF 由頭到尾冇一個價錢（成本／收客價永遠唔上 PDF）。 */}
+            <span className="hub-sub">相片報告。⛔ 環境相唔會入</span>
+          </span>
+          <span className="hub-chev">
+            <Icon name={ICONS.chevron} />
+          </span>
+        </button>
+
         <CostCard
           quote={quote}
           markupPct={markupPct}

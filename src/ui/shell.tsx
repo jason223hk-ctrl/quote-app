@@ -161,6 +161,7 @@ export function BottomNav({ active, nav }: { active: string; nav: Nav }) {
     <nav className="bottom-nav">
       {item('home', ICONS.navHome, '首頁', { name: 'home' })}
       {item('records', ICONS.navProjects, '工程', { name: 'records' })}
+      {item('sync', ICONS.navSync, '同步', { name: 'sync' })}
       {item('settings', ICONS.navSettings, '設定', { name: 'settings' })}
     </nav>
   )

@@ -138,3 +138,37 @@ export async function mirrorPhoto(accessToken: string, photoId: string): Promise
     return { ok: false, message: `抄唔到去 Drive：${detail}。R2 嗰份仲喺，唔會冇咗。` }
   }
 }
+
+/**
+ * 攞返一張相嘅 bytes（匯出 PDF 用）。
+ *
+ * ⛔⛔ ⛔ 唔可以用 `sign()` —— 佢個 key 係 `${呼叫者}/${operationId}.jpg`，
+ *    即係淨係簽得到你自己影嗰啲。阿耀影嘅相，Jason 匯出就簽唔到，
+ *    出嚟嘅 PDF 會靜靜咁少咗幾張。⇒ 一律行 Worker 條 `/read`（用行入面個 `r2_key`）。
+ *
+ * ⛔ 攞唔到就 throw 一句中文，⛔ 唔准回一個空白 buffer 扮攞到。
+ */
+export async function fetchPhotoBytes(
+  accessToken: string,
+  photoId: string,
+): Promise<ArrayBuffer> {
+  const base = photoWorkerBase()
+  if (base === '') throw new Error(WORKER_MISSING_MESSAGE)
+
+  const response = await fetch(`${base}/read`, {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify({ photoId }),
+  })
+  const body = (await response.json().catch(() => ({}))) as { get?: string; message?: string }
+  if (!response.ok || !body.get) {
+    throw new Error(body.message ?? `相片服務回覆 ${response.status}`)
+  }
+
+  const bytes = await fetch(body.get, { method: 'GET', cache: 'no-store' })
+  if (!bytes.ok) throw new Error(`讀相片回覆 ${bytes.status}`)
+  return bytes.arrayBuffer()
+}

@@ -119,6 +119,8 @@ export function duplicateTreeNos(trees: QuoteTree[]): string[] {
 
 export type TreesApi = {
   list: (recordId: string) => Promise<QuoteTree[]>
+  /** 成間公司所有樹。同步頁要靠佢將 `tree_id` 換返做樹牌號，⛔ 唔可以逐棵樹打一次 DB。 */
+  listAll: () => Promise<QuoteTree[]>
   create: (recordId: string, input: TreeInput, sortOrder: number) => Promise<QuoteTree>
   update: (id: string, input: TreeInput) => Promise<QuoteTree>
   softDelete: (id: string) => Promise<QuoteTree>
@@ -151,6 +153,16 @@ export function createTreesApi(client: SupabaseClient, userId: string): TreesApi
   }
 
   return {
+    async listAll() {
+      const { data, error } = await client
+        .from('quote_trees')
+        .select('*')
+        .is('deleted_at', null)
+
+      if (error) throw reportError(error.message)
+      return (data ?? []) as QuoteTree[]
+    },
+
     async list(recordId) {
       const { data, error } = await client
         .from('quote_trees')

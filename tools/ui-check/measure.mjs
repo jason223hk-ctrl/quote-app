@@ -151,6 +151,52 @@ const SCREENS = {
       ['FAB', '.fab--round', '#screenList .fab', 'box'],
     ],
   },
+  export: {
+    proto: 'showPdf',
+    pairs: [
+      ['頭部', '.bheader', '#screenPdf header', 'anchor'],
+      ['頁面標題', '.head-name', '#screenPdf h1', 'font'],
+      ['副標', '.head-sub', '#screenPdf header .sub', 'font'],
+      ['說明格', '.note-box', '#screenPdf .note2', 'anchorNoSize'],
+      ['卡', '.card', '#screenPdf .card', 'anchorNoSize'],
+      ['標籤', '.field__label', '#screenPdf label', 'font'],
+      [
+        '輸入格',
+        '.field__input',
+        '#screenPdf input[type=text]',
+        'nosize',
+        {
+          fontSize: '同單價格一樣：原型 15px，但 iOS Safari 細過 16px 會自動放大成版。',
+          lineHeight: '跟住 fontSize 嚟。',
+        },
+      ],
+      ['選擇樹木標題', '.card__title', '#screenPdf .gh2', 'font'],
+      ['chip 一行', '.chips', '#screenPdf #exChips', 'nosize'],
+    ],
+  },
+  sync: {
+    proto: 'showSync',
+    pairs: [
+      ['頭部', '.bheader', '#screenSync header', 'anchor'],
+      ['頁面標題', '.page-title', '#screenSync h1', 'anchor'],
+      // ⚠️ hero 唔量高度：原型副題永遠出（樣板寫死一句），真 app 淨係「全部同步咗」
+      //    先出 —— 有冇第二行係內容差異，唔係版面差異。
+      ['狀態句', '.sync-hero__title', '#screenSync .hero .hh', 'font'],
+      ['總覽標題', '.card__title', '#screenSync main>.card>.gh2', 'font'],
+      ['三格（成行）', '.sync-three', '#screenSync .s3', 'nosize'],
+      ['一格', '.sync-three__cell', '#screenSync .s3>div', 'nosize'],
+      ['大數', '.sync-three__n', '#screenSync .s3 .n', 'font'],
+      ['格標籤', '.sync-three__k', '#screenSync .s3 .l', 'font'],
+      ['區段標題', '.sync-sect', '#screenSync .sect2', 'font'],
+      ['工程行', '.hub-row', '#screenSync .syrow', 'nosize'],
+      ['工程名', '.hub-title', '#screenSync .syrow .nm2', 'font'],
+      // ⚠️ 狀態 pill 唔量闊 —— 佢闊度由「✓ 已同步」嗰個 ✓（U+2713）撐出嚟，
+      //    而原型檔冇 <html lang>，Chromium 就用咗另一隻 fallback 字型畫個 ✓
+      //    （實測 10.48px vs 我哋 8.55px，成個 pill 爭 1.94px）。
+      //    真 app 寫住 lang="zh-HK" 先啱，⛔ 唔可以為咗夾條數而拎走 lang。
+      ['狀態 pill', '.sync-stamp', '#screenSync .sypill', 'font'],
+    ],
+  },
   price: {
     proto: 'showPrice',
     pairs: [

@@ -319,6 +319,57 @@ async function pg(env, token, path, init = {}) {
   return res.json()
 }
 
+/**
+ * 匯出 PDF 要攞返張相嘅 bytes。⇒ 出一條**淨係讀**嘅簽名網址。
+ *
+ * ⛔⛔ 點解唔用 `/sign`：`/sign` 個 key 係 `${呼叫者 userId}/${operationId}.jpg` ——
+ *    即係話你淨係簽得到**自己**嗰啲。阿耀影嘅相，Jason 喺辦公室匯出 PDF 就簽唔到，
+ *    出嚟嘅 PDF 會靜靜咁少咗幾張相。⇒ 呢度一律用行入面嗰個 `r2_key`。
+ *
+ * ⭐ 把關全部交返 RLS：由頭到尾用**用家個 token** 去 select。
+ *    佢睇唔到嗰行，`rows[0]` 就係 undefined ⇒ 404。
+ *    ⛔ 唔准用 service role key，⛔ 唔准喺呢度自己寫一套「邊個睇得」嘅邏輯 ——
+ *    兩套講法一定會有一日唔一致，而唔一致嗰邊就係漏。
+ *
+ * ⛔ 只出 GET。⛔ 唔准喺呢條路徑度順手畀 PUT／DELETE。
+ */
+async function readUrl(request, env, origin) {
+  const auth = request.headers.get('authorization') ?? ''
+  const userId = await userIdFrom(request, env)
+  if (!userId) return json({ error: 'unauthorized' }, 401, origin)
+
+  let body
+  try {
+    body = await request.json()
+  } catch {
+    return json({ error: 'bad json' }, 400, origin)
+  }
+  if (typeof body?.photoId !== 'string' || !UUID.test(body.photoId)) {
+    return json({ error: 'bad photoId' }, 400, origin)
+  }
+
+  const userToken = auth.slice('Bearer '.length)
+
+  try {
+    const rows = await pg(
+      env,
+      userToken,
+      `quote_photos?id=eq.${body.photoId}&select=r2_key,r2_synced_at`,
+    )
+    const photo = rows[0]
+    if (!photo) return json({ error: 'not found' }, 404, origin)
+
+    // ⛔ 未上到 R2 就冇 bytes 可以讀。⛔ 唔准出條網址扮有 —— 出嚟會係一個 404 圖。
+    if (!photo.r2_synced_at || !photo.r2_key) {
+      return json({ ok: false, message: '呢張相仲未上到雲端，未讀得。' }, 409, origin)
+    }
+
+    return json({ ok: true, get: await presign('GET', env, photo.r2_key) }, 200, origin)
+  } catch (caught) {
+    return json({ error: String(caught?.message ?? caught).slice(0, 300) }, 502, origin)
+  }
+}
+
 async function mirror(request, env, origin) {
   const auth = request.headers.get('authorization') ?? ''
   const userId = await userIdFrom(request, env)
@@ -486,6 +537,10 @@ export default {
     }
 
     const url = new URL(request.url)
+
+    if (url.pathname === '/read' && request.method === 'POST') {
+      return readUrl(request, env, origin)
+    }
 
     if (url.pathname === '/mirror' && request.method === 'POST') {
       return mirror(request, env, origin)

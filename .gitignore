@@ -21,3 +21,9 @@ npm-debug.log*
 
 # UI 對數用嘅 build，⛔ 唔入 repo
 tools/ui-check/dist
+
+# 對數用嘅輸出：⛔ 唔入 repo（每次跑都唔同）
+tools/pdf-proof/proof.pdf
+
+# Cowork 搬檔嘅暫存夾：⛔ 唔入 repo
+_to_delete/

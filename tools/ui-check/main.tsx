@@ -10,6 +10,8 @@ import TreePhotosScreen from '../../src/components/TreePhotosScreen'
 import TreeFormPage from '../../src/components/TreeFormPage'
 import RecordListPage from '../../src/components/RecordListPage'
 import SettingsScreen from '../../src/components/SettingsScreen'
+import SyncScreen from '../../src/components/SyncScreen'
+import ExportPdfScreen from '../../src/components/ExportPdfScreen'
 import { IconSprite } from '../../src/ui/Icon'
 import { BottomNav } from '../../src/ui/shell'
 import * as fx from './fixtures'
@@ -86,6 +88,21 @@ const body =
       record={fx.RECORD}
       onBack={() => {}}
     />
+  ) : screen === 'export' ? (
+    <ExportPdfScreen
+      trees={fx.trees}
+      photos={fx.exportPhotosApi}
+      accessToken=""
+      record={fx.RECORD}
+      onBack={() => {}}
+    />
+  ) : screen === 'sync' ? (
+    <SyncScreen
+      photos={fx.syncPhotosApi}
+      trees={fx.trees}
+      records={fx.RECORDS}
+      onOpenRecord={() => {}}
+    />
   ) : screen === 'price' ? (
     <PriceScreen api={fx.fullPriceApi} canEdit onBack={() => {}} />
   ) : screen === 'hub' ? (
@@ -109,7 +126,15 @@ createRoot(document.getElementById('root')!).render(
     <div className="app app--float">
       {body}
       <BottomNav
-        active={screen === 'price' ? 'settings' : screen === 'home' ? 'home' : 'records'}
+        active={
+          screen === 'price' || screen === 'settings'
+            ? 'settings'
+            : screen === 'sync'
+              ? 'sync'
+              : screen === 'home'
+                ? 'home'
+                : 'records'
+        }
         nav={fx.nav}
       />
     </div>

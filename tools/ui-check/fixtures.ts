@@ -62,7 +62,7 @@ export const TREES = [
   tree('5', '5', '', ['crown_cleaning', 'removal']),
 ]
 
-export const trees = { list: async () => TREES } as unknown as TreesApi
+export const trees = { list: async () => TREES, listAll: async () => TREES } as unknown as TreesApi
 
 export const photosApi = {
   listByRecord: async () => [],
@@ -142,3 +142,69 @@ export const fullPriceApi = {
   list: async () => PRICE_TABLE,
   update: async () => PRICE_TABLE[0],
 } as unknown as PriceApi
+
+/**
+ * 同步頁用。三種狀態各有樣本 —— ⛔ 唔准淨係得「已同步」，
+ * 咁樣量嘅係一個永遠唔會出現嘅畫面。
+ */
+const photo = (
+  id: string,
+  recordId: string,
+  treeId: string | null,
+  mitigation: string | null,
+  seq: number,
+  state: 'synced' | 'pending' | 'failed',
+  driveError = '',
+) =>
+  ({
+    id,
+    record_id: recordId,
+    tree_id: treeId,
+    mitigation,
+    seq,
+    operation_id: `op-${id}`,
+    r2_key: `k/${id}.jpg`,
+    r2_synced_at: state === 'pending' ? null : '2026-09-03T02:10:00Z',
+    r2_error: '',
+    drive_file_id: state === 'synced' ? `d-${id}` : '',
+    drive_synced_at: state === 'synced' ? '2026-09-03T02:11:00Z' : null,
+    drive_error: driveError,
+    size_bytes: 2_100_000,
+    sha256: '',
+    captured_at: '2026-09-03T02:00:00Z',
+    remark: '',
+    marks: null,
+    created_by: 'u1',
+    created_at: '2026-09-03T02:00:00Z',
+    deleted_at: null,
+  }) as unknown as import('../../src/lib/photos').QuotePhoto
+
+export const PHOTOS = [
+  photo('p1', '1', '1', 'crown_cleaning', 1, 'synced'),
+  photo('p2', '1', '1', null, 1, 'synced'),
+  photo('p3', '2', '2', 'crown_thinning', 1, 'pending'),
+  photo('p4', '3', null, null, 1, 'synced'),
+  photo('p5', '3', '4', 'crown_cleaning', 2, 'pending'),
+  photo(
+    'p6',
+    '4',
+    '5',
+    'removal',
+    1,
+    'failed',
+    'Google Drive API error 403: The user has exceeded their Drive storage quota. (storageQuotaExceeded)',
+  ),
+]
+
+export const syncPhotosApi = {
+  listAll: async () => PHOTOS,
+} as unknown as import('../../src/lib/photos').PhotosApi
+
+/** 匯出 PDF 頁用。要有相先量到「選擇樹木」嗰段。 */
+export const exportPhotosApi = {
+  listByRecord: async () => [
+    photo('x1', '1', '1', null, 1, 'synced'),
+    photo('x2', '1', '1', 'crown_cleaning', 1, 'synced'),
+    photo('x3', '1', '2', null, 1, 'synced'),
+  ],
+} as unknown as import('../../src/lib/photos').PhotosApi

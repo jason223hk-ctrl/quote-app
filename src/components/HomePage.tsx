@@ -15,6 +15,8 @@ import RecordFormPage from './RecordFormPage'
 import TreesScreen from './TreesScreen'
 import ClientFormScreen from './ClientFormScreen'
 import EnvPhotosScreen from './EnvPhotosScreen'
+import SyncScreen from './SyncScreen'
+import ExportPdfScreen from './ExportPdfScreen'
 import SettingsScreen from './SettingsScreen'
 import PriceScreen from './PriceScreen'
 
@@ -260,6 +262,30 @@ export function RecordsScreen({ api, office, user, userId, accessToken, onSignOu
           />
         )
       }
+
+      case 'export-pdf': {
+        const record = findRecord(route.recordId)
+        if (!record) return loading ? <div className="content"><p className="loading">載入中…</p></div> : missingRecord()
+        return (
+          <ExportPdfScreen
+            trees={api.trees}
+            photos={api.photos}
+            accessToken={accessToken}
+            record={record}
+            onBack={() => nav.go({ name: 'record', recordId: record.id })}
+          />
+        )
+      }
+
+      case 'sync':
+        return (
+          <SyncScreen
+            photos={api.photos}
+            trees={api.trees}
+            records={records}
+            onOpenRecord={(recordId) => nav.go({ name: 'record', recordId })}
+          />
+        )
 
       case 'settings':
         return (

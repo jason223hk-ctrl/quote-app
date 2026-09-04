@@ -205,6 +205,11 @@ export const DUPLICATE_NOT_FOUND_MESSAGE =
 
 export type PhotosApi = {
   listByRecord: (recordId: string) => Promise<QuotePhoto[]>
+  /**
+   * 全部工程嘅相，一次過。同步頁用。
+   * ⛔ RLS 已經幫你限死係你自己嘅嘢，⛔ 唔使亦唔准喺前端再篩一次「邊個 user」。
+   */
+  listAll: () => Promise<QuotePhoto[]>
   /** 用影相編號揾返 —— 重試之前查一次，就唔會整兩行出嚟。 */
   findByOperationId: (operationId: string) => Promise<QuotePhoto | null>
   create: (input: PhotoInsert) => Promise<QuotePhoto>
@@ -227,6 +232,17 @@ export function createPhotosApi(client: SupabaseClient, userId: string): PhotosA
         .eq('record_id', recordId)
         .is('deleted_at', null)
         .order('created_at', { ascending: true })
+
+      if (error) throw reportError(error.message)
+      return (data ?? []) as QuotePhoto[]
+    },
+
+    async listAll() {
+      const { data, error } = await client
+        .from('quote_photos')
+        .select('*')
+        .is('deleted_at', null)
+        .order('created_at', { ascending: false })
 
       if (error) throw reportError(error.message)
       return (data ?? []) as QuotePhoto[]
