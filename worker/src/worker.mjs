@@ -158,7 +158,24 @@ async function googleToken(env) {
       refresh_token: env.GOOGLE_REFRESH_TOKEN,
     }),
   })
-  if (!res.ok) throw new Error(`Drive 登入失敗（${res.status}）`)
+  // ⛔ 唔准淨係報個 status code。2026-09-04 真機中過：畫面出「Drive 登入失敗（400）」，
+  //    而 400 可以係「條通行證過咗期」（`invalid_grant`）、又可以係「client id／secret 唔啱」
+  //    （`invalid_client`）—— 兩件事嘅修法完全唔同（一個重做授權，一個改 secret）。
+  //    掉咗 Google 講嘅原因，就等於逼下一個人靠估，而估錯就會白做十五分鐘授權。
+  //
+  // ⛔ Google 呢個回覆入面冇 token、冇 secret，所以帶出嚟安全；
+  //    ⛔ 但唔准改成連 request body 一齊出 —— 嗰度有 refresh token。
+  if (!res.ok) {
+    const raw = await res.text().catch(() => '')
+    let why = ''
+    try {
+      const body = JSON.parse(raw)
+      why = body.error_description || body.error || ''
+    } catch {
+      why = raw.slice(0, 120)
+    }
+    throw new Error(`Drive 登入失敗（${res.status}${why ? '：' + why : ''}）`)
+  }
   return (await res.json()).access_token
 }
 

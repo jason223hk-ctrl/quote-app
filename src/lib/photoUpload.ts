@@ -1,6 +1,7 @@
 import {
   digestMatches,
   digestMismatchMessage,
+  SlotSeqTakenError,
   type PhotoInsert,
   type QuotePhoto,
 } from './photos'
@@ -42,8 +43,29 @@ export type UploadDeps = {
   getBytes: (url: string) => Promise<ArrayBuffer>
   digest: (bytes: ArrayBuffer) => Promise<string>
   findRow: (operationId: string) => Promise<QuotePhoto | null>
+  /** 問 DB 攞呢一格下一個號。⛔ 前端唔准自己數（`P3c-計劃書.md` D1）。 */
+  allocateSeq: (
+    recordId: string,
+    treeId: string | null,
+    mitigation: string | null,
+  ) => Promise<number>
   saveRow: (input: PhotoInsert) => Promise<QuotePhoto>
+  /** 等一等先再試。測試餵一個即刻 resolve 嘅版本入嚟，唔使真係等。 */
+  wait?: (ms: number) => Promise<void>
 }
+
+/**
+ * 派號撞咗最多再試幾多次，同埋每次之間等幾耐（`P3c-計劃書.md` §5.5）。
+ *
+ * ⛔⛔ 唔准無限重試。三次係按「同一格同時有兩部機」計 —— 兩部機互相讓一次就夠。
+ * ⚠️ 真機見到三次都唔夠，返嚟講，⛔ 唔准自己加大個數。
+ */
+export const SEQ_MAX_TRIES = 3
+export const SEQ_BACKOFF_MS = [200, 400]
+
+/** 三次都排唔到號。⛔ 一個具體動作 ＋ 一個具體對象。 */
+export const SEQ_EXHAUSTED_MESSAGE =
+  '呢張相排唔到號，可能有人同時影緊同一格。相仲喺部機同雲端度，唔會冇咗。請撳「再試一次」，或者截圖搵 Jason。'
 
 export type UploadResult =
   | { ok: true; row: QuotePhoto; alreadyDone: boolean }
@@ -117,24 +139,52 @@ export async function uploadPending(
     return { ok: false, message: digestMismatchMessage(expected, actual) }
   }
 
-  try {
-    const row = await deps.saveRow({
-      recordId: item.recordId,
-      treeId: item.treeId,
-      mitigation: item.mitigation ?? null,
-      operationId: item.operationId,
-      // P3a 一格得一張全景相，所以永遠係第一張 —— ⛔ 但係 1 唔係 0。
-      seq: 1,
-      r2Key: signed.key,
-      sizeBytes: item.size,
-      sha256: item.sha256,
-      capturedAt: item.capturedAt,
-    })
-    return { ok: true, row, alreadyDone: false }
-  } catch (caught) {
-    // R2 已經有 bytes，但 DB 冇行。相唔會冇咗，重試會用返同一個編號蓋返同一個 key。
-    return { ok: false, message: failureMessage('saveRow', caught) }
+  // ⛔⛔ `seq` 由 **DB** 派，⛔ 唔准寫死。
+  //
+  // ⚠️ 2026-09-04 真機中過：呢度本來寫死 `seq: 1`，段註解仲寫住
+  //    「P3a 一格得一張全景相，所以永遠係第一張」。但 Jason 2026-08-24 已經拍板
+  //    環境相「想影幾多影幾多」、樹相一格亦都唔設上限 ⇒ 同一格第二張相又係 1，
+  //    即刻撞 `quote_photos_slot_seq_uidx`。
+  //    ⭐ 個 index 攔得啱（⛔ 冇寫兩行同號落去），係前端一直冇跟返 P3c 個做法。
+  const wait = deps.wait ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)))
+
+  for (let attempt = 0; attempt < SEQ_MAX_TRIES; attempt += 1) {
+    let seq: number
+    try {
+      seq = await deps.allocateSeq(item.recordId, item.treeId, item.mitigation ?? null)
+    } catch (caught) {
+      // 派唔到號（多數係冇網）。⛔ 唔准自己填一個號頂住。
+      return { ok: false, message: failureMessage('allocateSeq', caught) }
+    }
+
+    try {
+      const row = await deps.saveRow({
+        recordId: item.recordId,
+        treeId: item.treeId,
+        mitigation: item.mitigation ?? null,
+        operationId: item.operationId,
+        seq,
+        r2Key: signed.key,
+        sizeBytes: item.size,
+        sha256: item.sha256,
+        capturedAt: item.capturedAt,
+      })
+      return { ok: true, row, alreadyDone: false }
+    } catch (caught) {
+      // 撞號 ＝ 有人喺我派號同寫入之間霸咗呢個號。⛔ 唔當出錯，攞下一個號再試。
+      if (caught instanceof SlotSeqTakenError) {
+        const backoff = SEQ_BACKOFF_MS[attempt]
+        if (backoff !== undefined) await wait(backoff)
+        continue
+      }
+      // R2 已經有 bytes，但 DB 冇行。相唔會冇咗，重試會用返同一個編號蓋返同一個 key。
+      return { ok: false, message: failureMessage('saveRow', caught) }
+    }
   }
+
+  // 三次都撞 ⇒ 終點狀態「有事要人睇」。⛔ 唔准靜靜咁再試落去。
+  console.error('[quote-app] photo seq allocation exhausted:', item.operationId)
+  return { ok: false, message: SEQ_EXHAUSTED_MESSAGE }
 }
 
 /**

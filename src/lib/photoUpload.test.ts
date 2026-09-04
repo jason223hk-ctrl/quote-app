@@ -1,7 +1,14 @@
 import { describe, expect, it, vi } from 'vitest'
-import { uploadPending, targetSize, type PendingPhoto, type UploadDeps } from './photoUpload'
+import {
+  SEQ_EXHAUSTED_MESSAGE,
+  SEQ_MAX_TRIES,
+  targetSize,
+  uploadPending,
+  type PendingPhoto,
+  type UploadDeps,
+} from './photoUpload'
 import { JPEG_QUALITY, MAX_EDGE } from './photoTransport'
-import type { QuotePhoto } from './photos'
+import { SlotSeqTakenError, type PhotoInsert, type QuotePhoto } from './photos'
 
 const bytes = new Uint8Array([1, 2, 3, 4, 5])
 
@@ -30,7 +37,10 @@ function deps(overrides: Partial<UploadDeps> = {}): UploadDeps {
     getBytes: vi.fn(async () => bytes.buffer.slice(0) as ArrayBuffer),
     digest: vi.fn(async () => 'sha-good'),
     findRow: vi.fn(async () => null),
+    allocateSeq: vi.fn(async () => 1),
     saveRow: vi.fn(async () => savedRow),
+    // ⛔ 測試唔真係等 —— 但個 backoff 有冇叫過照樣驗得到。
+    wait: vi.fn(async () => {}),
     ...overrides,
   }
 }
@@ -154,5 +164,98 @@ describe('壓縮參數', () => {
 
   it('質素維持 0.85，同 tree app capture 嗰 pass 一樣', () => {
     expect(JPEG_QUALITY).toBe(0.85)
+  })
+})
+
+describe('派號（P3c §5.5）', () => {
+  it('⛔ seq 由 DB 派，⛔ 唔再寫死 1', async () => {
+    const d = deps({ allocateSeq: vi.fn(async () => 7) })
+    await uploadPending(pending(), d)
+    expect(d.saveRow).toHaveBeenCalledWith(expect.objectContaining({ seq: 7 }))
+  })
+
+  it('派號要講清楚係邊一格', async () => {
+    const d = deps()
+    const item = { ...pending(), treeId: 't1', mitigation: 'crown_cleaning' }
+    await uploadPending(item, d)
+    expect(d.allocateSeq).toHaveBeenCalledWith('record-1', 't1', 'crown_cleaning')
+  })
+
+  it('環境相個格 ＝ treeId null、mitigation null', async () => {
+    const d = deps()
+    await uploadPending({ ...pending(), treeId: null, mitigation: null }, d)
+    expect(d.allocateSeq).toHaveBeenCalledWith('record-1', null, null)
+  })
+
+  it('撞號就攞下一個號再試，⛔ 唔當出錯', async () => {
+    const seqs = [1, 2]
+    const allocateSeq = vi.fn(async () => seqs.shift() ?? 9)
+    const saveRow = vi.fn(async (input: PhotoInsert) => {
+      if (input.seq === 1) throw new SlotSeqTakenError()
+      return savedRow
+    })
+    const d = deps({ allocateSeq, saveRow })
+
+    const result = await uploadPending(pending(), d)
+
+    expect(result.ok).toBe(true)
+    expect(allocateSeq).toHaveBeenCalledTimes(2)
+    expect(saveRow).toHaveBeenLastCalledWith(expect.objectContaining({ seq: 2 }))
+  })
+
+  it('每次之間要等一等，⛔ 唔准連環撞', async () => {
+    const d = deps({
+      saveRow: vi.fn(async () => {
+        throw new SlotSeqTakenError()
+      }),
+    })
+    await uploadPending(pending(), d)
+    expect(d.wait).toHaveBeenCalledWith(200)
+    expect(d.wait).toHaveBeenCalledWith(400)
+  })
+
+  it('⛔ 唔准無限重試 —— 最多三次', async () => {
+    const saveRow = vi.fn(async () => {
+      throw new SlotSeqTakenError()
+    })
+    const d = deps({ saveRow })
+
+    const result = await uploadPending(pending(), d)
+
+    expect(saveRow).toHaveBeenCalledTimes(SEQ_MAX_TRIES)
+    expect(result.ok).toBe(false)
+    if (!result.ok) {
+      // ⛔ 到頂要有一個明確終點，而且句嘢要有一個動作同一個對象。
+      expect(result.message).toBe(SEQ_EXHAUSTED_MESSAGE)
+      expect(result.message).toContain('再試一次')
+      expect(result.message).toContain('Jason')
+      // ⛔ 唔准嚇人 —— 相真係冇冇咗。
+      expect(result.message).toContain('唔會冇咗')
+    }
+  })
+
+  it('派唔到號：出中文，⛔ 唔准自己填一個號頂住', async () => {
+    const saveRow = vi.fn(async () => savedRow)
+    const d = deps({
+      allocateSeq: vi.fn(async () => {
+        throw new Error('攞唔到相片編號。')
+      }),
+      saveRow,
+    })
+
+    const result = await uploadPending(pending(), d)
+
+    expect(result.ok).toBe(false)
+    expect(saveRow).not.toHaveBeenCalled()
+  })
+
+  it('⛔ 派號要喺 R2 對完數之後先做 —— 上唔到就唔應該霸個號', async () => {
+    const d = deps({
+      putBytes: vi.fn(async () => {
+        throw new Error('connection reset')
+      }),
+    })
+    await uploadPending(pending(), d)
+    expect(d.allocateSeq).not.toHaveBeenCalled()
   })
 })

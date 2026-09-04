@@ -9,7 +9,9 @@ import {
   createPhotosApi,
   digestMatches,
   digestMismatchMessage,
+  isSlotSeqViolation,
   isUniqueViolation,
+  SlotSeqTakenError,
   newOperationId,
   photoInsertToRow,
   r2KeyFor,
@@ -266,6 +268,12 @@ const duplicateError = {
   message: 'duplicate key value violates unique constraint "quote_photos_operation_id_uidx"',
 }
 
+/** 同一格撞號 —— ⛔ 同上面嗰個係兩件唔同嘅事，雖然兩個都係 23505。 */
+const slotSeqError = {
+  code: '23505',
+  message: 'duplicate key value violates unique constraint "quote_photos_slot_seq_uidx"',
+}
+
 describe('create 撞到 unique（重試、或者兩部機一齊上）', () => {
   it('當成功，回返本身嗰行', async () => {
     const existing = { ...row, operation_id: 'op-1' }
@@ -333,5 +341,119 @@ describe('順利嗰次', () => {
     const saved = { ...row, id: 'photo-9' }
     const { client } = fakeClient({ insertResult: { data: saved, error: null }, existing: null })
     await expect(createPhotosApi(client, 'user-1').create(insert)).resolves.toBe(saved)
+  })
+})
+
+describe('isSlotSeqViolation', () => {
+  it('認得同一格撞號', () => {
+    expect(isSlotSeqViolation(slotSeqError)).toBe(true)
+  })
+
+  it('⛔ operation_id 撞唔算 —— 嗰個意思係「已經寫咗」', () => {
+    expect(isSlotSeqViolation(duplicateError)).toBe(false)
+  })
+
+  // ⛔ 唔准寫成「唔係 operation_id 就當係撞號」：將來加多個 unique index，
+  //    嗰種寫法會將新嗰個當成撞號，然後一路重試落去。
+  it('⛔ 認唔到嘅 index 唔准當成撞號', () => {
+    expect(
+      isSlotSeqViolation({
+        message: 'duplicate key value violates unique constraint "some_future_uidx"',
+      }),
+    ).toBe(false)
+  })
+})
+
+describe('兩種 23505 要分得開（2026-09-04 真機中過）', () => {
+  it('同一格撞號 → 出 SlotSeqTakenError，等上面攞下一個號再試', async () => {
+    const { client } = fakeClient({
+      insertResult: { data: null, error: slotSeqError },
+      existing: null,
+    })
+
+    await expect(createPhotosApi(client, 'user-1').create(insert)).rejects.toBeInstanceOf(
+      SlotSeqTakenError,
+    )
+  })
+
+  it('⛔ 同一格撞號唔准出「請截圖搵 Jason」—— 系統自己重試就搞得掂', async () => {
+    const { client } = fakeClient({
+      insertResult: { data: null, error: slotSeqError },
+      existing: null,
+    })
+
+    await expect(createPhotosApi(client, 'user-1').create(insert)).rejects.not.toThrow(
+      DUPLICATE_NOT_FOUND_MESSAGE,
+    )
+  })
+
+  it('撞號但個 operation_id 真係已經寫咗 → 照當成功', async () => {
+    const existing = { ...row, operation_id: 'op-1' }
+    const { client } = fakeClient({
+      insertResult: { data: null, error: slotSeqError },
+      existing,
+    })
+
+    await expect(createPhotosApi(client, 'user-1').create(insert)).resolves.toBe(existing)
+  })
+})
+
+describe('allocateSeq', () => {
+  function rpcClient(result: { data: unknown; error: { message: string } | null }) {
+    const calls: unknown[] = []
+    const client = {
+      rpc(name: string, args: unknown) {
+        calls.push({ name, args })
+        return Promise.resolve(result)
+      },
+    }
+    return { client: client as unknown as SupabaseClient, calls }
+  }
+
+  it('叫 DB 派號，⛔ 前端唔自己數', async () => {
+    const { client, calls } = rpcClient({ data: 3, error: null })
+    const seq = await createPhotosApi(client, 'user-1').allocateSeq('rec', 'tree', 'removal')
+
+    expect(seq).toBe(3)
+    expect(calls).toEqual([
+      {
+        name: 'allocate_quote_photo_seq',
+        args: { p_record_id: 'rec', p_tree_id: 'tree', p_mitigation: 'removal' },
+      },
+    ])
+  })
+
+  it('環境相：兩個都係 null', async () => {
+    const { client, calls } = rpcClient({ data: 1, error: null })
+    await createPhotosApi(client, 'user-1').allocateSeq('rec', null, null)
+
+    expect(calls).toEqual([
+      {
+        name: 'allocate_quote_photo_seq',
+        args: { p_record_id: 'rec', p_tree_id: null, p_mitigation: null },
+      },
+    ])
+  })
+
+  // ⛔ 派唔到號就唔准自己填一個 —— 自己填等於繞過個 index，兩行同號真係會寫得入。
+  it('⛔ 回一個唔係數字嘅嘢，唔准當 1', async () => {
+    const { client } = rpcClient({ data: null, error: null })
+    await expect(
+      createPhotosApi(client, 'user-1').allocateSeq('rec', null, null),
+    ).rejects.toThrow(/攞唔到相片編號/)
+  })
+
+  it('⛔ 回 0 都唔准要 —— seq 由 1 數起，0 會計出 -1 個檔名', async () => {
+    const { client } = rpcClient({ data: 0, error: null })
+    await expect(
+      createPhotosApi(client, 'user-1').allocateSeq('rec', null, null),
+    ).rejects.toThrow(/攞唔到相片編號/)
+  })
+
+  it('DB 出錯：出中文，⛔ 唔准彈英文原文', async () => {
+    const { client } = rpcClient({ data: null, error: { message: 'permission denied' } })
+    await expect(
+      createPhotosApi(client, 'user-1').allocateSeq('rec', null, null),
+    ).rejects.not.toThrow(/permission denied/)
   })
 })

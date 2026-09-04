@@ -192,6 +192,16 @@ export function photoInsertToRow(input: PhotoInsert, userId: string): Record<str
  * 唔係淨係靠 code 揸住。撞到嗰陣**唔係出事，係「呢張相之前已經寫咗」** ——
  * 兩部機一齊上、或者網絡抽一抽，都會行到呢一條。
  */
+/**
+ * 撞嘅係咪「同一格個號」嗰個 index（`quote_photos_slot_seq_uidx`）。
+ *
+ * ⚠️ 認個 index 名。⛔ 唔准反過嚟寫「唔係 operation_id 就當係佢」——
+ * 將來加多個 unique index，嗰種寫法會靜靜咁將新嗰個當成撞號，然後無限重試。
+ */
+export function isSlotSeqViolation(error: { message: string }): boolean {
+  return /quote_photos_slot_seq_uidx/i.test(error.message)
+}
+
 export function isUniqueViolation(error: { code?: string; message: string }): boolean {
   return (
     error.code === '23505' ||
@@ -203,6 +213,24 @@ export function isUniqueViolation(error: { code?: string; message: string }): bo
 export const DUPLICATE_NOT_FOUND_MESSAGE =
   '資料庫話呢張相已經有紀錄，但即刻揾返出嚟又揾唔到。相仲喺部機度，唔會冇咗。請截圖搵 Jason。'
 
+/**
+ * 同一格撞咗號（`quote_photos_slot_seq_uidx`）。
+ *
+ * ⛔⛔ 呢個**唔係** `operation_id` 嗰種撞。兩者都係 23505，但意思相反：
+ *   - `operation_id` 撞 ＝ **呢張相之前已經寫咗**，重試唔會多一行 ⇒ 當佢成功。
+ *   - 同一格撞號 ＝ **另一張相霸咗呢個號** ⇒ 要**攞下一個號再試**。
+ *
+ * ⚠️ 2026-09-04 真機中過：兩者當咗同一件事處理，於是第二張環境相彈
+ * 「資料庫話呢張相已經有紀錄，但即刻搵返出嚟又搵唔到」——
+ * 句嘢本身冇講錯，但佢叫人截圖搵 Jason，而其實系統自己重試就搞得掂。
+ */
+export class SlotSeqTakenError extends Error {
+  constructor(message = '呢個號已經俾同一格另一張相霸咗。') {
+    super(message)
+    this.name = 'SlotSeqTakenError'
+  }
+}
+
 export type PhotosApi = {
   listByRecord: (recordId: string) => Promise<QuotePhoto[]>
   /**
@@ -212,6 +240,17 @@ export type PhotosApi = {
   listAll: () => Promise<QuotePhoto[]>
   /** 用影相編號揾返 —— 重試之前查一次，就唔會整兩行出嚟。 */
   findByOperationId: (operationId: string) => Promise<QuotePhoto | null>
+  /**
+   * 問資料庫攞呢一格下一個號。
+   *
+   * ⛔⛔ 由 **DB** 派號，⛔ 前端唔准自己數（`P3c-計劃書.md` D1）。
+   * 前端數嘅話，阿耀數唔到聰嗰行（RLS 一收窄就會咁），兩個人永遠算返同一個號。
+   *
+   * ⚠️ 「先派號、後 insert」中間有一個**已知而且有界**嘅 race：
+   * 兩部機可能攞到同一個號。⇒ 個 unique index 係最後一道閘，
+   * 撞到就攞下一個號再試（`uploadPending` 做，最多三次）。
+   */
+  allocateSeq: (recordId: string, treeId: string | null, mitigation: string | null) => Promise<number>
   create: (input: PhotoInsert) => Promise<QuotePhoto>
 }
 
@@ -260,6 +299,22 @@ export function createPhotosApi(client: SupabaseClient, userId: string): PhotosA
       return (data ?? null) as QuotePhoto | null
     },
 
+    async allocateSeq(recordId, treeId, mitigation) {
+      const { data, error } = await client.rpc('allocate_quote_photo_seq', {
+        p_record_id: recordId,
+        p_tree_id: treeId,
+        p_mitigation: mitigation,
+      })
+
+      if (error) throw reportError(error.message)
+      // ⛔ 派唔到號就唔准自己填一個（`P3c-計劃書.md` §7）——
+      //    自己填等於繞過咗個 index，兩行同號就真係會寫得入去。
+      if (typeof data !== 'number' || !Number.isFinite(data) || data < 1) {
+        throw new Error('攞唔到相片編號。相仲喺部機度，唔會冇咗。請撳「再試一次」。')
+      }
+      return data
+    },
+
     async create(input) {
       const { data, error } = await client
         .from('quote_photos')
@@ -269,10 +324,14 @@ export function createPhotosApi(client: SupabaseClient, userId: string): PhotosA
 
       if (error) {
         if (isUniqueViolation(error)) {
-          // 之前已經寫咗一行。當佢成功 —— 但要真係揾返嗰行出嚟先算，唔准當然。
-          console.error('[quote-app] duplicate insert ignored:', error.message)
+          console.error('[quote-app] duplicate insert:', error.message)
+          // 同一個 operation_id 之前已經寫咗一行 ⇒ 當佢成功。
+          // ⛔ 但要真係揾返嗰行出嚟先算，唔准當然。
           const existing = await api.findByOperationId(input.operationId)
           if (existing) return existing
+          // 揾唔返 ⇒ 撞嘅唔係 operation_id，係**同一格個號**。
+          // ⛔ 呢個唔係「要人睇」，係「攞下一個號再試」。
+          if (isSlotSeqViolation(error)) throw new SlotSeqTakenError()
           throw new Error(DUPLICATE_NOT_FOUND_MESSAGE)
         }
         throw reportError(error.message)
