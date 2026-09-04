@@ -636,14 +636,14 @@ projectFolderName = safeSegment(`${work_date}_${name}`)
 - [ ] Jason 睇完，批准開工
 - [x] 前置一：Drive 存原圖定壓縮版 —— **2026-08-22 定咗：壓縮版，兩邊同一份 bytes**
 - [x] 根資料夾甲／乙 —— **2026-08-22 Jason 本人批咗乙（闊權限）**
-- [ ] 前置二：Drive 授權已經撳（指示喺 `docs/Drive-授權-逐步指示.md`）
+- [x] 前置二：Drive 授權 —— **2026-08-22 撳咗，token 綁 `sylvantree2026@gmail.com`，實測 scope = `.../auth/drive`**
 - [x] Worker 點讀 `quote_records` / `quote_trees` —— **2026-08-22 定咗：用家 token，⛔ 唔開 grant**
 - [x] 「一張相幾時鏡像」—— **2026-08-22 定咗：影完即刻試，唔得就下次開 app 補**
 - [x] §7.5 三條實作細節 —— **2026-08-22 Jason 拍板：分批三張／連續失敗三次停／過渡狀態唔入清單**
 - [x] ⛔ 舊樹顯示「修剪（未細分）」—— **2026-08-22 Jason 親眼睇過
       （`Testing01` 樹 #125）**
 - [x] ⛔ 新排位（移除拎出嚟、近景搬入其他）—— **2026-08-22 Jason 睇咗，答「啱」**
-- [ ] ⛔ 改咗 `seq` 之後，影相上 R2 要 Jason 重新驗一次
+- [x] ⛔ 改咗 `seq` 之後影相上 R2 —— **2026-08-22 驗咗（我自己核過先剔，見文末）**
 - [ ] `quote_photos` 個冇用嘅 `service_role` grant 收唔收返（Jason 決定）
 - [x] 工序重組拆唔拆 —— **2026-08-22 拆咗做獨立一步，已經做完（`654633c`），新樹 case 驗咗**
 - [x] 舊單 mitigation 代號用量 —— **2026-08-22 實測：`pruning` 兩行，其餘冇用過**
@@ -998,3 +998,714 @@ order by r2_synced_at;
 5. **先至**刪 `1_Whole View_-1_Before.jpg`
 
 ⛔ 第 5 步唔可以行先 —— `CLAUDE.md` §2.8：**未確認另一份仲喺，唔准刪任何一份。**
+
+---
+
+## ✅ I7 結案（2026-08-22）
+
+**Worker 已 deploy**（Version ID `3c8c8a05`，upload 16.84 KiB，binding 六個齊），
+三張相補抄完成。
+
+### 兩邊各自攞返實際資料，逐項對
+
+**⛔ 唔係睇 app 話乜。** Drive `files.list` 攞一次、DB `select` 攞一次，再對。
+
+| DB `seq` | DB `size_bytes` | Drive 檔名 | Drive `size` | Drive `appProperties.quotePhotoId` |
+| --- | --- | --- | --- | --- |
+| 1 | 412,094 | `1_Whole View_01_Before.jpg` | 412,094 | `0ecd7165…3597` ✅ |
+| 2 | 465,227 | `1_Whole View_03_Before.jpg` | 465,227 | `a24197d1…2429` ✅ |
+| 3 | 334,905 | `1_Whole View_05_Before.jpg` | 334,905 | `6d19eb38…5b9c` ✅ |
+
+`drive_error` **三行都空**。
+
+⭐ **三個 `size` 各自唔同 —— 即係證實咗係三張唔同嘅相，唔係同一張抄三次。**
+（今朝就係因為冇對呢一項，先會兩行指住同一個檔都睇唔出。）
+
+⭐ **465,227 嗰張就係今朝「DB 話兩份齊、Drive 根本冇佢」嗰張。**
+而家真係上到 Drive —— **救返一張差啲永久得一份副本嘅相。**
+
+### ⭐ 呢個對數方法要寫成標準驗收做法
+
+**今朝出事嘅根本原因唔係 code，係驗收方法**：**信咗 UI 講「兩份齊」。**
+
+**以後驗「一張相有幾多份」，唔准睇 app：**
+
+1. **由 Drive `files.list` 攞一次**（要 `fields` 包住 `id,name,size,appProperties`）
+2. **由 DB `select` 攞一次**
+3. **對三樣：檔案 `id`、`size`、身分（`quotePhotoId`）**
+
+⛔ **三樣缺一唔可。**
+淨係對 `id` → 今朝兩行指住同一個 id 都當啱。
+淨係對名 → 就係 I7 個根因。
+**`size` 係最平嘅一道防線：兩張唔同嘅相，size 幾乎唔會一樣。**
+
+### 孤兒檔
+
+`1_Whole View_-1_Before.jpg`（`10DIlIGth…`）**冇任何一行指住**
+（DB 四行嘅 `drive_file_id` 冇一個係佢），已經叫 Jason **淨係刪呢一個**。
+
+### 「改咗 `seq` 之後重驗影相」—— ⛔ 我自己核過先剔
+
+**唔係靠人講「驗咗」就剔。** 核咗三樣：
+
+1. **Jason 影相嗰個 preview build 係 `6648d80`**，我查返嗰個 commit 入面嘅 code：
+
+   ```
+   $ git show 6648d80:src/lib/photoUpload.ts | grep -B2 "seq:"
+         // P3a 一格得一張全景相，所以永遠係第一張 —— ⛔ 但係 1 唔係 0。
+         seq: 1,
+   ```
+
+   **即係佢影嗰陣真係行緊 `seq = 1` 嗰版**，唔係舊版。
+
+2. **出嚟嘅檔名係 `2_Whole View_01_Before.jpg`** —— `NN = 01`，
+   由 `NN = 2 × seq − 1` 反推返就係 `seq = 1`。**由結果對得返。**
+
+3. **成條路真係行過**：`size_bytes` **539,904** 同 Drive 個檔 `size` **539,904** 夾得返。
+
+**三樣夾得返，所以剔得。**
+
+---
+
+## ⚠️ 舊 Worker 抄嘅檔冇身分（`2_Whole View_01_Before.jpg`）
+
+**現況**：DB 行 `dd27a482…`、`drive_file_id` `1eULUs3v…`、`size` 539,904，
+**兩份齊，功能上冇事** —— 但佢係**舊 Worker 抄嘅**，
+所以 Drive 個檔**冇 `appProperties.quotePhotoId`**。
+
+### (a) 值唔值得補？——值，而且唔止係「將來核對」
+
+⚠️ **有一個實際會咬人嘅位**：新 code 見到同名而**冇 `quotePhotoId`** 嘅檔，
+會**當佢係撞名，回 409 唔上**（I7 嗰個保護）。
+
+**而家唔會觸發**，因為佢個 `drive_synced_at` 有值，`/mirror` 第一關就回
+`alreadyDone`，行唔到撞名檢查嗰度。
+
+⛔ **但一旦有人清咗佢個 `drive_file_id` / `drive_synced_at`**
+（例如將來又要重抄），**佢就會死鎖**：
+重抄 → 揾唔到 `quotePhotoId` → 見到同名嗰個冇身分 → **拒絕** → 永遠上唔到。
+
+**所以補佢唔係執靚，係拆一個未爆嘅雷。**
+
+### (b) 最安全做法：`PATCH files/{id}` 淨係加 `appProperties`，⛔ 唔郁 bytes
+
+**唔好清 `drive_file_id` 等佢重抄** —— 你嘅傾向啱：
+重抄會**多一個孤兒檔**、多用一次額度、而且**中間有一段時間得一份副本**。
+
+**PATCH 嘅好處**：**檔案 id 唔變、bytes 唔變、DB 一個字都唔使改**。
+
+⛔ **但落手之前要三樣夾得返先做**（呢個就係「補身分」呢個動作嘅安全條件）：
+
+1. DB 嗰行嘅 `drive_file_id` **就係**你要 PATCH 嗰個 id
+2. Drive 個檔 `size` **等於** DB `size_bytes`（539,904 = 539,904 ✅）
+3. 檔名**就係**由呢一行砌出嚟嗰個（`2_Whole View_01_Before.jpg` ✅）
+
+**三樣都夾** = 我哋唔係靠估佢係邊張相，**係已經有三個獨立證據**。
+
+### (c) 將來要唔要一次過盤點？——要，但**先做唯讀報告，⛔ 唔准自動修**
+
+**四類個案要分得開：**
+
+| 情況 | 意思 |
+| --- | --- |
+| 檔冇身分，但有一行指住佢 | **補身分**（好似今次） |
+| 檔冇身分，冇任何一行指住 | **孤兒檔** —— ⛔ 人手決定，唔准自動刪 |
+| 有一行指住個檔，但個檔唔喺 Drive | **要重抄** |
+| 一行寫住 `drive_synced_at`，但 Drive 冇對應檔 | **今朝 I7 嗰類** —— 🚨 最嚴重 |
+
+⚠️ **呢個實際上就係「對數 cron」** ——
+而**對數 cron 明文喺 P3b 嘅「唔做清單」入面**（第五節）。
+
+⛔ **所以唔准趁機喺 P3b 做埋。**
+**應該開一個獨立細階段**（例如 P3c 之後），
+而且**第一版淨係出報告，唔郁任何嘢** ——
+今日兩次都係「自動幫你決定」出事（檔名當身分、`0` 當 `1`），
+**盤點呢種掃全世界嘅嘢，更加唔應該自動改。**
+
+---
+
+# 🚨 I8：我引錯咗 tree app 個壓縮值（2026-08-22）
+
+## ⛔ 先講錯咗嘅嘢
+
+**我之前引 `src/lib/imageCompress.ts:110` 嘅 `{ longEdge = 2800, quality = 85 }`
+話「tree app 就係 2800 / q85」——⛔ 引錯咗。**
+
+**嗰行係 default 參數**，而**影相嗰條路根本冇用 default，佢傳咗自己嘅值入去。**
+
+**Jason 就係憑我呢個講法決定「相大小同 tree app 一樣」，
+而我哋跟住把 `MAX_EDGE` 由 2048 改成 2800。**
+**⛔ 即係話而家兩邊唔係一樣，而係反方向差開咗。**
+
+⚠️ 呢個正正就係今日第三次同一形狀嘅錯：**引一個睇落啱嘅位，冇對返實際行嗰條路。**
+
+## (a) quote app 實際值（`src/lib/photoTransport.ts`）
+
+```
+19:export const MAX_EDGE = 2800
+20:export const JPEG_QUALITY = 0.85
+35:  const bitmap = await createImageBitmap(file)
+36:  const size = targetSize(bitmap.width, bitmap.height, MAX_EDGE)
+50:    canvas.toBlob(resolve, 'image/jpeg', JPEG_QUALITY),
+```
+
+**條路：`PhotoSlot.tsx:243` → `compressToJpeg()` → 瀏覽器 `canvas.toBlob`。**
+**得呢一個壓縮點，冇第二個。**
+
+## (b) tree app 實際值 —— **`2400 / q80`，唔係 2800 / q85**
+
+**影相入 Drive 嗰條路係 `src/runtime/uploadPhoto.ts`：**
+
+```
+166:const CAPTURE_LONG_EDGE = 2400
+167:const CAPTURE_QUALITY = 80
+254:  const shrunk = await downscaleToJpeg(input.blob, { longEdge: CAPTURE_LONG_EDGE, quality: CAPTURE_QUALITY })
+```
+
+**`downscaleToJpeg` 個 `2800 / 85` 淨係 default，喺呢度被覆蓋。**
+
+**而且 `quality` 會正規化**（`src/lib/imageCompress.ts:126`）：
+
+```
+const q = quality > 1 ? Math.min(100, quality) / 100 : Math.max(0, quality)
+```
+
+**即係 `80` → `0.80`，真係 q0.80，唔係越界後撞返 default。**
+
+**佢哋個檔頭仲寫低咗點解揀 2400/80（原文）：**
+
+> Measured on real projects 2026-07-30: 2800px/q85 through the BROWSER canvas
+> encoder averaged 2.95 MB a photo … 2400px/q80 lands near 1.2–1.6 MB.
+
+**同你實測到嘅 1.1–2.5 MB 對得返。**
+
+## (c) quality 差幾多？⛔ 解釋唔到，而且方向係反嘅
+
+| | 長邊 | quality | 像素 |
+| --- | --- | --- | --- |
+| tree app | 2400 | **0.80** | 1800×2400 = 4.32 MP |
+| quote app | 2800 | **0.85** | 2100×2800 = 5.88 MP |
+
+**quote app 像素多 36%、quality 高 0.05 —— 兩樣都應該令檔案大，唔係細。**
+**所以 ⛔ quality 解釋唔到 2–4 倍嘅差異，佢指住相反方向。**
+
+### 最可能嘅原因：**影緊嘅嘢唔同**
+
+**JPEG 大細主要係睇畫面有幾多細節，唔係睇像素數。**
+
+- tree app 影嘅係**樹**：樹葉係極高熵嘅紋理，**壓極都細唔到**
+- quote app 呢幾張係室內／簡單場景**嘅機會好大**
+
+**有一個數支持呢個講法**：quote app 三張舊相 **1536×2048（3.1 MP）約 402–454 KB**，
+新嗰張 **2100×2800（5.88 MP）527 KB** ——
+**像素多咗 1.9 倍，bytes 只多咗約 1.2 倍。**
+**細節多嘅相唔會咁**（會接近成比例）。**平滑區域幾多像素都幾乎唔使錢。**
+
+### ⛔ 唯一公平嘅比法
+
+**兩個 app 影同一樣嘢**（同一棵樹、同一個位、最好同一部機），再比 bytes。
+**唔同主體嘅 bytes 冇得比。**
+
+### 其他可能因素（⚠️ 我冇證據，唔當結論）
+
+- **唔同部手機**：sensor、機內處理、HEIC → JPEG 嘅轉換都會影響來源細節
+- **來源相本身已經壓過一次**：兩個 app 都係由相機出嚟嘅 JPEG 再壓，
+  來源已經幾大就影響結果
+
+⛔ **兩樣我都冇量過，唔會當佢係原因。**
+
+## ⛔ 我冇改任何設定
+
+**`MAX_EDGE` / `JPEG_QUALITY` 一個字都冇郁。**
+**改唔改係 Jason 睇完相之後嘅規格決定。**
+
+**如果佢要「真係同 tree app 一樣」**，就係 **`MAX_EDGE = 2400`、
+`JPEG_QUALITY = 0.80`** —— ⚠️ **咁樣張相會細過而家，唔係大過。**
+
+---
+
+# 由「攞到 File」到「拎到 Blob」：逐項對（2026-08-22）
+
+**⛔ 「一模一樣」係 Jason 原話，所以唔止對兩個數字。**
+以下**每項都引返原文**。
+
+**tree app 條路**：`src/runtime/uploadPhoto.ts:254` →
+`downscaleToJpeg()`（`src/lib/imageCompress.ts:109-170`）
+**quote app 條路**：`PhotoSlot.tsx:243` → `compressToJpeg()`
+（`src/lib/photoTransport.ts`）
+
+| # | 項目 | tree app | quote app | |
+| --- | --- | --- | --- | --- |
+| 1 | 長邊 | `2400`（`uploadPhoto.ts:166`） | **已改 `2400`** | ✅ 一樣 |
+| 2 | quality | `80` → 正規化 `0.80`（`imageCompress.ts:126`） | **已改 `0.8`** | ✅ 一樣 |
+| 3 | 輸出 mime | `'image/jpeg'` | `'image/jpeg'` | ✅ 一樣 |
+| 4 | 分階段 downscale | **冇**，一次 `drawImage` | **冇**，一次 `drawImage` | ✅ 一樣 |
+| 5 | canvas smoothing | **冇明文設定**（用瀏覽器預設） | **冇明文設定** | ✅ 一樣 |
+| 6 | 第二次壓縮／bytes 上限重試 | **冇**（全檔搵過，得 `:254` 一次） | **冇** | ✅ 一樣 |
+| 7 | 縮放取整 | `Math.max(1, Math.round(...))` | `Math.round(...)`，**冇 `max(1,…)`** | ⚠️ 唔一樣 |
+| 8 | **EXIF orientation** | `createImageBitmap(blob, { imageOrientation: 'from-image' })` | `createImageBitmap(file)`，**冇個 options** | ⛔ **唔一樣** |
+| 9 | **空白 canvas 檢查** | **有**（`samplesLookUniform` + `looksBlankBySize`） | **冇** | ⛔ **唔一樣** |
+| 10 | **壓完大過原圖** | `if (out.size >= blob.size && !fit.scaled) fallback('no size win')` | **冇** | ⛔ **唔一樣** |
+| 11 | **出事點算** | **回原圖，`compressed = false`，唔 throw** | **`throw`** | ⛔ **唔一樣** |
+
+## 改咗嘅（Jason 明文拍板嗰兩項）
+
+**第 1、2 項** —— `MAX_EDGE 2800 → 2400`、`JPEG_QUALITY 0.85 → 0.8`。
+
+**改咗之後嘅原文：**
+
+```
+export const MAX_EDGE = 2400
+export const JPEG_QUALITY = 0.8
+…
+62:    canvas.toBlob(resolve, 'image/jpeg', JPEG_QUALITY),
+```
+
+⭐ **確認送入 `canvas.toBlob` 嘅係 `0.8`，唔係 `80`。**
+quote app 個常數本身就係 0–1，**冇正規化呢一步，亦唔需要**。
+（tree app 傳 `80` 係因為佢個 API 收 1–100，喺 `imageCompress.ts:126` 先除 100。）
+**測試釘死咗 `0 < JPEG_QUALITY ≤ 1`。**
+
+## ⛔ 冇改嘅四項 —— 等你同 Jason 拍板
+
+**⛔ 我唔會自己決定跟唔跟**，尤其係第 11 項，佢係一個**取態**唔係一個數字。
+
+### 第 8 項：EXIF orientation ——⚠️ 我建議跟
+
+tree app 原文註解講到明點解：
+
+> Do NOT fall back to a bare createImageBitmap here: that would bake the
+> UNROTATED pixels while dropping the EXIF flag, i.e. silently save a sideways
+> photo
+
+**後果**：喺唔會自動轉向嘅瀏覽器度，**張相會打橫存落去，而且冇聲出**。
+**新版瀏覽器多數已經預設 `from-image`**，所以而家**唔一定**睇得出問題 ——
+**但係靠預設，唔係靠寫明。**
+
+**跟嘅代價**：舊引擎唔支援嗰個 options 就要**保留原圖唔壓**（同第 11 項連住）。
+
+### 第 9 項：空白 canvas 檢查 ——⚠️ 我建議跟
+
+**iOS 有 canvas 面積上限**，撞到就會畫出一張**全白但完全合法嘅 JPEG**。
+⛔ **我哋而家嗰個 sha256 對數捉唔到佢** —— 白相都有 sha，對得返數。
+
+### 第 10 項：壓完大過原圖就唔壓
+
+細節位。影響：來源本身已經細過 2400 嗰陣，可能越壓越大。
+
+### 第 11 項：出事點算 ——⛔ 呢個要你哋決定，我唔建議
+
+| | 結果 |
+| --- | --- |
+| **tree app：回原圖** | 相**留得住**，但**唔係 2400/0.80**，而且可能好大 |
+| **quote app：throw** | 相**冇咗**，用家要重影，但**留低嘅一定合規格** |
+
+⚠️ **兩個都有道理，而且撞正 Jason 今次個決定**：
+佢要「**兩個 app 出嚟嘅相一致**」——
+**回原圖就會有唔一致嘅相混入去，正正係佢想避免嗰件事。**
+**但 throw 就係為咗規格而掉咗一張現場影咗嘅相。**
+
+⛔ **呢個要 Jason 揀。**
+
+## ⚠️ 一個資料夾入面會有三種規格
+
+**已經影咗嘅相唔會變。** 同一個 Drive 資料夾入面：
+
+| 相 | 規格 | 尺寸 |
+| --- | --- | --- |
+| 三張舊測試相 | **2048 / q0.85** | 1536×2048 |
+| Jason 2026-08-22 影嗰張 | **2800 / q0.85** | 2100×2800 |
+| **呢個 commit 之後影嘅** | **2400 / q0.80** | 1800×2400 |
+
+**將來睇相會覺得奇怪，所以寫低點解**：
+呢個係 P3a／P3b 開發期間三次規格改動留低嘅痕跡 ——
+**2048 係最初設定；2800 係我引錯咗 tree app 個值（I8）；
+2400 / 0.80 先係對嗰個。**
+
+⛔ **唔會回頭重壓舊相** —— 重壓會令 `sha256` 唔同，
+「仲剩幾多份」個契約即刻驗唔到（§九）。**留低就留低。**
+
+## 影響範圍：⭐ 你講得啱，唔使再 deploy Worker
+
+**呢兩個常數喺 `src/lib/photoTransport.ts`，係前端 bundle 入面。**
+
+- ✅ **Cloudflare Pages 會自動 build branch preview**
+- ✅ **Jason 唔使再 `wrangler deploy`** —— Worker 一個字都冇改
+
+⚠️ **但係要 build 完嗰個新 preview 先生效** ——
+**開舊嗰個 preview 網址影相，仍然係 2800。**
+
+---
+
+# 第 8 / 9 / 10 項跟咗（2026-08-22）
+
+## ⚠️ 但要先講一件你可能未為意嘅嘢：8/9/10 同 11 係綁住嘅
+
+**tree app 嗰邊，8、9、10 三項嘅「動作」全部都係 `fallback(...)` —— 即係回原圖。**
+**「偵測到有問題」同「跟住點做」係兩件事，而「跟住點做」就係第 11 項。**
+
+**第 10 項尤其明顯**：「壓完大過原圖就用返原圖」——
+**佢本身就係一個動作，唔係一個偵測。** 喺 throw 嘅世界入面，
+佢會變成「壓完大過原圖 → 掉咗張相」，**呢個講唔通。**
+
+### 所以我點做
+
+**三項嘅偵測全部照跟、照抄埋門檻同理由**，
+**但所有拒絕都行返同一個 function：`refuseToCompress()`。**
+
+**佢而家嘅行為仍然係 throw（＝我哋原本嗰套）。**
+**Jason 一答第 11 項，淨係要改呢一個 function**，唔使周圍搵。
+
+⛔ **我冇偷偷幫佢揀。**
+
+## 改咗之後嘅原文
+
+**第 8 項 EXIF：**
+
+```ts
+// ⛔ 一定要 `imageOrientation: 'from-image'`（跟 tree app）。
+//    ⚠️ 唔准 catch 完就用返一個冇 options 嘅 createImageBitmap ——
+//    咁做會**燒低未轉向嘅像素同時掉咗 EXIF 標記**，
+//    即係靜靜咁存低一張打橫嘅相
+bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' })
+```
+
+**第 9 項 空白檢查（兩重）：**
+
+```ts
+if (samplesLookUniform(samplePixels(context, size.width, size.height))) {
+  return refuseToCompress('張相讀返出嚟係一片空白（可能係部機嘅相片尺寸上限）。', file)
+}
+…
+if (looksBlankBySize(blob.size, size.width, size.height)) {
+  return refuseToCompress('壓完出嚟細到唔似一張真相（可能係一片空白）。', file)
+}
+```
+
+**第 10 項：**
+
+```ts
+if (blob.size >= file.size && !size.scaled) {
+  return refuseToCompress('壓完冇細過原本張相。', file)
+}
+```
+
+## 「空白檢查」實際點檢 —— ⚠️ 呢個檢查錯咗就會誤殺好相，所以講清楚
+
+### 偵測 #1：九點取樣，全部 byte 完全一樣
+
+**取樣點**（相對座標，⛔ 特登分散得好開）：
+
+```
+0.1/0.5/0.9  ×  0.1/0.5/0.9   →  九個點
+```
+
+每點讀 `getImageData(x, y, 1, 1)` 攞 **RGBA 四個 byte**。
+**九點嘅四個 byte 全部逐個一樣，先算白。**
+
+**點解唔會誤殺**：**真相唔會有九個咁散嘅點 RGBA 逐個 byte 一樣。**
+一片天空係**局部**均勻 —— 唔會連四個角同中心都一模一樣。
+
+⚠️ **空輸入當作白** —— 「證明唔到佢係真相」要 fail safe。
+
+### 偵測 #2：每像素少過 `0.02` byte
+
+```
+byteLength / (w × h) < 0.02
+```
+
+**tree app 實測嘅理由（原文）**：真嘅樹葉相喺 q85 度**約 0.27 B/px**
+（實測 2800×2100 = 1.6 MB），而全白 JPEG 幾乎唔使錢。
+**`0.02` 低過真相一個數量級、高過白相一個數量級**，所以分得開。
+
+**測試釘咗三個位**：`0.27 B/px` 唔准當白、`0.019` 當白、`0.021` 唔當白。
+
+### 為咗 #1 要喺編碼之前做
+
+**`samplePixels` 喺 `toBlob` 之前行** —— 唔使花一次編碼落一張白相度，
+亦即係話**捉到就即刻捉到**。
+
+## ⛔ `2400` / `0.8` 喺 code 入面得一個出處
+
+```
+$ grep -rn "2400\|2800\|0\.85" src/ worker/ --include=*.ts --include=*.tsx --include=*.mjs | grep -v test
+src/lib/photoTransport.ts:31:export const MAX_EDGE = 2400
+src/lib/photoTransport.ts:32:export const JPEG_QUALITY = 0.8
+```
+
+**其餘全部係註解引出處。**
+`targetSize()` 個 `maxEdge` 係參數，**唔會自己寫死一個數**；
+`worker/` 完全冇呢兩個數（Worker 唔壓相）。
+
+## preview 幾時先食到新 bundle —— Jason 做得到嘅講法
+
+**條網址唔使換**：照開返 `claude-quote-app-scaffold-de.sylvan-quote.pages.dev`。
+
+### ⛔ 但唔係即刻，要等 build 完
+
+**Pages 收到 push 之後先要 build。** 睇 **Deployments** 見到嗰個
+commit 變咗 **Success** 先好開。**通常一兩分鐘。**
+
+### 冇 service worker
+
+**呢個 app 冇 service worker、冇 PWA、冇 `public/_headers`** —— 實測：
+
+```
+$ grep -rn "serviceWorker|workbox|registerSW" src/ index.html public/
+（冇結果）
+$ ls public/
+（空）
+```
+
+**即係唔會有一個 service worker 死攬住舊 bundle。**
+
+### 但 `index.html` 有機會俾瀏覽器 cache 住
+
+Vite 出嘅 JS 檔名帶住 hash（`index-XXXXXXX.js`），**新 build 一定係新檔名**。
+**問題唔喺 JS，喺 `index.html`** —— 佢個名唔變，
+**手機瀏覽器有機會用返上次嗰版**，於是照舊指去舊 JS。
+
+**所以叫 Jason 咁做（由最輕到最重）：**
+
+1. **喺 Pages 度確認個 deployment 係 Success**（唔好未 build 完就試）
+2. **iPhone Safari：撳住重新整理個掣唔放** → 揀「重新載入而不使用內容封鎖器」；
+   Android Chrome：右上角 ⋮ → **重新載入**
+3. **仲係唔得就：完全熄咗個分頁再開過**（唔係後退，係關咗成個 tab）
+4. **最穩陣**：**Safari → 設定 → 清除瀏覽記錄同網站資料**
+   ⛔ **但呢一步會清埋 IndexedDB，即係清埋未上到雲端嘅相！**
+   **做之前一定要確認所有相都係「已同步，兩份齊」。**
+
+### ⭐ 唔使估：影完睇尺寸就知
+
+**最實在嘅驗法唔係猜 cache**，係**影一張相之後喺 Drive 睇佢尺寸**：
+
+- **1800×2400** → 食咗新 bundle ✅
+- **2100×2800** → 仲係舊 bundle ❌
+
+**一眼分得出，唔使我哋估。**
+
+---
+
+# 第 11 項跟咗：壓唔到就用返原相（2026-08-22）
+
+## 改咗之後嘅原文 —— ⭐ 係 `return`，唔係 `throw`
+
+```ts
+export type CompressResult = {
+  blob: Blob
+  /** 空 = 正常壓咗。有值 = 壓唔到，上面呢個 `blob` 係原相。 */
+  fallback: string
+}
+
+function keepOriginal(reason: string, original: Blob): CompressResult {
+  console.warn('[quote-app] compress fallback:', reason, `(${original.size} bytes 原相照上)`)
+  return { blob: original, fallback: reason }
+}
+```
+
+**八個分支全部行返佢**（EXIF 唔支援、讀唔到尺寸、冇 2d context、九點全同、
+讀唔到 canvas、`toBlob` 冇嘢、每像素太細、壓完冇細過原本）。
+**⛔ 成個 module 冇一個 `throw`。**
+
+正常嗰次：
+
+```ts
+return { blob, fallback: '' }
+```
+
+⚠️ **`fallback` 係空字串唔係 `undefined`** ——
+咁樣「有冇 fallback」**永遠答得出**，⛔ 唔會靜靜咁唔知。有測試釘住。
+
+## ⚠️ 我同意你，而且我要講明點解你講得啱
+
+**我原本個建議（throw）排錯咗優先次序。**
+成個副本契約嘅存在理由就係**唔可以失相**；
+而「一模一樣」本身亦指向跟返 tree app 個 fallback。
+**兩個理由都指向甲，我畀咗一個唔應該贏嘅理由贏。**
+
+## fallback 唔准靜靜發生 —— 我揀咗 Drive `appProperties`
+
+### 揀咗咩
+
+**上 Drive 嗰陣，喺個檔嘅 `appProperties` 加一個 `compressFallback`，
+入面就係原因。**
+
+```js
+const appProperties = { quotePhotoId: photoId }
+if (compressFallback) appProperties.compressFallback = String(compressFallback).slice(0, 120)
+```
+
+**條路**：`compressToJpeg()` 回個 `fallback` → 存落本機嗰行
+（`PendingPhoto.compressFallback`）→ `/mirror` 帶上去 → Worker 寫落 Drive。
+
+### 對返你三個條件
+
+**(a) 事後查得返，唔使靠估** ✅
+**一句 `files.list` 就數得出**：
+
+```
+q:      '<folder id>' in parents and trashed = false
+fields: files(id,name,size,appProperties)
+```
+
+**有 `compressFallback` 嘅就係 fallback，仲有原因。**
+⛔ **唔使靠「睇尺寸估」** —— 尺寸估唔準（來源本身細過 2400 嗰啲都唔係 2400）。
+
+**(b) 阿耀睇唔到** ✅
+**佢淨係喺 Drive 嘅 metadata 度。**
+畫面上張相照樣行「上緊 → 已入 R2 → 已同步，兩份齊」，
+**冇多一個字、冇黃色、冇紅色**。⛔ 對佢嚟講成功咗就係成功咗。
+（原因喺 `console.warn`，唔喺畫面。）
+
+**(c) 冇新表、冇新欄、⛔ 冇 SQL** ✅
+
+### 點解唔揀你提嗰幾個
+
+- **`remark`** —— ⛔ 唔掂得。**佢係用家自己寫嘅備註**，
+  P3d 會出喺同事版 PDF 度（第十章）。攞佢嚟裝系統訊息＝**污染用家資料**。
+- **`drive_error` / `r2_error`** —— ⛔ 兩個問題。
+  一，fallback **唔係 error**，擺喺 error 欄係講錯嘢。
+  二，**`statusOfRow()` 用 `r2_error` 判斷「有事要人睇」** ——
+  擺落去阿耀就會見到紅字，**直接違反 (b)**。
+- **`marks` jsonb** —— ⛔ 佢係 P3d 畫線座標嘅位。
+  而家搶咗佢，等於**幫 P3d 決定咗個資料格式**，而 P3d 未設計。
+- **開一個新欄** —— 做得到，但**要 Jason 跑 SQL**，
+  而 `appProperties` 已經做到 (a)(b)(c)，**唔值得為咗佢加一次 migration**。
+
+### ⚠️ 一個要講明嘅限制
+
+**張相未上到 Drive 之前，個記號淨係喺部機**（IndexedDB）。
+**即係「只喺部機」同「已入 R2、Drive 未做」嗰兩個階段，server 側查唔到。**
+
+**點解可以接受**：**呢兩個階段張相根本仲未入到共用資料夾**，
+冇人會喺嗰陣去對相。**一上到 Drive，記號就同張相一齊到。**
+
+⛔ **如果 Jason 想連 R2 階段都查得到，就要開個新欄，要佢跑 SQL。**
+**我唔會自己開。**
+
+---
+
+# 🚨 B3 做唔到，而且我可以講定佢會點死（2026-08-22）
+
+## 實際 code（唔係推測）
+
+```
+src/lib/photoUpload.ts:127      // P3a 一格得一張全景相，所以永遠係第一張 —— ⛔ 但係 1 唔係 0。
+src/lib/photoUpload.ts:128      seq: 1,
+```
+
+```
+$ grep -n "seq" src/components/PhotoSlot.tsx
+（冇結果 —— PhotoSlot 完全冇掂 seq）
+```
+
+**⛔ `seq` 係寫死嘅 `1`，冇任何地方會 +1。**
+
+## 所以同一格影第二張會點
+
+1. 第二張攞到**新嘅 `operation_id`** → **R2 key 唔同** → **上到 R2，冇覆蓋第一張** ✅
+2. DB 開新一行，**但 `seq` 又係 `1`**
+3. 砌檔名 → `NN = 2×1−1 = 01` → **同第一張一模一樣嘅檔名**
+4. `/mirror`：用自己個 `quotePhotoId` 揾 → 揾唔到 →
+   **`findNameClash` 揾到第一張嗰個檔（`quotePhotoId` 唔啱）**
+5. **⛔ 拒絕，回 409，寫入 `drive_error`**
+
+**結果**：第二張**停喺「已入 R2（Drive 未做）」**，
+試夠三次之後**轉「有事要人睇」**，紅字寫住撞名。
+
+⭐ **⛔ 唔會靜靜咁食咗佢** —— I7 個保護生效。**但功能上 B3 過唔到。**
+
+## 呢個唔係 bug，係範圍
+
+**「一格多張」係 P3c**（`docs/P3-現場影相-設計.md` 第一章）。
+**P3a 由頭到尾就係一格一張**，`seq: 1` 嗰句註解都寫住。
+
+⛔ **所以唔應該而家改** —— 改 `seq` 就係做 P3c 嘅一部分，
+而 Jason 揀咗**先做 B 收尾，跟住先 P3c**。
+
+## B3 可以改成驗咩（⛔ 揀唔揀係你哋決定）
+
+**原本嘅 B3「驗成對編號 01/03/05」而家驗唔到**，因為根本行唔到嗰條路。
+
+**但同一個動作驗得到另一樣，而且係今日最想驗嗰樣**：
+
+**同一格影第二張 → 預期見到「有事要人睇」＋撞名嘅中文 →
+Drive 入面淨係得一個檔。**
+
+**呢個正正就係 I7 嗰個保護喺真機行一次** ——
+而 `CLAUDE.md` 引嘅 tree app 規矩講到明：
+**「只喺出事嗰刻先見到」嘅 UI，gate 綠係零證據。**
+
+**成對編號本身，要等 P3c 做完先驗得到。**
+
+---
+
+# B4：⛔ 冇一個乾淨嘅方法喺真機迫到 fallback
+
+**照你嘅要求，我唔砌一個勉強嘅出嚟。**
+
+## 逐個分支睇，八個入面：
+
+| 分支 | 真機迫唔迫到 |
+| --- | --- |
+| EXIF 唔支援 | ⛔ **迫唔到** —— 要一個唔識 `imageOrientation` 嘅舊引擎 |
+| 讀唔到尺寸 / 冇 2d context | ⛔ **迫唔到** —— 要瀏覽器壞咗 |
+| `toBlob` 冇嘢出 | ⛔ **迫唔到** |
+| **九點全同** | ⚠️ **可能**：遮住鏡頭喺暗處影。但**唔保證** —— sensor 有噪點 |
+| **每像素 < 0.02 B** | ⚠️ **最有機會**：2400×1800 嘅門檻係 **約 86 KB**，遮鏡頭影一張全黑相好可能低過 |
+| 壓完冇細過原本 | ⚠️ 要一張**長邊 ≤ 2400** 而且壓完唔細得過嘅來源，要砌，唔自然 |
+
+## ⛔ 但佢過唔到你第 (c) 個條件
+
+**「做完之後系統要自己返返正常，唔使人手清理」——做唔到。**
+
+**任何真機嘗試都會整出一行真嘅 `quote_photos`、一個 R2 object、
+一個 Drive 檔**，同 C2 嗰啲測試相一樣要人手清。
+
+**而且唔保證撞到** —— 影完可能係一張正常嘅黑相，乜都證明唔到。
+
+## 我建議降級做「已知未驗」，但由你哋決定
+
+**⛔ 我唔會為咗剔一個格而 ship 一個測試 flag。**
+你講得啱：一個為測試而存在嘅 flag 就係**多咗一條 production 行得到嘅路**。
+
+### 替代嘅信心來源 —— 講實佢覆蓋到咩、覆蓋唔到咩
+
+**測試覆蓋到（196 個測試入面）：**
+
+- `looksBlankBySize` —— **0.019 當白 / 0.021 唔當白 / 0.27 B/px 唔當白 /
+  零 bytes 同零尺寸 fail safe**（四個 case）
+- `samplesLookUniform` —— **九點全白全黑當白 / 一個 byte 唔同就唔當白 /
+  淨係 alpha 唔同都唔當白 / 空輸入 fail safe**（四個 case）
+- `CompressResult.fallback` 一定係字串，**正常嗰次係 `''` 唔係 `undefined`**
+
+**⛔ 測試覆蓋唔到（老實講）：**
+
+- **`compressToJpeg` 成個 function 冇 DOM 測試** ——
+  `createImageBitmap` / `canvas` 喺 node 冇
+- **即係「偵測到之後真係會回原相」呢件事，冇喺瀏覽器行過**
+- **EXIF 分支零覆蓋**
+
+**⚠️ 換句話講**：**判斷條件本身測得好足，但「條路真係接返一齊」冇驗過。**
+
+### 如果要驗，最低成本嘅做法
+
+**唔係喺真機，係喺我個本機 harness** ——
+餵一張**人手砌嘅全灰 PNG**入去，行真 `compressToJpeg`，
+睇佢係咪回原相同埋 `fallback` 有值。
+
+**代價**：⛔ **唔係真機**，證明唔到 iOS 個 canvas 面積上限；
+**但證明到「偵測 → 回原相 → 上到 R2 → 上到 Drive → appProperties 有記號」成條路接得返。**
+
+⛔ **要唔要做，你哋話事。**
+
+## 驗嘅地方你估啱咗
+
+**Drive `appProperties.compressFallback`** —— 確認。
+
+```
+fields: files(id,name,size,appProperties)
+```
+
+**有 `compressFallback` = fallback 咗，入面就係原因。**
+⚠️ 畫面上**乜都唔會顯示**（條件 (b)），所以**唔好喺 app 度揾**。

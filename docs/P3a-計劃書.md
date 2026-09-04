@@ -599,60 +599,41 @@ P3a **merge 咗上 `main` 之後，`sylvan-quote.pages.dev` 就會出現影相�
 
 ---
 
-# ⛔ Merge 入 `main` 之前一定要做嘅清單
+# ⛔ 推出前全部要做嘅清單
 
-## Code / 部署
+> **2026-08-22 重新歸類。** Jason 立咗常設規矩：
+> **quote app 唔會分階段推出，要全部做好晒先至俾大家用**（`CLAUDE.md` §2.10）。
+> ⛔ **所以冇咗「merge 之後先做」呢一堆** —— 得一張清單，次序可以排，但一件都唔可以少。
 
-1. ~~刪 `/selftest`~~ —— ✅ **做咗**（commit `30afeb4`）。
-2. **重新 deploy Worker**（刪咗 `/selftest` 之後先算數）。
+## A. 已經做完
 
-## 🚨 最高優先：Supabase 額度
+| | 項目 | 證據 |
+| --- | --- | --- |
+| A1 | ✅ 刪 `/selftest` | `30afeb4`；實測 404 |
+| A2 | ✅ 重新 deploy Worker | Version `3c8c8a05`，binding 六個齊 |
+| A3 | ✅ 修好 `seq = 0` 嗰三行 | 逐行指名 `update`，驗返 1/2/3 |
+| A4 | ✅ 清走 Drive 個 `-1` 爛檔 | 刪完再查：4 個檔全部有 `quotePhotoId` |
+| A5 | ✅ 確認冇其他 `seq < 1` 未鏡像 | 只讀 SQL，冇任何一組撞 |
+| A6 | ✅ 2400 / 0.80 真機驗過 | 1800×2400、239,377 bytes、冇 `compressFallback` |
+| A7 | ✅ Production 加咗 `VITE_PHOTO_WORKER_URL` | 2026-08-22 實測三個變數齊 |
 
-0. 🚨 **Supabase 面板彈住紅字
-   `Grace period is over — Your projects will not be able to serve requests
-   when you use up your quota`。**
+## B. 推出前要做（次序可以排，⛔ 一件都唔可以少）
 
-   ⛔ **爆咗 = 兩個 app 一齊停**（tree app 同 quote app 共用同一個 project）。
-   **唔係 quote app 自己嘅事，亦唔係 merge 之後先算。**
-   **要 Jason 睇 billing。** 見 `docs/開發紀錄.md` §十二 第 10 項。
+| | 項目 | 狀態 / 點解 |
+| --- | --- | --- |
+| B1 | **Ship 嗰次 build 要行喺變數已經存在之後** | ✅ 變數已經存在。⚠️ **將來再改呢個變數，一定要再 build 一次** |
+| B2 | **清走 `__selftest/probe.txt`** | 三字節 txt，唔喺任何相片路徑上。**要 Jason 喺 R2 度刪** |
+| B3 | **清走測試相**（`e583a567-…/`、`2026-08-22_彩`） | ⛔ 佢哋係**真資料**（有 DB 行、有 Drive 副本）。要刪就**逐張對返 Drive 有冇對應 `quotePhotoId`** 先刪 |
+| B4 | **補 `2_Whole View_01_Before.jpg` 個 `appProperties`** | 而家兩份齊、功能正常，但係**未爆嘅雷**（清咗 drive 欄就死鎖）。做法見 `docs/P3b-計劃書.md` |
+| B5 | **成對編號 `01/03/05` 真機驗** | ⏳ **等 P3c 做完自然驗得到** —— 而家 `seq` 寫死 `1`，一格多張未起 |
+| B6 | **壓縮 fallback 真機驗** | ⚠️ **已知未驗。** ⛔ 冇乾淨方法喺真機迫到（見 `docs/P3b-計劃書.md`）。**等有方法先驗，⛔ 唔准喺清單消失** |
 
-   ⚠️ **佢排喺呢張清單最前，因為佢一爆，下面每一項都做唔到。**
+## C. ⚠️ 已知風險，用家接受
 
-## ⛔ 舊資料（2026-08-22 加）
-
-7. **修好嗰行 `seq = 0` 嘅相，同埋清走 Drive 上面個 `-1` 爛檔**
-   （經過見 `docs/P3b-計劃書.md` I6）
-8. **確認冇其他 `seq < 1` 而又未鏡像嘅行**（SQL 喺 I6）
-
-## ⛔ 環境變數 —— 呢條唔記得就會「功能上到 main 但影唔到相」
-
-**2026-08-22 再實測一次確認：Cloudflare Pages 個 Production 環境
-仍然冇 `VITE_PHOTO_WORKER_URL`，只有 Preview 有**
-（Preview 實測 = `https://quote-photos-sign.jason223hk.workers.dev`）。
-
-（Preview 原本**三個變數都冇**，係今日叫 Jason 加返
-`VITE_SUPABASE_URL`、`VITE_SUPABASE_PUBLISHABLE_KEY`、
-`VITE_PHOTO_WORKER_URL` 三個先行到。）
-
-所以**將來邊一日 merge 上 `main`**：
-
-3. ⛔ **一定要同時喺 Production 環境加 `VITE_PHOTO_WORKER_URL`**
-4. ⛔ **加完要重新 build** —— Vite 係 **build 時 inline** 環境變數，
-   唔重新 build 唔生效
-
-**唔做呢兩步嘅症狀**：功能出現咗，但每個人影相都見到
-「未設定相片上傳服務」。**唔會爆，就係影唔到。**
-
-## Bucket 殘留 —— 要決定清唔清
-
-5. **`__selftest/probe.txt`**（診斷寫落去嗰個三字節檔）
-6. **Jason 今日試影嗰啲相**（`e583a567-…/` 資料夾入面嗰啲）
-   ⚠️ **而家仲係舊參數嘅殘留**：嗰張 412.09 KB 係 **2048 / q85** 出嚟嘅，
-   而現行參數已經改成 **2800 / q85**（見下面）。
-   **佢唔再代表現行畫質**，唔好攞佢做基準去計大細。
-
-**兩樣都係測試殘留，唔係真單。⛔ 但清唔清係 Jason 決定，我唔會自己清。**
-（`quote-photos` 係我哋自己個 bucket，清得；⛔ **`tree-photos` 一個 byte 都唔准掂。**）
+| | 項目 | 狀態 |
+| --- | --- | --- |
+| C1 | **Supabase `Grace period is over`** —— 爆咗兩個 app 一齊停 | **Jason 2026-08-22 明確講咗唔理。**⛔ 唔准刪走 |
+| C2 | **Drive 闊權限 `drive`** | Jason 知情批咗。長期跟進 = §十二 第 13 項 |
 
 ---
 
