@@ -119,6 +119,8 @@ export default function PhotoSlot({
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [thumbs, setThumbs] = useState<Record<string, string>>({})
+  /** 攞唔到雲端嗰份。⛔ 唔係出錯，係「而家只睇到部機嗰份」。 */
+  const [stale, setStale] = useState(false)
   /**
    * ⛔ 今次開 app 已經試過補鏡像嘅相。
    *
@@ -134,23 +136,45 @@ export default function PhotoSlot({
   const workerReady = photoWorkerBase() !== ''
   const storeReady = localStorageAvailable()
 
+  /**
+   * 攞返最新狀態。
+   *
+   * ⛔⛔ 兩邊要**分開**，⛔ 唔准再用 `Promise.all` 綁住佢哋。
+   *
+   * ⚠️ 2026-09-05 真機中過：本來兩樣一齊 `Promise.all`，雲端嗰邊一失敗，
+   *    **連部機嗰份都唔會 set 落畫面**。飛航模式下嘅實際後果係：
+   *      · 張相真係寫咗入部機 ✅
+   *      · 狀態真係改成「有事要人睇」✅
+   *      · ⛔ 但畫面永遠刷新唔到 ⇒ 見唔到張相、見唔到「再試一次」
+   *    ⇒ 正正踩爛 `上線清單.md` 第 1 條嗰句「畫面永遠見到『未上載 N 張』」。
+   *
+   * ⭐ 部機嗰份係**唯一唔使網絡都有**嘅嘢，所以佢一定要行先、一定要出到。
+   */
   const reload = useCallback(async () => {
-    const [localItems, remoteRows] = await Promise.all([
-      storeReady ? photoStore.listByRecord(recordId) : Promise.resolve([]),
-      api.listByRecord(recordId),
-    ])
-    setPending(localItems)
-    setRows(remoteRows)
+    if (storeReady) {
+      const localItems = await photoStore.listByRecord(recordId)
+      setPending(localItems)
 
-    const next: Record<string, string> = {}
-    for (const item of localItems) {
-      if (item.treeId === treeId && (item.mitigation ?? null) === mitigation)
-        next[item.operationId] = URL.createObjectURL(item.blob)
+      const next: Record<string, string> = {}
+      for (const item of localItems) {
+        if (item.treeId === treeId && (item.mitigation ?? null) === mitigation)
+          next[item.operationId] = URL.createObjectURL(item.blob)
+      }
+      setThumbs((current) => {
+        for (const url of Object.values(current)) URL.revokeObjectURL(url)
+        return next
+      })
     }
-    setThumbs((current) => {
-      for (const url of Object.values(current)) URL.revokeObjectURL(url)
-      return next
-    })
+
+    // 雲端嗰份攞唔到⛔ 唔算大件事：影相、睇「未上載幾多張」、撳「再試一次」
+    // 三樣都唔需要佢。⛔ 但亦唔准當冇事發生 —— 出一句話俾人知睇緊嘅係部機嗰份。
+    try {
+      setRows(await api.listByRecord(recordId))
+      setStale(false)
+    } catch {
+      // ⛔ 唔准清空 `rows` —— 上一次攞到嗰批仍然係啱嘅，清咗反而少咗嘢睇。
+      setStale(true)
+    }
   }, [api, recordId, treeId, mitigation, storeReady])
 
   useEffect(() => {
@@ -337,6 +361,13 @@ export default function PhotoSlot({
       {!workerReady && (
         <p className="notice notice--warning" role="status">
           {WORKER_MISSING_MESSAGE}
+        </p>
+      )}
+
+      {/* ⛔ 唔講嘅話，人會以為畫面上面就係全部。實情係雲端嗰份而家攞唔到。 */}
+      {stale && (
+        <p className="notice notice--warning" role="status">
+          而家連唔到伺服器，下面顯示嘅係呢部機記住嘅嘢。影相照影得，有網會自己補返。
         </p>
       )}
 
