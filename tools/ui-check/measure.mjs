@@ -303,17 +303,62 @@ const READ = ([sel, box, css]) => {
 
 const srv = serve(DIST, PORT)
 /**
- * 開瀏覽器。三條路順住試：
+ * 部機本身裝咗嘅 chromium 喺邊。順住揾，存在嘅先試。
+ * ⛔ 唔好寫死一條路 —— Mac、Linux、雲端 session 三邊擺法都唔同。
+ */
+function localChromiums() {
+  const roots = [process.env.PLAYWRIGHT_BROWSERS_PATH].filter(Boolean)
+  const found = []
+  for (const root of roots) {
+    // ⭐ 有啲環境（雲端 session）擺咗條 symlink 喺 <root>/chromium 度，直接指住個 binary。
+    found.push(path.join(root, 'chromium'))
+    // 冇 symlink 就自己入去揾 chromium-<版本號> 嗰堆。
+    let dirs = []
+    try {
+      dirs = fs.readdirSync(root).filter((d) => d.startsWith('chromium'))
+    } catch {
+      dirs = []
+    }
+    for (const d of dirs) {
+      found.push(path.join(root, d, 'chrome-linux', 'chrome'))
+      found.push(path.join(root, d, 'chrome-linux', 'headless_shell'))
+      found.push(path.join(root, d, 'chrome-mac', 'Chromium.app', 'Contents', 'MacOS', 'Chromium'))
+    }
+  }
+  found.push(
+    '/usr/bin/chromium',
+    '/usr/bin/chromium-browser',
+    '/usr/bin/google-chrome',
+    '/Applications/Chromium.app/Contents/MacOS/Chromium',
+    '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+  )
+  return found.filter((f) => {
+    try {
+      return fs.statSync(f).isFile()
+    } catch {
+      return false
+    }
+  })
+}
+
+/**
+ * 開瀏覽器。四條路順住試：
  *   1. CHROMIUM_PATH —— 自己指實個 binary
  *   2. Playwright 自己下載嗰個
- *   3. 部機裝咗嘅 Chrome／Edge
+ *   3. 部機本身裝咗嗰個 chromium（見 localChromiums）
+ *   4. 部機裝咗嘅 Chrome／Edge
  * ⚠️ Cowork 個 Linux VM 下載唔到 Playwright chromium（網絡 allowlist 擋），
  *    所以喺 Mac Terminal 自己跑：`npx playwright install chromium` 一次就得。
+ * ⛔ 第 3 條係 2026-09-05 加返嘅：雲端 session 部機本身有 chromium，
+ *    但 Playwright 因為版本號對唔上而用唔到，第 2 條會死，跟住一路試到去搵 Edge。
+ *    結果 `npm run ui:check` 要人手加 `CHROMIUM_PATH` 先行到 ——
+ *    ⚠️ 一個要靠人記得嘅步驟，遲早會漏，而漏咗就等於「對數」嗰關靜靜跳咗。
  */
 async function openBrowser() {
   const tries = [
     process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : null,
     {},
+    ...localChromiums().map((executablePath) => ({ executablePath })),
     { channel: 'chrome' },
     { channel: 'msedge' },
   ].filter(Boolean)
