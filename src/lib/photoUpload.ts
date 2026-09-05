@@ -80,6 +80,41 @@ function failureMessage(step: string, caught: unknown): string {
 }
 
 /**
+ * 連唔到伺服器嗰種錯。
+ *
+ * ⛔⛔ 2026-09-05 真機中過：畫面出「攞唔到上傳網址：Failed to fetch」。
+ *    句嘢冇講錯，但對阿耀嚟講**等於亂碼** —— 佢淨係會覺得個 app 壞咗，
+ *    而實情係「行開一步有網，撳返再試一次就得」（嗰次真係撳一下就上到）。
+ *
+ * ⚠️ 呢個判斷靠字串認，⛔ 唔靠估：瀏覽器唔會俾一個 error code 你。
+ *    每個字串都係真係見過嘅：
+ *      · `Failed to fetch`  —— Chrome／Android
+ *      · `Load failed`      —— Safari／iOS
+ *      · `NetworkError`     —— Firefox
+ *      · `The Internet connection appears to be offline` —— iOS WKWebView
+ *
+ * ⛔ 認唔出就回 `null`，等上面照出原文 —— ⛔ 唔准包一句靚說話冚住一個
+ *    我哋根本未見過嘅錯，嗰樣會令下次真出事嗰陣查唔到。
+ */
+export function isNetworkFailure(detail: string): boolean {
+  return /failed to fetch|load failed|networkerror|network request failed|connection appears to be offline|err_internet_disconnected|err_network/i.test(
+    detail,
+  )
+}
+
+/** ⭐ 一個具體動作 ＋ 一個具體對象（`P3c-計劃書.md` §5.5 同一套規矩）。 */
+export const OFFLINE_MESSAGE =
+  '連唔到伺服器。相仲喺部機度，唔會冇咗。行去有訊號嘅地方，再撳「再試一次」。'
+
+/**
+ * 出一句畀人睇嘅錯誤。認得出係冇網就講人話，⛔ 認唔出就照出原文。
+ */
+function stepMessage(step: string, caught: unknown, compose: (detail: string) => string): string {
+  const detail = failureMessage(step, caught)
+  return isNetworkFailure(detail) ? OFFLINE_MESSAGE : compose(detail)
+}
+
+/**
  * 一張相由部機上到 R2 嘅成條路。
  *
  * 次序係特登嘅（`docs/P3-現場影相-設計.md` 第三章）：
@@ -107,7 +142,11 @@ export async function uploadPending(
   } catch (caught) {
     return {
       ok: false,
-      message: `攞唔到上傳網址：${failureMessage('sign', caught)}。相仲喺部機度，唔會冇咗。`,
+      message: stepMessage(
+        'sign',
+        caught,
+        (detail) => `攞唔到上傳網址：${detail}。相仲喺部機度，唔會冇咗。`,
+      ),
     }
   }
 
@@ -118,7 +157,11 @@ export async function uploadPending(
   } catch (caught) {
     return {
       ok: false,
-      message: `上傳中斷：${failureMessage('putBytes', caught)}。相仲喺部機度，撳「再試一次」就得。`,
+      message: stepMessage(
+        'putBytes',
+        caught,
+        (detail) => `上傳中斷：${detail}。相仲喺部機度，撳「再試一次」就得。`,
+      ),
     }
   }
 
@@ -128,7 +171,11 @@ export async function uploadPending(
   } catch (caught) {
     return {
       ok: false,
-      message: `上傳咗但讀唔返出嚟核對：${failureMessage('getBytes', caught)}。未對到數就唔算上到，請再試一次。`,
+      message: stepMessage(
+        'getBytes',
+        caught,
+        (detail) => `上傳咗但讀唔返出嚟核對：${detail}。未對到數就唔算上到，請再試一次。`,
+      ),
     }
   }
 

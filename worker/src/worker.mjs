@@ -567,31 +567,46 @@ export default {
       return json({ error: 'not found' }, 404, origin)
     }
 
-    const userId = await userIdFrom(request, env)
-    if (!userId) return json({ error: 'unauthorized' }, 401, origin)
-
-    let body
+    // ⛔⛔ 由呢度落去一定要有 try/catch。
+    //
+    // ⚠️ 2026-09-05 查一單「Failed to fetch」查咗成粒鐘先發現：呢段本來冇 catch。
+    //    `userIdFrom` 會打 Supabase，`presign` 會做 HMAC —— 任何一個掟錯，
+    //    Cloudflare 就會出一版**佢自己嘅錯誤頁**，而嗰版⛔ 冇 CORS header。
+    //    ⇒ 瀏覽器唔會話你知伺服器出咗咩事，佢只會話 `Failed to fetch`，
+    //      同「部機冇網」一模一樣。⛔ 兩件完全唔同嘅事，出同一句嘢。
+    //
+    // ⭐ 有咗 catch，出嘅係一個帶 CORS header 嘅 JSON ⇒ 前端睇得到真原因。
     try {
-      body = await request.json()
-    } catch {
-      return json({ error: 'bad json' }, 400, origin)
+      const userId = await userIdFrom(request, env)
+      if (!userId) return json({ error: 'unauthorized' }, 401, origin)
+
+      let body
+      try {
+        body = await request.json()
+      } catch {
+        return json({ error: 'bad json' }, 400, origin)
+      }
+
+      // 影相編號一定要係 UUID：唔係就有得砌出 `../` 咁嘅檔名。
+      if (typeof body?.operationId !== 'string' || !UUID.test(body.operationId)) {
+        return json({ error: 'bad operationId' }, 400, origin)
+      }
+
+      const key = `${userId}/${body.operationId}.jpg`
+
+      return json(
+        {
+          key,
+          put: await presign('PUT', env, key),
+          get: await presign('GET', env, key),
+        },
+        200,
+        origin,
+      )
+    } catch (caught) {
+      // ⛔ 唔准靜靜過骨。⛔ 亦唔准當佢係「冇網」—— 呢個係伺服器側出事。
+      const message = String(caught?.message ?? caught).slice(0, 300)
+      return json({ error: `簽名服務出錯：${message}` }, 502, origin)
     }
-
-    // 影相編號一定要係 UUID：唔係就有得砌出 `../` 咁嘅檔名。
-    if (typeof body?.operationId !== 'string' || !UUID.test(body.operationId)) {
-      return json({ error: 'bad operationId' }, 400, origin)
-    }
-
-    const key = `${userId}/${body.operationId}.jpg`
-
-    return json(
-      {
-        key,
-        put: await presign('PUT', env, key),
-        get: await presign('GET', env, key),
-      },
-      200,
-      origin,
-    )
   },
 }

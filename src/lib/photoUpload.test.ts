@@ -1,5 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import {
+  isNetworkFailure,
+  OFFLINE_MESSAGE,
   SEQ_EXHAUSTED_MESSAGE,
   SEQ_MAX_TRIES,
   targetSize,
@@ -257,5 +259,79 @@ describe('派號（P3c §5.5）', () => {
     })
     await uploadPending(pending(), d)
     expect(d.allocateSeq).not.toHaveBeenCalled()
+  })
+})
+
+describe('冇網要講人話（2026-09-05 真機中過）', () => {
+  it('認得出各家瀏覽器嘅講法', () => {
+    for (const detail of [
+      'Failed to fetch',
+      'Load failed',
+      'NetworkError when attempting to fetch resource.',
+      'Network request failed',
+      'The Internet connection appears to be offline.',
+      'net::ERR_INTERNET_DISCONNECTED',
+    ]) {
+      expect(isNetworkFailure(detail)).toBe(true)
+    }
+  })
+
+  // ⛔ 認唔出嘅錯唔准當冇網 —— 包一句靚說話冚住佢，下次真出事就查唔到。
+  it('⛔ 唔關網事嘅錯唔准當冇網', () => {
+    for (const detail of [
+      '相片記錄寫唔入資料庫。',
+      '上傳服務回覆 500',
+      'permission denied for table quote_photos',
+      '',
+    ]) {
+      expect(isNetworkFailure(detail)).toBe(false)
+    }
+  })
+
+  it('冇網嗰陣出人話，⛔ 唔出 Failed to fetch', async () => {
+    const d = deps({
+      sign: vi.fn(async () => {
+        throw new Error('Failed to fetch')
+      }),
+    })
+
+    const result = await uploadPending(pending(), d)
+
+    expect(result.ok).toBe(false)
+    if (!result.ok) {
+      expect(result.message).toBe(OFFLINE_MESSAGE)
+      // ⛔ 唔准出英文原文俾阿耀睇。
+      expect(result.message).not.toMatch(/Failed to fetch/i)
+      // ⭐ 一個具體動作 ＋ 一個唔使驚嘅保證。
+      expect(result.message).toContain('再試一次')
+      expect(result.message).toContain('唔會冇咗')
+    }
+  })
+
+  it('上傳中斷、讀唔返出嚟，一樣出人話', async () => {
+    const offline = () => {
+      throw new Error('Load failed')
+    }
+    const putFail = await uploadPending(pending(), deps({ putBytes: vi.fn(async () => offline()) }))
+    const getFail = await uploadPending(pending(), deps({ getBytes: vi.fn(async () => offline()) }))
+
+    expect(putFail.ok).toBe(false)
+    expect(getFail.ok).toBe(false)
+    if (!putFail.ok) expect(putFail.message).toBe(OFFLINE_MESSAGE)
+    if (!getFail.ok) expect(getFail.message).toBe(OFFLINE_MESSAGE)
+  })
+
+  // ⭐ 認唔出嘅錯要**原文照出**，咁先查得返。
+  it('⛔ 認唔出嘅錯照出原文，唔准包住佢', async () => {
+    const d = deps({
+      sign: vi.fn(async () => {
+        throw new Error('上傳服務回覆 503')
+      }),
+    })
+
+    const result = await uploadPending(pending(), d)
+
+    expect(result.ok).toBe(false)
+    if (!result.ok) expect(result.message).toContain('上傳服務回覆 503')
   })
 })
