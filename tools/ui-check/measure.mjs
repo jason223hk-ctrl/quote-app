@@ -21,6 +21,13 @@ const HERE = path.dirname(new URL(import.meta.url).pathname)
  */
 const PROTO_CANDIDATES = [
   process.env.QUOTE_PROTO,
+  // ⭐⭐ repo 入面嗰份先係第一選擇（2026-09-05 加）。
+  // ⛔ 之前四條路全部喺 repo 外面 ⇒ 一個 fresh clone（雲端 Claude Code session、
+  //    CI、換機）永遠揾唔到，`npm run ui:check` 直接 exit 2 ——
+  //    即係「對數」呢一關喺唔喺呢部機，行唔行得到都唔同。
+  // ⚠️ stage57 係已批准嘅定稿，唔會再變，所以入 repo 係啱嘅：
+  //    佢係契約，⛔ 唔應該係一個散喺 Documents 度嘅檔。
+  path.resolve(HERE, '../../docs/原型-stage57-autoupload.html'),
   process.env.HOME + '/Documents/Claude/Projects/quote-app-交接/交接包/5-原型/stage57-autoupload.html',
   process.env.HOME + '/Documents/Claude/quote-app-交接/交接包/5-原型/stage57-autoupload.html',
   path.resolve(HERE, '../../../quote-app-交接/交接包/5-原型/stage57-autoupload.html'),
