@@ -9,6 +9,7 @@ type Props = {
   userId: string
   recordCount: number
   onOpenPrices: () => void
+  onOpenClients: () => void
   onSignOut: () => Promise<unknown>
 }
 
@@ -21,6 +22,7 @@ export default function SettingsScreen({
   userId,
   recordCount,
   onOpenPrices,
+  onOpenClients,
   onSignOut,
 }: Props) {
   const [confirming, setConfirming] = useState(false)
@@ -88,6 +90,19 @@ export default function SettingsScreen({
             )}
           </div>
         </section>
+
+        <button className="hub-row" data-testid="settings-clients" onClick={onOpenClients}>
+          <span className="hub-ic">
+            <Icon name={ICONS.customerBook} />
+          </span>
+          <span className="hub-main">
+            <span className="hub-title">客戶簿</span>
+            <span className="hub-sub">全公司共用。喺「客戶資料」揀得返</span>
+          </span>
+          <span className="hub-chev">
+            <Icon name={ICONS.chevron} />
+          </span>
+        </button>
 
         <button className="hub-row" data-testid="settings-prices" onClick={onOpenPrices}>
           <span className="hub-ic">

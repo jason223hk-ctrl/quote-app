@@ -1,5 +1,6 @@
 import { clientAddressLine, regionLabel, shiftLabel, statusLabel } from '../lib/labels'
 import type { QuoteRecord } from '../lib/records'
+import { quotedAgeText } from '../lib/status'
 
 /**
  * 工程卡。版面照已批准嘅原型 stage57 `.pcard`：
@@ -7,6 +8,9 @@ import type { QuoteRecord } from '../lib/records'
  *
  * ⚠️ 狀態膠囊一定要同名稱**同一行**（原型 `.pcard .top`）——
  * 分開兩個直行嘅話，卡高過內容嗰陣個膠囊會浮咗喺半空，對唔正個名。
+ *
+ * ⭐ 「報咗 N 日」只喺呢度出，⛔ 首頁唔動（`docs/交接-CO.md`）。
+ *    佢淨係喺「已報價」嗰啲出 —— 一單報咗好耐冇音信，睇一眼就知要跟進。
  */
 export default function RecordCard({
   record,
@@ -16,6 +20,8 @@ export default function RecordCard({
   onOpen: () => void
 }) {
   const line = clientAddressLine(record.client, record.address)
+  // ⛔ 用部機當日。⚠️ 唔喺上面 memo：一日淨係變一次，慳嗰下唔值得多一層。
+  const age = quotedAgeText(record, new Date())
 
   return (
     <button className="proj-card" data-testid="record-row" onClick={onOpen}>
@@ -37,6 +43,14 @@ export default function RecordCard({
         <span className="meta-item">{regionLabel(record.region)}</span>
         <span className="meta-divider" />
         <span className="meta-item">{shiftLabel(record.shift)}</span>
+        {age !== null && (
+          <>
+            <span className="meta-divider" />
+            <span className="meta-item" data-testid="quoted-age">
+              {age}
+            </span>
+          </>
+        )}
       </div>
 
       {line !== '' && (

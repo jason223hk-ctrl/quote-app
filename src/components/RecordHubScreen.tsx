@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { clientAddressLine, regionLabel, shiftLabel, statusLabel } from '../lib/labels'
-import type { QuoteRecord } from '../lib/records'
+import type { QuoteRecord, QuoteStatus } from '../lib/records'
 import type { TreesApi } from '../lib/trees'
 import type { SiteFormApi, SiteForm } from '../lib/siteForm'
 import type { PriceApi, PriceTable, PriceSnapshot } from '../lib/prices'
@@ -10,6 +10,7 @@ import type { Nav } from '../ui/routes'
 import { BackChip, BotanicalHeader, FloatBody, HeaderTitle } from '../ui/shell'
 import { Icon, ICONS } from '../ui/Icon'
 import CostCard from './CostCard'
+import StatusCard from './StatusCard'
 
 type Props = {
   api: TreesApi
@@ -20,6 +21,10 @@ type Props = {
   /** 加成％ 淨係辦公室改得。⛔ 唔准收埋，要見到但改唔到。 */
   canEditMarkup: boolean
   onMarkupSave: (pct: number | null) => Promise<unknown>
+  /** 「已中標」淨係辦公室撳得（`docs/交接-CO.md`）。 */
+  canSetWon: boolean
+  /** `snapshot` ＝ true 就要順手影低而家嗰份單價表先寫落去。 */
+  onStatusChange: (to: QuoteStatus, snapshot: boolean) => Promise<unknown>
   nav: Nav
 }
 
@@ -40,6 +45,8 @@ export default function RecordHubScreen({
   record,
   canEditMarkup,
   onMarkupSave,
+  canSetWon,
+  onStatusChange,
   nav,
 }: Props) {
   const [treeCount, setTreeCount] = useState<number | null>(null)
@@ -47,6 +54,7 @@ export default function RecordHubScreen({
   const [envCount, setEnvCount] = useState<number | null>(null)
   const [quote, setQuote] = useState<Quote>(EMPTY_QUOTE)
   const [costLoading, setCostLoading] = useState(true)
+  const [statusBusy, setStatusBusy] = useState(false)
   const [markupInput, setMarkupInput] = useState<string>(
     record.markup_pct === null ? '' : String(record.markup_pct),
   )
@@ -266,6 +274,16 @@ export default function RecordHubScreen({
             <Icon name={ICONS.chevron} />
           </span>
         </button>
+
+        <StatusCard
+          record={record}
+          canSetWon={canSetWon}
+          busy={statusBusy}
+          onChange={(to, snapshot) => {
+            setStatusBusy(true)
+            void onStatusChange(to, snapshot).finally(() => setStatusBusy(false))
+          }}
+        />
 
         <CostCard
           quote={quote}

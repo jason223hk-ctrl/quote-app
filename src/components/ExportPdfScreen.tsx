@@ -215,7 +215,7 @@ export default function ExportPdfScreen({ trees, photos, accessToken, record, on
             {PILLS.map(([kind, label]) => (
               <button
                 key={kind}
-                className={`chip2${pill === kind ? ' chip2--on' : ''}`}
+                className={`chip2${pill === kind ? ' on' : ''}`}
                 type="button"
                 onClick={() => pick(kind)}
               >

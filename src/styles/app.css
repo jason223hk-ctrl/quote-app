@@ -2893,3 +2893,64 @@ h3 {
 .export-scroll-pad {
   height: 78px;
 }
+
+/* ── 客戶簿（原型 stage57 `#screenClients` ＋ 揀客戶彈窗 `.cbrow`）────────
+   ⚠️ 數值直接抄原型：`.cbrow` padding 13px 12px、b 15px/650、small 12.5px、
+   `.cbscroll` max-height 46vh。深色嗰套色抄原型 `.sheet .cbrow`
+   （彈窗入面嗰個先係真 app 用緊嗰款）。⛔ 唔准自己拍腦袋改。 */
+.cbscroll {
+  max-height: 46vh;
+  overflow-y: auto;
+  margin-top: 10px;
+}
+
+.cbrow {
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  font-family: var(--q-font-sans);
+  padding: 13px 12px;
+  border-radius: var(--q-radius-sm);
+  border: 1px solid var(--q-border);
+  background: rgba(255, 255, 255, 0.035);
+  color: var(--q-text-primary);
+  margin-bottom: 8px;
+  cursor: pointer;
+}
+
+.cbrow b {
+  display: block;
+  font-weight: 650;
+  font-size: 15px;
+  color: var(--q-text-primary);
+}
+
+.cbrow small {
+  display: block;
+  font-size: 12.5px;
+  margin-top: 2px;
+  color: var(--q-text-secondary);
+}
+
+/* 客戶簿清單一行：左邊撳得入去改，右邊一粒刪除。
+   ⛔ 唔用滑動刪除（`docs/開發紀錄.md` §八：戴住手套易誤觸）。 */
+.client-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  text-align: left;
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  min-width: 0;
+}
+
+.card.pcard[data-testid='client-row'] {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}

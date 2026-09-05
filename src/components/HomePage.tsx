@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { Session, SupabaseClient } from '@supabase/supabase-js'
 import { createRecordsApi, type QuoteRecord, type RecordsApi } from '../lib/records'
+import { createClientsApi, type ClientsApi } from '../lib/clients'
 import { createTreesApi, type TreesApi } from '../lib/trees'
 import { createSiteFormApi, type SiteFormApi } from '../lib/siteForm'
 import { createPhotosApi, type PhotosApi } from '../lib/photos'
@@ -14,6 +15,7 @@ import RecordHubScreen from './RecordHubScreen'
 import RecordFormPage from './RecordFormPage'
 import TreesScreen from './TreesScreen'
 import ClientFormScreen from './ClientFormScreen'
+import ClientBookScreen from './ClientBookScreen'
 import EnvPhotosScreen from './EnvPhotosScreen'
 import SyncScreen from './SyncScreen'
 import ExportPdfScreen from './ExportPdfScreen'
@@ -31,6 +33,7 @@ export type QuoteApi = {
   siteForm: SiteFormApi
   photos: PhotosApi
   prices: PriceApi
+  clients: ClientsApi
 }
 
 export default function HomePage({ client, session }: Props) {
@@ -41,6 +44,7 @@ export default function HomePage({ client, session }: Props) {
       siteForm: createSiteFormApi(client, session.user.id),
       photos: createPhotosApi(client, session.user.id),
       prices: createPriceApi(client, session.user.id),
+      clients: createClientsApi(client, session.user.id),
     }),
     [client, session.user.id],
   )
@@ -174,6 +178,19 @@ export function RecordsScreen({ api, office, user, userId, accessToken, onSignOu
               await api.records.setMarkup(record.id, pct)
               await reload()
             }}
+            canSetWon={office}
+            onStatusChange={async (to, snapshot) => {
+              // ⛔⛔ 要影快照而攞唔到單價表 ⇒ **唔准照轉**。
+              //    照轉嘅話 `price_snapshot_at` 永遠係 null：
+              //    「已報 N 日」計唔到，而個價會一路跟現價浮 ——
+              //    即係公司之後加價，客張舊單跟住升。
+              let snap: unknown = null
+              if (snapshot) {
+                snap = await api.prices.list()
+              }
+              await api.records.setStatus(record.id, to, snap)
+              await reload()
+            }}
             nav={nav}
           />
         )
@@ -239,6 +256,8 @@ export function RecordsScreen({ api, office, user, userId, accessToken, onSignOu
         return (
           <ClientFormScreen
             record={record}
+            clientsApi={api.clients}
+            onOpenBook={() => nav.go({ name: 'clients' })}
             onSave={(input) =>
               afterWrite(
                 () => api.records.update(record.id, input),
@@ -294,9 +313,13 @@ export function RecordsScreen({ api, office, user, userId, accessToken, onSignOu
             userId={userId}
             recordCount={records.length}
             onOpenPrices={() => nav.go({ name: 'prices' })}
+            onOpenClients={() => nav.go({ name: 'clients' })}
             onSignOut={onSignOut}
           />
         )
+
+      case 'clients':
+        return <ClientBookScreen api={api.clients} onBack={() => nav.go({ name: 'settings' })} />
 
       case 'prices':
         return (

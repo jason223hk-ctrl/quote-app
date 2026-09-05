@@ -104,6 +104,16 @@ export type RecordsApi = {
   setArchived: (id: string, archived: boolean) => Promise<QuoteRecord>
   /** 加成％。⛔ 只有辦公室改得（RLS 把關），畫面嗰層淨係決定畀唔畀你㩒。 */
   setMarkup: (id: string, pct: number | null) => Promise<QuoteRecord>
+  /**
+   * 轉狀態。轉「已報價」嗰陣順手影低價錢快照。
+   *
+   * `snapshot` ＝ null 就⛔ 完全唔掂 `price_snapshot` / `price_snapshot_at`
+   * （已經影過嗰啲，⛔ 唔准重影 —— 重影 ＝ 公司加價追溯改咗客張舊單）。
+   *
+   * ⚠️ 型別係 `unknown` 唔係 `PriceSnapshot`：`prices.ts` 反過嚟 import 呢個檔
+   * （`translateDbError`），寫死型別會做成循環引用。叫嗰邊自己 cast。
+   */
+  setStatus: (id: string, status: QuoteStatus, snapshot: unknown) => Promise<QuoteRecord>
   softDelete: (id: string) => Promise<QuoteRecord>
 }
 
@@ -317,6 +327,16 @@ export function createRecordsApi(client: SupabaseClient, userId: string): Record
 
     setMarkup(id, pct) {
       return writeBack(patch(id, { markup_pct: pct }))
+    },
+
+    setStatus(id, status, snapshot) {
+      const values: Record<string, unknown> = { status }
+      // ⛔ null ＝ 唔使影（已經影過）。⛔ 唔准寫一個 null 落 price_snapshot 抹咗舊嗰份。
+      if (snapshot !== null) {
+        values.price_snapshot = snapshot
+        values.price_snapshot_at = new Date().toISOString()
+      }
+      return writeBack(patch(id, values))
     },
 
     softDelete(id) {

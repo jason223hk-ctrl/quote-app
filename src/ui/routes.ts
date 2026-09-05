@@ -21,6 +21,8 @@ export type Route =
   | { name: 'settings' }
   /** 單價設定。⛔ 只有辦公室改得（RLS 把關）。 */
   | { name: 'prices' }
+  /** 客戶簿：全公司共用一本。⛔ 揀咗係複製一份入工程，⛔ 唔係指過去。 */
+  | { name: 'clients' }
 
 export interface Nav {
   go: (r: Route) => void
@@ -35,6 +37,7 @@ export function activeTab(route: Route): 'home' | 'records' | 'sync' | 'settings
       return 'sync'
     case 'settings':
     case 'prices':
+    case 'clients':
       return 'settings'
     default:
       return 'records'
