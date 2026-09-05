@@ -122,6 +122,14 @@ export default function PhotoSlot({
   /** 攞唔到雲端嗰份。⛔ 唔係出錯，係「而家只睇到部機嗰份」。 */
   const [stale, setStale] = useState(false)
   /**
+   * 而家喺度重試緊邊張。
+   *
+   * ⛔⛔ 2026-09-05 真機中過：撳完「再試一次」，粒掣淨係變灰，個字冇變 ——
+   *    喺手機上面讀落就係**乜都冇發生**，人會一路撳一路以為壞咗。
+   *    ⭐ 一粒做緊嘢嘅掣，一定要自己講返佢做緊嘢。
+   */
+  const [retrying, setRetrying] = useState<string | null>(null)
+  /**
    * ⛔ 今次開 app 已經試過補鏡像嘅相。
    *
    * 冇呢個就會炒車：補完 → `reload()` → `rows` 換咗個新 array →
@@ -337,6 +345,7 @@ export default function PhotoSlot({
     const item = pending.find((one) => one.operationId === operationId)
     const row = rows.find((one) => one.operation_id === operationId)
     setBusy(true)
+    setRetrying(operationId)
     setError(null)
     try {
       // R2 已經有咗就唔使再上一次 —— 差嘅係 Drive 嗰份。
@@ -350,6 +359,7 @@ export default function PhotoSlot({
       if (item) await send(item)
     } finally {
       setBusy(false)
+      setRetrying(null)
     }
   }
 
@@ -446,7 +456,8 @@ export default function PhotoSlot({
                     disabled={busy}
                     onClick={() => void retry(item.operationId)}
                   >
-                    再試一次
+                    {/* ⛔ 唔准淨係變灰 —— 粒掣要自己講返佢做緊嘢。 */}
+                    {retrying === item.operationId ? '上緊⋯' : '再試一次'}
                   </button>
                 )}
               </div>
