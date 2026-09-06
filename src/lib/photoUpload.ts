@@ -22,6 +22,17 @@ export type PendingPhoto = {
   status: 'local' | 'uploading' | 'error' | 'uploaded'
   error: string
   attempts: number
+  /**
+   * 幾時開始上傳嘅（ISO 時間）。⛔ 淨係喺 status 轉做 `uploading` 嗰陣寫。
+   *
+   * ⚠️ 冇呢個就分唔出「而家真係上緊」同「上到一半 app 被 kill 咗」——
+   * 兩者喺部機度睇落一模一樣，都係 `uploading`。
+   * ⛔ 分唔出就唯有二揀一：唔敢再傳（張相永遠卡住），
+   * 或者見到就再傳（同一張相有機會上兩次）。
+   *
+   * ⭐ 冇呢個欄嘅舊 row ＝ 上一次開 app 留低嘅，一定當佢死咗。
+   */
+  uploadingSince?: string
   /** Drive 鏡像試咗幾多次。⛔ 夠三次就唔再自動試（`docs/P3b-計劃書.md` §7.5）。 */
   driveAttempts?: number
   driveError?: string
