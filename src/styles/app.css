@@ -272,7 +272,8 @@ button {
   display: flex;
   flex-direction: column;
   gap: 14px;
-  padding: calc(var(--wave-line) + var(--pill-h, 56px) + 14px) 16px calc(var(--nav-clear, 26px) + 82px);
+  padding: calc(var(--wave-line) + var(--pill-h, 56px) + 14px) 16px
+    calc(var(--nav-clear, 26px) + 82px + var(--pending-extra, 0px));
   -webkit-mask-image: linear-gradient(
     to bottom,
     transparent calc(var(--wave-line) - 40px),
@@ -2343,7 +2344,11 @@ h3 {
   min-height: 0;
   gap: 12px;
   /* 底部要讓返 nav（69+16）＋ 儲存掣（58+12）＋ 呼吸位。 */
-  padding: 6px 18px calc(69px + 16px + 12px + 58px + 14px + env(safe-area-inset-bottom, 0px));
+  padding: 6px 18px
+    calc(
+      69px + 16px + 12px + 58px + 14px + env(safe-area-inset-bottom, 0px) +
+        var(--pending-extra, 0px)
+    );
   mask-image: none;
   -webkit-mask-image: none;
 }
@@ -2954,3 +2959,76 @@ h3 {
   align-items: center;
   gap: 12px;
 }
+
+/* ── 「未上載 N 張」（`docs/上線清單.md` 第 1 條第 2 項）────────────
+   Jason 2026-09-06 睇完原型 `public/proto-pending-count.html` 拍板：
+   釘喺底部導航上面、撳得（去同步頁）、到零變綠停兩秒、⛔ 冇網唔變樣。
+
+   ⛔⛔ 呢度**冇加任何一條蓋過 `.bottom-nav` 嘅規則** —— 條 nav 嘅位置、
+      內距、圓角、陰影一個字都冇郁。條 bar 係疊上去嘅一層，
+      ⚠️ 咁樣 `ui:check` 對 nav 嗰批數先會維持原樣。
+
+   ⭐ `--pending-bar-lift` ＝ nav 條 bar 實際幾高（由 JS 度返，見 `PendingBar`
+      掛住嘅容器）。⛔ 唔寫死一個數 —— nav 高度改過三次，每次寫死都會漏改。 */
+.pending-bar {
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  bottom: calc(16px + env(safe-area-inset-bottom, 0px) + var(--pending-bar-lift, 79px));
+  z-index: 6;
+
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: auto;
+  margin: 0;
+  padding: 11px 14px;
+  border: 1px solid rgba(240, 225, 180, 0.5);
+  border-radius: 14px;
+  /* ⭐ 用返 --q-incomplete（#b68a45）嗰個色系 ——「要人知、但唔係出錯」
+     全 app 就係呢隻色。⛔ 唔係另揀一隻金。 */
+  background: linear-gradient(160deg, #c29a4e, #8e6b34);
+  box-shadow: 0 10px 24px -12px rgba(0, 0, 0, 0.6);
+  color: #0d120e;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 650;
+  text-align: left;
+  cursor: pointer;
+}
+
+.pending-bar--done {
+  /* ⭐ 綠 ＝ 做完咗（--q-complete 嗰個色系）。 */
+  background: linear-gradient(160deg, #8fa25d, #68794d);
+  cursor: default;
+}
+
+.pending-bar__text {
+  font-variant-numeric: tabular-nums;
+}
+
+.pending-bar__go {
+  margin-left: auto;
+  font-size: 13px;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+.pending-bar:active {
+  transform: scale(0.99);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pending-bar:active {
+    transform: none;
+  }
+}
+
+/* ⚠️ 條「未上載 N 張」出現嗰陣，捲動區底部要讓返佢嗰個高度，
+   ⛔ 否則最後一張卡會匿咗喺條 bar 後面，戴住手套點都撳唔到。
+
+   ⭐ 做法：`--pending-extra` 由 `PendingBar` 度返實際高度再寫落 `.app--float`。
+   ⛔ 冇條 bar 嗰陣佢係 `0px` —— 即係**計出嚟同以前一個 px 都唔差**，
+      所以 `ui:check` 嗰 90 項唔會郁（已實測：仍然 0 項對唔上）。
+   ⛔ 唔喺各處 padding 度寫死一個新數：三個變體各有一條自己嘅 calc，
+      寫死就一定有一條漏改。 */
