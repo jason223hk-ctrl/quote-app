@@ -1,3 +1,4 @@
+import { MAX_DRIVE_ATTEMPTS, pickMirrorBatch, type QuotePhoto } from './photos'
 import type { PendingPhoto, UploadResult } from './photoUpload'
 
 /**
@@ -15,6 +16,16 @@ import type { PendingPhoto, UploadResult } from './photoUpload'
  *    Drive 嗰份係**第二份**副本，唔急喺呢一分鐘搞掂；
  *    呢度講緊嘅相**一份雲端副本都未有**，部機一冇就真係冇咗。
  */
+
+/**
+ * 幾耐先掃一次 Drive。
+ *
+ * ⚠️ 掃一次 ＝ 問 DB 攞晒所有相嗰行。⛔ 唔好每分鐘都問 ——
+ * 阿耀部機用緊自己數據，而 Drive 遲五分鐘唔會令張相冇咗。
+ * ⭐ 但啱啱先上到 R2 嗰陣係例外（`force`）：嗰下即刻補，
+ *    因為 Jason 2026-09-05 拍板嘅理由就係「唔可以等有人開返嗰版」。
+ */
+export const MIRROR_SWEEP_MS = 5 * 60 * 1000
 
 /**
  * `uploading` 拖過幾耐就當佢死咗。
@@ -216,3 +227,129 @@ export async function resumeOnce(deps: ResumeDeps): Promise<ResumeReport> {
     running = false
   }
 }
+
+/* ────────────────────────────────────────────────────────────────────────
+ * 補 Drive 嗰份
+ *
+ * ⭐ Jason 2026-09-05 拍板（揀甲）：背景自動上到 R2 之後，**要順手補埋 Drive**。
+ *    佢原話嘅理由 ——「有人會開返嗰版」呢個假設，同「有人會記得撳再試一次」
+ *    係同一種假設，而今日已經證明咗嗰種假設唔成立。
+ *
+ * ⛔⛔ 呢度**唔准另開一套規矩**，一律行返 `PhotoSlot` 嗰套（`P3b-計劃書.md` §7.5）：
+ *      · `pickMirrorBatch()` 揀邊幾張（已入 R2、Drive 未做、舊嘅行先）
+ *      · `MAX_DRIVE_ATTEMPTS` —— 連續失敗三次就唔再自動試，等人手撳
+ *      · **一次開 app 一張相試一次** —— 見 `triedMirror`
+ *    ⚠️ 背景嗰條路**唔可以**因為「係自動嘅」就繞過呢啲限制去燒 Google 配額。
+ * ──────────────────────────────────────────────────────────────────────── */
+
+/**
+ * 今次開 app 已經試過補鏡像嘅相。**module-level，成個 app 一份。**
+ *
+ * ⚠️ `PhotoSlot` 嗰個 `triedRef` 係逐格相各自一份，一換版就冇咗；
+ * 背景呢條路一直行落去，所以要一份跟住成個 app 嘅。
+ *
+ * ⛔ 冇呢個就會變連環重試：補完 → 下一輪又見到佢（DB 未寫得切）→ 再補一次，
+ *    一次開 app 就燒晒三次配額 —— 正正係 §7.5 想避免嗰件事。
+ */
+const triedMirror = new Set<string>()
+
+export type MirrorOutcome = { ok: true; alreadyDone?: boolean } | { ok: false; message: string }
+
+export type MirrorDeps = {
+  /** DB 嗰邊所有相嘅行。⛔ 要 DB 嗰份，唔係部機嗰份 —— 第二部機影嘅相一樣要補。 */
+  listRows: () => Promise<QuotePhoto[]>
+  /** 部機嗰份。淨係用嚟讀「Drive 試咗幾多次」同寫返結果（DB 冇呢個欄）。 */
+  listAll: () => Promise<PendingPhoto[]>
+  save: (item: PendingPhoto) => Promise<void>
+  /** 叫 Worker 抄一份上 Drive。 */
+  mirror: (photoId: string) => Promise<MirrorOutcome>
+  now?: () => number
+  online?: () => boolean
+}
+
+export type MirrorReport = {
+  tried: number
+  done: number
+  failed: number
+  skipped: 'offline' | 'running' | 'too-soon' | 'list-failed' | null
+}
+
+const MIRROR_IDLE: MirrorReport = { tried: 0, done: 0, failed: 0, skipped: null }
+
+let mirrorRunning = false
+let lastSweepAt = 0
+
+/**
+ * 掃一次，補返未上 Drive 嗰啲。
+ *
+ * `force` ＝ 啱啱先有相上到 R2，即刻補，⛔ 唔受五分鐘限制。
+ * ⛔ 同 `resumeOnce` 一樣：**一次一張、順序嚟、唔會 throw**。
+ */
+export async function mirrorOnce(
+  deps: MirrorDeps,
+  options: { force?: boolean } = {},
+): Promise<MirrorReport> {
+  const now = deps.now ?? (() => Date.now())
+  const online = deps.online ?? (() => (typeof navigator === 'undefined' ? true : navigator.onLine))
+
+  if (!online()) return { ...MIRROR_IDLE, skipped: 'offline' }
+  if (mirrorRunning) return { ...MIRROR_IDLE, skipped: 'running' }
+
+  const at = now()
+  if (!options.force && at - lastSweepAt < MIRROR_SWEEP_MS) {
+    return { ...MIRROR_IDLE, skipped: 'too-soon' }
+  }
+
+  mirrorRunning = true
+  lastSweepAt = at
+  try {
+    let rows: QuotePhoto[]
+    let locals: PendingPhoto[]
+    try {
+      rows = await deps.listRows()
+      locals = await deps.listAll()
+    } catch (caught) {
+      console.error('[quote-app] auto mirror: cannot read photo list:', caught)
+      return { ...MIRROR_IDLE, skipped: 'list-failed' }
+    }
+
+    // 「試咗幾多次」淨係部機記住（DB 冇呢個欄）。第二部機影嘅相冇本機紀錄，當 0 ——
+    // ⛔ 同 `PhotoSlot` 嗰個 `attemptsOf` 一模一樣，唔准另計一套。
+    const byOperation = new Map(locals.map((item) => [item.operationId, item]))
+    const attemptsOf = (photoId: string) => {
+      const row = rows.find((one) => one.id === photoId)
+      return (row ? byOperation.get(row.operation_id)?.driveAttempts : 0) ?? 0
+    }
+
+    const batch = pickMirrorBatch(rows, attemptsOf).filter((row) => !triedMirror.has(row.id))
+    const report: MirrorReport = { ...MIRROR_IDLE }
+
+    for (const row of batch) {
+      triedMirror.add(row.id)
+      report.tried += 1
+      try {
+        const result = await deps.mirror(row.id)
+        const before = byOperation.get(row.operation_id)
+        if (before) {
+          await deps.save({
+            ...before,
+            driveAttempts: result.ok ? 0 : (before.driveAttempts ?? 0) + 1,
+            driveError: result.ok ? '' : result.message,
+          })
+        }
+        if (result.ok) report.done += 1
+        else report.failed += 1
+      } catch (caught) {
+        console.error('[quote-app] auto mirror failed:', row.id, caught)
+        report.failed += 1
+      }
+    }
+
+    return report
+  } finally {
+    mirrorRunning = false
+  }
+}
+
+/** 而家 `MAX_DRIVE_ATTEMPTS` 係幾多 —— 出返俾人查，⛔ 唔准喺呢個檔另外定一個數。 */
+export const DRIVE_ATTEMPT_LIMIT = MAX_DRIVE_ATTEMPTS

@@ -1,8 +1,8 @@
 import { useEffect, useRef } from 'react'
-import { RESUME_INTERVAL_MS, resumeOnce } from './autoResume'
+import { RESUME_INTERVAL_MS, mirrorOnce, resumeOnce } from './autoResume'
 import type { PhotosApi } from './photos'
 import { photoStore, localStorageAvailable } from './photoStore'
-import { createUploadDeps, photoWorkerBase } from './photoTransport'
+import { createUploadDeps, mirrorPhoto, photoWorkerBase } from './photoTransport'
 import { uploadPending } from './photoUpload'
 
 /**
@@ -20,7 +20,10 @@ import { uploadPending } from './photoUpload'
  *   4. **每分鐘** —— 兜底。⚠️ `online` 事件唔係次次都有（Wi-Fi 連到但冇出到街嗰種）
  *
  * ⭐ 呢個 hook **唔還任何嘢俾畫面** —— 今次特登唔做計數器。
- *    佢做嘅嘢只有一樣：**令張相真係上到。**
+ *    佢做嘅嘢只有兩樣：**令張相真係上到 R2**，跟住**補埋 Drive 嗰份**。
+ *
+ * ⭐ Jason 2026-09-05 拍板要補埋 Drive，理由係：「有人會開返嗰版」呢個假設，
+ *    同「有人會記得撳再試一次」係同一種假設 —— 而嗰種假設今日已經證明咗唔成立。
  */
 export function useAutoResume(accessToken: string, photos: PhotosApi): void {
   // ⛔ token 同 api 一變就重掛一次 listener 係嘥嘅，而且會斷咗行緊嗰輪。
@@ -40,12 +43,26 @@ export function useAutoResume(accessToken: string, photos: PhotosApi): void {
       // ⛔ resumeOnce 唔會 throw，所以呢度唔使包 try —— 但仲係接住，
       //    因為背景嘅 unhandled rejection 冇人見到。
       try {
-        await resumeOnce({
+        const sent = await resumeOnce({
           listAll: photoStore.listAll,
           save: photoStore.put,
           upload: (item) =>
             uploadPending(item, createUploadDeps(latest.current.accessToken, latest.current.photos)),
         })
+
+        if (!live) return
+
+        // ⭐ 啱啱有相上到 R2 就即刻補 Drive（`force`），⛔ 唔等下一次掃。
+        //    冇上到嘢就照 `MIRROR_SWEEP_MS` 嗰個節奏，⛔ 唔好每分鐘問一次 DB。
+        await mirrorOnce(
+          {
+            listRows: latest.current.photos.listAll,
+            listAll: photoStore.listAll,
+            save: photoStore.put,
+            mirror: (photoId) => mirrorPhoto(latest.current.accessToken, photoId),
+          },
+          { force: sent.sent > 0 },
+        )
       } catch (caught) {
         console.error('[quote-app] auto resume tick failed:', caught)
       }

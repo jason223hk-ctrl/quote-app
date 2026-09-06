@@ -1,10 +1,14 @@
 import { describe, expect, it, vi } from 'vitest'
+import { MIRROR_BATCH_SIZE, type QuotePhoto } from './photos'
 import type { PendingPhoto, UploadResult } from './photoUpload'
 import {
+  DRIVE_ATTEMPT_LIMIT,
   MAX_PER_ROUND,
+  MIRROR_SWEEP_MS,
   STALE_UPLOADING_MS,
   claimUpload,
   isResumable,
+  mirrorOnce,
   releaseUpload,
   resumable,
   resumeOnce,
@@ -214,6 +218,227 @@ describe('resumeOnce', () => {
       online: () => true,
       now: () => NOW,
     })
+
+    expect(report.skipped).toBe('list-failed')
+  })
+})
+
+/**
+ * Drive 嗰邊。
+ *
+ * ⚠️ `triedMirror` 係 module-level（一次開 app 一張相試一次），
+ * 所以每條測試用**唔同嘅相片 id**，⛔ 唔靠一個「淨係測試用」嘅重置掣。
+ */
+const dbRow = (p: Partial<QuotePhoto>): QuotePhoto =>
+  ({
+    id: 'photo1',
+    record_id: 'r1',
+    tree_id: 't1',
+    mitigation: null,
+    seq: 1,
+    operation_id: 'op1',
+    r2_key: 'k',
+    r2_synced_at: '2026-09-06T09:10:00.000Z',
+    r2_error: '',
+    drive_file_id: '',
+    drive_synced_at: null,
+    drive_error: '',
+    size_bytes: 1,
+    sha256: 'x',
+    captured_at: null,
+    created_at: '2026-09-06T09:00:00.000Z',
+    deleted_at: null,
+    ...p,
+  }) as unknown as QuotePhoto
+
+describe('mirrorOnce', () => {
+  it('⛔ 冇網就唔試', async () => {
+    const mirror = vi.fn()
+    const report = await mirrorOnce(
+      {
+        listRows: () => Promise.resolve([dbRow({ id: 'm-offline' })]),
+        listAll: () => Promise.resolve([]),
+        save: () => Promise.resolve(),
+        mirror,
+        online: () => false,
+        now: () => NOW,
+      },
+      { force: true },
+    )
+
+    expect(report.skipped).toBe('offline')
+    expect(mirror).not.toHaveBeenCalled()
+  })
+
+  it('已入 R2、Drive 未做 → 補，然後寫返「試咗零次」', async () => {
+    const saved: PendingPhoto[] = []
+    const mirror = vi.fn().mockResolvedValue({ ok: true })
+    const report = await mirrorOnce(
+      {
+        listRows: () => Promise.resolve([dbRow({ id: 'm-ok', operation_id: 'op-ok' })]),
+        listAll: () =>
+          Promise.resolve([photo({ operationId: 'op-ok', status: 'uploaded', driveAttempts: 1 })]),
+        save: (item) => {
+          saved.push(item)
+          return Promise.resolve()
+        },
+        mirror,
+        online: () => true,
+        now: () => NOW,
+      },
+      { force: true },
+    )
+
+    expect(report).toMatchObject({ tried: 1, done: 1, failed: 0 })
+    expect(mirror).toHaveBeenCalledWith('m-ok')
+    expect(saved[0].driveAttempts).toBe(0)
+    expect(saved[0].driveError).toBe('')
+  })
+
+  it('⛔ Drive 已經做咗嗰啲唔會再補一次', async () => {
+    const mirror = vi.fn()
+    const report = await mirrorOnce(
+      {
+        listRows: () =>
+          Promise.resolve([dbRow({ id: 'm-done', drive_synced_at: '2026-09-06T09:20:00.000Z' })]),
+        listAll: () => Promise.resolve([]),
+        save: () => Promise.resolve(),
+        mirror,
+        online: () => true,
+        now: () => NOW,
+      },
+      { force: true },
+    )
+
+    expect(report.tried).toBe(0)
+    expect(mirror).not.toHaveBeenCalled()
+  })
+
+  it('⛔ 試夠三次嘅唔會再自動試 —— 跟返 MAX_DRIVE_ATTEMPTS，⛔ 唔准另開一套', async () => {
+    const mirror = vi.fn()
+    const report = await mirrorOnce(
+      {
+        listRows: () => Promise.resolve([dbRow({ id: 'm-max', operation_id: 'op-max' })]),
+        listAll: () =>
+          Promise.resolve([
+            photo({
+              operationId: 'op-max',
+              status: 'uploaded',
+              driveAttempts: DRIVE_ATTEMPT_LIMIT,
+            }),
+          ]),
+        save: () => Promise.resolve(),
+        mirror,
+        online: () => true,
+        now: () => NOW,
+      },
+      { force: true },
+    )
+
+    expect(report.tried).toBe(0)
+    expect(mirror).not.toHaveBeenCalled()
+  })
+
+  it('失敗要留低痕跡：試咗幾多次加一、錯誤寫低', async () => {
+    const saved: PendingPhoto[] = []
+    const mirror = vi.fn().mockResolvedValue({ ok: false, message: '抄唔到去 Drive。' })
+    const report = await mirrorOnce(
+      {
+        listRows: () => Promise.resolve([dbRow({ id: 'm-fail', operation_id: 'op-fail' })]),
+        listAll: () =>
+          Promise.resolve([photo({ operationId: 'op-fail', status: 'uploaded', driveAttempts: 1 })]),
+        save: (item) => {
+          saved.push(item)
+          return Promise.resolve()
+        },
+        mirror,
+        online: () => true,
+        now: () => NOW,
+      },
+      { force: true },
+    )
+
+    expect(report).toMatchObject({ tried: 1, done: 0, failed: 1 })
+    expect(saved[0].driveAttempts).toBe(2)
+    expect(saved[0].driveError).toBe('抄唔到去 Drive。')
+  })
+
+  it('⛔ 一次開 app 一張相試一次 —— 同一張唔會喺第二輪再補', async () => {
+    const row = dbRow({ id: 'm-once', operation_id: 'op-once' })
+    const mirror = vi.fn().mockResolvedValue({ ok: false, message: '唔得' })
+    const deps = {
+      listRows: () => Promise.resolve([row]),
+      listAll: () => Promise.resolve([photo({ operationId: 'op-once', status: 'uploaded' })]),
+      save: () => Promise.resolve(),
+      mirror,
+      online: () => true,
+      now: () => NOW,
+    }
+
+    const first = await mirrorOnce(deps, { force: true })
+    const second = await mirrorOnce(deps, { force: true })
+
+    expect(first.tried).toBe(1)
+    expect(second.tried).toBe(0)
+    expect(mirror).toHaveBeenCalledTimes(1)
+  })
+
+  it('⛔ 一輪最多三張，舊嘅行先', async () => {
+    const rows = [5, 1, 4, 2, 3].map((n) =>
+      dbRow({
+        id: `m-batch${n}`,
+        operation_id: `op-batch${n}`,
+        created_at: `2026-09-06T0${n}:00:00.000Z`,
+      }),
+    )
+    const order: string[] = []
+    const mirror = vi.fn().mockImplementation((id: string) => {
+      order.push(id)
+      return Promise.resolve({ ok: true })
+    })
+    const report = await mirrorOnce(
+      {
+        listRows: () => Promise.resolve(rows),
+        listAll: () => Promise.resolve([]),
+        save: () => Promise.resolve(),
+        mirror,
+        online: () => true,
+        now: () => NOW,
+      },
+      { force: true },
+    )
+
+    expect(report.tried).toBe(MIRROR_BATCH_SIZE)
+    expect(order).toEqual(['m-batch1', 'm-batch2', 'm-batch3'])
+  })
+
+  it('⛔ 五分鐘內唔會掃第二次（force 嗰次除外）', async () => {
+    const far = NOW + 10 * MIRROR_SWEEP_MS
+    const deps = {
+      listRows: () => Promise.resolve([dbRow({ id: 'm-soon', operation_id: 'op-soon' })]),
+      listAll: () => Promise.resolve([]),
+      save: () => Promise.resolve(),
+      mirror: vi.fn().mockResolvedValue({ ok: true }),
+      online: () => true,
+      now: () => far,
+    }
+
+    expect((await mirrorOnce(deps)).skipped).toBe(null)
+    expect((await mirrorOnce(deps)).skipped).toBe('too-soon')
+  })
+
+  it('攞唔到清單都唔准 throw 上去', async () => {
+    const report = await mirrorOnce(
+      {
+        listRows: () => Promise.reject(new Error('冇網')),
+        listAll: () => Promise.resolve([]),
+        save: () => Promise.resolve(),
+        mirror: vi.fn(),
+        online: () => true,
+        now: () => NOW,
+      },
+      { force: true },
+    )
 
     expect(report.skipped).toBe('list-failed')
   })

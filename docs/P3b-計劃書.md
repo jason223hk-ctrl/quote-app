@@ -89,8 +89,6 @@ Jason 2026-08-22 揀咗**丙**：**唔 merge，做埋 Drive 鏡像夠兩份先�
 - **已證實**：**P3a 個前端喺影相嗰刻就壓**（`compressToJpeg`，長邊 2048、JPEG 0.85），
   **部機由頭到尾冇留過手機原相**。⚠️ 呢個直接影響第六節第一條前置。
 - **未知**：Drive API 喺 token 過期、限流、同名檔嗰陣實際行為。
-- **未知**：Jason 個 Drive 剩返幾多空間會唔會喺 P3b 期間就撞到 2 GB 那條線
-  （2026-08-22 係 10.09 GB / 17 GB）。
 
 ## 4. 方案比較
 
@@ -124,9 +122,6 @@ Worker 由 R2 讀返 bytes、上 Drive、用 `service_role` 寫返兩個欄。
 **一張已經入咗 R2 嘅相 → 鏡像上 Google Drive →
 寫返 `drive_file_id` 同 `drive_synced_at` →
 UI 由「已入 R2（Drive 未做）」變成兩份齊。**
-
-加埋：**Drive quota 警告**（跌穿 2 GB 出具名一行，攞唔到就出「未知」）——
-呢個係 Jason 2026-08-22 拍板連住容量決定嘅要求，見 `docs/開發紀錄.md` §九。
 
 ### P3b ⛔ 唔做
 
@@ -512,8 +507,8 @@ projectFolderName = safeSegment(`${work_date}_${name}`)
 
 - **Drive token 過期／refresh 失敗** → 寫 `drive_error`，狀態留喺
   「已入 R2（Drive 未做）」，⛔ **唔准跳去「兩份齊」**
-- **Drive 滿咗** → 具名一行「Google Drive 剩返 X GB…」，
-  ⛔ 攞唔到 quota 就出「未知」，**唔准當充足**
+- **Drive 滿咗** → Google 回 `storageQuotaExceeded`，寫 `drive_error`，
+  同步頁出「需要處理」（`sync.ts` 個 `syncAdvice`）。⛔ 重試幾多次都係一樣。
 - **Drive 上到但寫唔返 DB** → ⚠️ **最危險嗰個**：
   Drive 有檔但系統唔知，下次重試會**上多一份**。
   **所以要用 `operation_id` 做 idempotency**，同 P3a 一樣：
@@ -543,7 +538,7 @@ projectFolderName = safeSegment(`${work_date}_${name}`)
 
 - `npm run gate` 全綠
 - 新加嘅純函數測試：**檔名砌法**（連 `safeFilename` 清洗）、
-  **序號**、**quota 門檻**、**狀態機由第三個變第四個**
+  **序號**、**狀態機由第三個變第四個**
 - 本機 harness 用假 Drive 行成條路，包括**上到 Drive 但寫唔返 DB** 嗰個情況
 
 ### 要你真機做嘅（三個動作）
