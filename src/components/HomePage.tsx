@@ -7,6 +7,7 @@ import { createSiteFormApi, type SiteFormApi } from '../lib/siteForm'
 import { createPhotosApi, type PhotosApi } from '../lib/photos'
 import { createPriceApi, type PriceApi } from '../lib/prices'
 import { isOffice } from '../lib/office'
+import { useAutoResume } from '../lib/useAutoResume'
 import { activeTab, type Nav, type Route } from '../ui/routes'
 import { BottomNav, userInfoFrom, type UserInfo } from '../ui/shell'
 import HomeScreen from './HomeScreen'
@@ -48,6 +49,14 @@ export default function HomePage({ client, session }: Props) {
     }),
     [client, session.user.id],
   )
+
+  /**
+   * 自動重傳未上到嘅相。⛔ **成個 app 就掛喺呢一個位**（`useAutoResume` 開頭有解釋）。
+   *
+   * ⚠️ 呢度冇任何畫面 —— 佢係背景做嘢。`docs/上線清單.md` 第 1 條第 3 項
+   * 要求嘅係「收到網就自動再傳，⛔ 唔使人手撳」，冇要求畫面出數字。
+   */
+  useAutoResume(session.access_token, api.photos)
 
   // 加成％ 淨係辦公室改得。⛔ 查唔到一律當唔係 —— 寧願見到但改唔到。
   const [office, setOffice] = useState(false)

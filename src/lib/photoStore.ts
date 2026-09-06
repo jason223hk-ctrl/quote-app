@@ -48,6 +48,13 @@ export type PhotoStore = {
   put: (item: PendingPhoto) => Promise<void>
   get: (operationId: string) => Promise<PendingPhoto | null>
   listByRecord: (recordId: string) => Promise<PendingPhoto[]>
+  /**
+   * 成部機所有未清嘅相，⛔ 唔分工程。
+   *
+   * ⭐ 自動重傳要嘅就係呢個：阿耀影完相、行開咗、之後喺**第二單工程**開返 app，
+   * 嗰陣 `listByRecord` 睇嘅係新嗰單 —— 舊嗰單張相就冇人理，永遠留喺部機。
+   */
+  listAll: () => Promise<PendingPhoto[]>
 }
 
 export const photoStore: PhotoStore = {
@@ -66,6 +73,11 @@ export const photoStore: PhotoStore = {
     const found = await run<PendingPhoto[]>('readonly', (store) =>
       store.index('recordId').getAll(recordId),
     )
+    return found ?? []
+  },
+
+  async listAll() {
+    const found = await run<PendingPhoto[]>('readonly', (store) => store.getAll())
     return found ?? []
   },
 }

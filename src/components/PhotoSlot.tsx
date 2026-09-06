@@ -12,6 +12,7 @@ import {
   type QuotePhoto,
 } from '../lib/photos'
 import { photoStore, localStorageAvailable } from '../lib/photoStore'
+import { BUSY_MESSAGE, claimUpload, releaseUpload } from '../lib/autoResume'
 import { uploadPending, type PendingPhoto } from '../lib/photoUpload'
 import {
   WORKER_MISSING_MESSAGE,
@@ -263,30 +264,49 @@ export default function PhotoSlot({
   }, [rows, workerReady, attemptsOf, runMirror, reload])
 
   async function send(item: PendingPhoto) {
-    await photoStore.put({ ...item, status: 'uploading', error: '' })
-    setPending((current) =>
-      current.map((one) =>
-        one.operationId === item.operationId ? { ...one, status: 'uploading', error: '' } : one,
-      ),
-    )
+    // ⛔⛔ 背景自動重傳有機會啱啱都揀中同一張。⛔ 兩條路一齊上會撞
+    //    `operation_id` 個 unique index（`src/lib/autoResume.ts` 個鎖有解釋）。
+    //    ⛔ 讓開唔准靜靜咁讓 —— 撳咗掣就一定要有句嘢答返佢。
+    if (!claimUpload(item.operationId)) {
+      setError(BUSY_MESSAGE)
+      return
+    }
 
-    const result = await uploadPending(item, createUploadDeps(accessToken, api))
-
-    if (result.ok) {
-      await photoStore.put({ ...item, status: 'uploaded', error: '' })
-      // 影完即刻試一次鏡像。唔成功就留低狀態，下次開 app 補（§7.5）。
-      triedRef.current.add(result.row.id)
-      const mirrored = await runMirror(result.row)
-      if (!mirrored.ok) setError(mirrored.message)
-    } else {
-      // ⛔ 失敗就係失敗。部機嗰份照留住，唔會刪。
+    try {
       await photoStore.put({
         ...item,
-        status: 'error',
-        error: result.message,
-        attempts: item.attempts + 1,
+        status: 'uploading',
+        error: '',
+        uploadingSince: new Date().toISOString(),
       })
-      setError(result.message)
+      setPending((current) =>
+        current.map((one) =>
+          one.operationId === item.operationId ? { ...one, status: 'uploading', error: '' } : one,
+        ),
+      )
+
+      const result = await uploadPending(item, createUploadDeps(accessToken, api))
+
+      if (result.ok) {
+        await photoStore.put({ ...item, status: 'uploaded', error: '', uploadingSince: undefined })
+        // 影完即刻試一次鏡像。唔成功就留低狀態，下次開 app 補（§7.5）。
+        triedRef.current.add(result.row.id)
+        const mirrored = await runMirror(result.row)
+        if (!mirrored.ok) setError(mirrored.message)
+      } else {
+        // ⛔ 失敗就係失敗。部機嗰份照留住，唔會刪。
+        await photoStore.put({
+          ...item,
+          status: 'error',
+          error: result.message,
+          attempts: item.attempts + 1,
+          uploadingSince: undefined,
+        })
+        setError(result.message)
+      }
+    } finally {
+      // ⛔ 一定要放返個鎖，唔係嘅話呢張相之後永遠冇人傳得到。
+      releaseUpload(item.operationId)
     }
     await reload()
   }
