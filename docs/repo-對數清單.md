@@ -56,7 +56,7 @@
    ⛔ 唔准逐張相 PATCH。
 5. 删相 ＝ 真删，入 Google 垃圾桶。⛔ 唔留底。
 6. 同一棵樹同一時間⛔ 只准一部機影。
-7. 上載前壓縮 ＋ 配額警告。⛔ 15GB 同 Gmail、Google Photos 共用。
+7. 上載前壓縮 —— 全世界只有一個壓縮點（`photoTransport.ts`）。
 8. 對數 ＝ Drive `files.list` ＋ DB `select`，比 id、size、`quotePhotoId`。
 
 ---
