@@ -6,6 +6,9 @@ import {
   lastSyncedAt,
   photoSyncState,
   photoWhere,
+  DRIVE_AUTH_EXPIRED_MESSAGE,
+  DRIVE_LOGIN_FAILED_MESSAGE,
+  isDriveAuthExpired,
   syncAdvice,
   syncCounts,
   treeNoMap,
@@ -140,6 +143,44 @@ describe('syncAdvice', () => {
     expect(advice.text).toContain('需要處理')
   })
 
+  /**
+   * ⚠️ 呢句係 2026-09-06 真機**原文照抄**，⛔ 唔准改短、⛔ 唔准「大概咁上下」——
+   * 呢條測試存在嘅唯一理由，就係「下次真係出呢句嘅時候認得返」。
+   */
+  const REAL_ERROR = 'Drive 登入失敗（400：Token has been expired or revoked.）'
+
+  it('⭐ Drive 授權過期（2026-09-06 真機原文）＝ 認得出，⛔ 唔再係「認唔出」', () => {
+    const advice = syncAdvice(row({ drive_error: REAL_ERROR }))
+    expect(advice.permanent).toBe(true)
+    expect(advice.text).toBe(DRIVE_AUTH_EXPIRED_MESSAGE)
+    expect(advice.text).not.toContain('認唔出')
+  })
+
+  it('⛔ 句嘢一定要講明相冇事 —— 阿耀見到「失敗」會以為張相冇咗', () => {
+    const advice = syncAdvice(row({ drive_error: REAL_ERROR }))
+    expect(advice.text).toContain('唔會冇咗')
+  })
+
+  it('⛔ 唔准當佢暫時性、⛔ 唔准講「系統會自動再試」', () => {
+    const advice = syncAdvice(row({ drive_error: REAL_ERROR }))
+    expect(advice.permanent).toBe(true)
+    expect(advice.text).not.toContain('自動再試')
+    expect(advice.text).not.toContain('無需處理')
+  })
+
+  it('⛔ 唔准跌落「額滿或者冇權限」嗰句 —— 嗰句叫唔到人去重新授權', () => {
+    const advice = syncAdvice(row({ drive_error: 'Drive 登入失敗（401：invalid_grant）' }))
+    expect(advice.text).toBe(DRIVE_AUTH_EXPIRED_MESSAGE)
+    expect(advice.text).not.toContain('額滿')
+  })
+
+  it('登入唔到但唔係過期（invalid_client）＝ 另一句，⛔ 因為修法唔同', () => {
+    const advice = syncAdvice(row({ drive_error: 'Drive 登入失敗（400：invalid_client）' }))
+    expect(advice.permanent).toBe(true)
+    expect(advice.text).toBe(DRIVE_LOGIN_FAILED_MESSAGE)
+    expect(advice.text).toContain('唔會冇咗')
+  })
+
   it('Google 額滿／冇權限 ＝ 要人做嘢', () => {
     expect(syncAdvice(row({ drive_error: 'error 403: storageQuotaExceeded' })).permanent).toBe(true)
   })
@@ -158,6 +199,20 @@ describe('syncAdvice', () => {
 
   it('drive_error 空就睇 r2_error', () => {
     expect(syncAdvice(row({ drive_error: '', r2_error: 'fetch failed' })).permanent).toBe(false)
+  })
+})
+
+describe('isDriveAuthExpired', () => {
+  it('認得三句 —— 真機嗰句、Google 個 error code、俾人 revoke', () => {
+    expect(isDriveAuthExpired('Token has been expired or revoked.')).toBe(true)
+    expect(isDriveAuthExpired('invalid_grant')).toBe(true)
+    expect(isDriveAuthExpired('unauthorized_client')).toBe(true)
+  })
+
+  it('⛔ 唔關事嘅嘢唔准當授權過期', () => {
+    expect(isDriveAuthExpired('R2 讀唔返出嚟（503）')).toBe(false)
+    expect(isDriveAuthExpired('storageQuotaExceeded')).toBe(false)
+    expect(isDriveAuthExpired('')).toBe(false)
   })
 })
 
