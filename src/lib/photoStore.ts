@@ -44,6 +44,39 @@ function run<T>(
   )
 }
 
+/**
+ * 部機嗰份一有改動就叫一聲。
+ *
+ * ⛔⛔ 有咗呢個，「未上載 N 張」就**唔使 poll**。
+ * ⚠️ 每秒查一次 IndexedDB 係阿耀部機食電嘅做法，而且成日查極都冇嘢變 ——
+ *    ⭐ 真相係：張相**淨係喺有人寫入嗰陣**先會變，所以有人寫就講一聲，冇寫就唔好嘈。
+ *
+ * ⛔ 一定要喺 `put()` 入面叫 —— 佢係**唯一**一個寫入點
+ *    （影完相、撳再試一次、背景自動重傳，三條路全部經佢）。
+ *    喺個別畫面各自叫一次嘅話，將來加多一條寫入路就實漏。
+ */
+type Listener = () => void
+const listeners = new Set<Listener>()
+
+/** 聽住部機嗰份有冇改。回傳一個「唔聽喇」嘅 function。 */
+export function subscribePhotoStore(listener: Listener): () => void {
+  listeners.add(listener)
+  return () => {
+    listeners.delete(listener)
+  }
+}
+
+function announce(): void {
+  for (const listener of listeners) {
+    // ⛔ 一個聽眾炸咗唔可以拖冧其他 —— 佢哋之間冇關係。
+    try {
+      listener()
+    } catch (caught) {
+      console.error('[quote-app] photo store listener failed:', caught)
+    }
+  }
+}
+
 export type PhotoStore = {
   put: (item: PendingPhoto) => Promise<void>
   get: (operationId: string) => Promise<PendingPhoto | null>
@@ -60,6 +93,7 @@ export type PhotoStore = {
 export const photoStore: PhotoStore = {
   async put(item) {
     await run('readwrite', (store) => store.put(item))
+    announce()
   },
 
   async get(operationId) {

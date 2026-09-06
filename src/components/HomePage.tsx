@@ -11,6 +11,7 @@ import { useAutoResume } from '../lib/useAutoResume'
 import { activeTab, type Nav, type Route } from '../ui/routes'
 import { BottomNav, userInfoFrom, type UserInfo } from '../ui/shell'
 import HomeScreen from './HomeScreen'
+import PendingBar from './PendingBar'
 import RecordListPage from './RecordListPage'
 import RecordHubScreen from './RecordHubScreen'
 import RecordFormPage from './RecordFormPage'
@@ -137,6 +138,8 @@ export function RecordsScreen({ api, office, user, userId, accessToken, onSignOu
   return (
     <div className="app app--float">
       {renderRoute()}
+      {/* ⛔ 釘喺底部導航上面，⛔ 唔跟畫面走 —— 換咩版都仲喺度（Jason 2026-09-06）。 */}
+      <PendingBar onOpenSync={() => nav.go({ name: 'sync' })} />
       <BottomNav active={activeTab(route)} nav={nav} />
     </div>
   )
