@@ -106,6 +106,40 @@ export function photoWhere(row: QuotePhoto, treeNo: string | null): string {
  */
 export type SyncAdvice = { text: string; permanent: boolean }
 
+/**
+ * Drive 條授權死咗（過期或者俾人收返）。
+ *
+ * ⚠️ 靠字串認，⛔ 唔靠估 —— Google 唔會俾一個乾淨嘅 error code 你。
+ *    每個字串都係真係見過或者 Google 明文寫住嘅：
+ *      · `Token has been expired or revoked.` —— 2026-09-06 真機見過
+ *      · `invalid_grant`                      —— Google 對同一件事嘅 error code
+ *      · `unauthorized_client`                —— 條 client 俾人 revoke 咗
+ *
+ * ⛔ 認唔出就唔好硬砌 —— 落唔到類寧願講「認唔出」，
+ *    ⚠️ 亂認一個唔啱嘅類，會叫人去做一件搞唔掂件事嘅嘢。
+ */
+export function isDriveAuthExpired(message: string): boolean {
+  return /token has been expired or revoked|invalid_grant|unauthorized_client/i.test(message)
+}
+
+/**
+ * ⛔⛔ 呢句嘢入面有兩樣缺一不可：
+ *
+ * 1. **講明相冇事。** 阿耀見到「失敗」第一個反應係「我張相冇咗」——
+ *    ⭐ 實情係相已經入咗 R2，Drive 只係第二份副本。
+ *    ⛔ 唔講嘅話，佢會走去重影一次，而重影嗰下先係真係整亂啲嘢。
+ * 2. **講明要人做嘢，⛔ 唔係等系統。** 條 refresh token 死咗，
+ *    ⛔ 重試一萬次都係同一個答案。
+ */
+export const DRIVE_AUTH_EXPIRED_MESSAGE =
+  '需要處理：Drive 授權過咗期，要重新登入先抄得上 Drive。' +
+  '相已經安全存咗喺雲端（R2），唔會冇咗。請截圖，用 WhatsApp 搵 Jason。'
+
+/** 登入唔到但唔係過期（多數係 `invalid_client`）——⛔ 修法唔同，所以句嘢都唔同。 */
+export const DRIVE_LOGIN_FAILED_MESSAGE =
+  '需要處理：Drive 登入唔到，係設定嗰邊嘅問題，唔係你做錯嘢。' +
+  '相已經安全存咗喺雲端（R2），唔會冇咗。請截圖，用 WhatsApp 搵 Jason。'
+
 export function syncAdvice(row: QuotePhoto): SyncAdvice {
   const message = row.drive_error.trim() !== '' ? row.drive_error : row.r2_error
 
@@ -114,6 +148,38 @@ export function syncAdvice(row: QuotePhoto): SyncAdvice {
     return {
       permanent: true,
       text: '需要處理：呢個問題唔會自己好返。請截圖，用 WhatsApp 搵 Jason。',
+    }
+  }
+
+  // ⭐⭐ Drive 授權過咗期／俾人收返。**一定要行喺下面 403／401 嗰條之前** ——
+  //    Google 呢個錯有陣時帶住 401，撞落嗰條就會出「額滿或者冇權限」，
+  //    ⛔ 而嗰句叫唔到人去做啱嗰件事（重新授權）。
+  //
+  // ⚠️ 2026-09-06 真機出過，原文照抄如下：
+  //    `Drive 登入失敗（400：Token has been expired or revoked.）`
+  //    當時畫面出「系統認唔出呢個錯誤」——⛔ 但系統其實認得，
+  //    只係 `400` 唔喺下面條 regex 入面。
+  //
+  //    ⛔ 呢度**特登唔寫出過幾多次** —— 冇人量過。畫面上面見到嘅係
+  //    同步失敗嗰一行，⛔ 唔係一個計數；亦冇人查過 DB。
+  //    ⚠️ 見 `docs/開發紀錄.md` 附錄 B「唔准講一個你冇量過嘅安全網」。
+  //
+  // ⛔ 唔准當佢係一時三刻嘅嘢、⛔ 唔准講「系統會自動再試」：
+  //    條 refresh token 死咗，重試一萬次都係同一個答案，要人去重新授權。
+  if (isDriveAuthExpired(message)) {
+    return {
+      permanent: true,
+      text: DRIVE_AUTH_EXPIRED_MESSAGE,
+    }
+  }
+
+  // ⚠️ 同上面嗰個係兩件事，⛔ 修法唔同：呢個係 client id／secret 唔啱
+  //    （`invalid_client`），要改 Worker secret，⛔ 唔係重做授權。
+  //    分唔清就會有人白做十五分鐘授權（`worker/src/worker.mjs` 個註解講過同一件事）。
+  if (message.includes('Drive 登入失敗')) {
+    return {
+      permanent: true,
+      text: DRIVE_LOGIN_FAILED_MESSAGE,
     }
   }
 
