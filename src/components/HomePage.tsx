@@ -7,6 +7,7 @@ import { createSiteFormApi, type SiteFormApi } from '../lib/siteForm'
 import { createPhotosApi, type PhotosApi } from '../lib/photos'
 import { createPriceApi, type PriceApi } from '../lib/prices'
 import { isOffice } from '../lib/office'
+import { liveRecordIds } from '../lib/orphanPhotos'
 import { useAutoResume } from '../lib/useAutoResume'
 import { activeTab, type Nav, type Route } from '../ui/routes'
 import { BottomNav, userInfoFrom, type UserInfo } from '../ui/shell'
@@ -107,6 +108,15 @@ export function RecordsScreen({ api, office, user, userId, accessToken, onSignOu
   const [route, setRoute] = useState<Route>({ name: 'home' })
 
   const nav: Nav = { go: setRoute }
+
+  /**
+   * 而家仲攞得返嘅工程 id。⛔ **未載完、或者攞唔到，一律 `null`（＝唔知）**。
+   *
+   * ⚠️ 呢個 `null` 唔係求其寫：`records` 喺載入中同攞唔到嗰陣都係 `[]`，
+   *    當咗佢係「一單都冇」，就會將**成部機所有相**當成孤兒 ——
+   *    ⛔ 全部停止重試、⛔ 全部喺畫面消失，而且冇聲出。
+   */
+  const liveIds = loading || error !== null ? null : liveRecordIds(records)
 
   const reload = useCallback(async () => {
     setLoading(true)
@@ -314,6 +324,7 @@ export function RecordsScreen({ api, office, user, userId, accessToken, onSignOu
             photos={api.photos}
             trees={api.trees}
             records={records}
+            liveRecordIds={liveIds}
             onOpenRecord={(recordId) => nav.go({ name: 'record', recordId })}
           />
         )
@@ -324,6 +335,8 @@ export function RecordsScreen({ api, office, user, userId, accessToken, onSignOu
             user={user}
             userId={userId}
             recordCount={records.length}
+            photos={api.photos}
+            liveRecordIds={liveIds}
             onOpenPrices={() => nav.go({ name: 'prices' })}
             onOpenClients={() => nav.go({ name: 'clients' })}
             onSignOut={onSignOut}

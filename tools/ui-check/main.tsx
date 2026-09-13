@@ -33,6 +33,10 @@ const body =
       user={{ email: 'jason223hk@gmail.com', initial: 'J' }}
       userId="00000000-0000-0000-0000-000000000000"
       recordCount={6}
+      photos={fx.photosApi}
+      // ⛔ `null` ＝ 唔知邊啲工程仲喺度 ⇒ 孤兒相嗰行唔會出。
+      //    ⭐ 對數要量嘅係「平時嗰個樣」，⛔ 唔係一個有警示行嘅樣。
+      liveRecordIds={null}
       onOpenPrices={() => {}}
       onSignOut={noop}
     />
