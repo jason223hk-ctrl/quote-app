@@ -1,5 +1,12 @@
 import { useEffect, useState } from 'react'
-import { orphanNote, orphanPhotoCount } from '../lib/orphanPhotos'
+import { clearStranded } from '../lib/clearStranded'
+import {
+  orphanNote,
+  orphanPhotoCount,
+  strandedConfirm,
+  strandedCount,
+  strandedNote,
+} from '../lib/orphanPhotos'
 import { photoStore, localStorageAvailable } from '../lib/photoStore'
 import type { PhotosApi } from '../lib/photos'
 import { configResult } from '../lib/supabase'
@@ -55,6 +62,20 @@ export default function SettingsScreen({
    * ⚠️ 攞唔到就當零 —— ⛔ 唔准出一個估出嚟嘅數。
    */
   const [orphans, setOrphans] = useState(0)
+  /**
+   * 「傳唔到、而且母單已經刪咗」嗰批（**乙類·卡死**）幾多張。
+   *
+   * ⭐⭐ 呢批同上面 `orphans`（甲類）⛔ **完全冇重疊**：
+   *    甲類 ＝ 母單刪咗**但有雲端副本** ⇒ 安全，收埋，得一行細字。
+   *    乙類 ＝ 母單刪咗**而且一份副本都冇** ⇒ ⛔ 永遠傳唔到，冇出路。
+   *
+   * ⚠️ 呢個數淨係用嚟決定「行出唔出、句嘢寫幾多」。
+   *    ⛔ **真刪嗰陣唔會用佢** —— 撳落去嗰刻由頭再計一次
+   *    （見 `src/lib/clearStranded.ts` 檔頭）。
+   */
+  const [stranded, setStranded] = useState(0)
+  const [clearing, setClearing] = useState<'idle' | 'confirm' | 'busy'>('idle')
+  const [clearError, setClearError] = useState<string | null>(null)
   /** 向下拉之後迫個孤兒數重數一次。⛔ 淨靠 `liveRecordIds` 唔夠 —— 佢冇變就唔會重跑。 */
   const [recount, setRecount] = useState(0)
   useEffect(() => {
@@ -63,10 +84,17 @@ export default function SettingsScreen({
       try {
         const rows = await photos.listAll()
         const local = localStorageAvailable() ? await photoStore.listAll() : []
-        if (live) setOrphans(orphanPhotoCount(rows, local, liveRecordIds))
+        if (!live) return
+        setOrphans(orphanPhotoCount(rows, local, liveRecordIds))
+        setStranded(strandedCount(local, rows, liveRecordIds))
       } catch (caught) {
         console.error('[quote-app] orphan photo count failed:', caught)
-        if (live) setOrphans(0)
+        // ⛔ 攞唔到就當零 ⇒ 成行唔出。⚠️ 保守方向：寧願冇得清，
+        //    都唔好喺一個「我哋其實唔知」嘅狀態下擺粒真刪掣出嚟。
+        if (live) {
+          setOrphans(0)
+          setStranded(0)
+        }
       }
     })()
     return () => {
@@ -75,6 +103,27 @@ export default function SettingsScreen({
   }, [photos, liveRecordIds, recount])
 
   const orphanLine = orphanNote(orphans)
+  const strandedLine = strandedNote(stranded)
+
+  /**
+   * 真刪。⛔ 撳落去嗰刻先由頭讀、由頭計 —— ⛔ 唔用畫面上面個數。
+   * ⚠️ 由 render 到撳落去中間，背景重傳隨時傳成功咗一張。
+   */
+  async function handleClearStranded() {
+    setClearing('busy')
+    setClearError(null)
+    const result = await clearStranded({
+      listLocal: photoStore.listAll,
+      listRows: photos.listAll,
+      live: liveRecordIds,
+      remove: photoStore.removeMany,
+    })
+    setClearError(result.blocked)
+    setClearing('idle')
+    // ⭐ 清完一定要重數 —— ⛔ 唔准喺本機自己減個數扮清咗
+    //    （CLAUDE.md §2.6 同一條原則：以讀返嚟嗰份為準）。
+    setRecount((n) => n + 1)
+  }
 
   const host = configResult.ok ? new URL(configResult.config.url).host : '（未設定）'
 
@@ -199,6 +248,70 @@ export default function SettingsScreen({
             <p className="muted soon" data-testid="orphan-note">
               {orphanLine}
             </p>
+          )}
+
+          {/*
+            ⭐⭐ 「清掉傳唔到嘅相」。**擺喺呢度係特登嘅**（Jason 2026-09-14 第 3 條）：
+              · ⛔ 唔准擺喺底 bar 上面 —— 阿耀喺現場順手撞到就死
+              · ⛔ 唔准擺喺同步頁 —— 同上
+              · ⭐ 擺喺設定頁最底「診斷資料」，同上面甲類嗰行做一對：
+                「已刪工程、有副本」（安全）／「已刪工程、冇副本」（可清）
+
+            ⛔⛔ N 係零就**成段唔出**（連粒掣都冇）—— ⚠️ 唔係 disable。
+                一粒平時就企喺度嘅真刪掣，遲早有人得閒撳。
+          */}
+          {strandedLine !== null && (
+            <div className="danger-zone" data-testid="stranded-zone">
+              <p className="note-box note-box--warn" data-testid="stranded-note">
+                {/* ⚠️ 真機量出嚟改咗：本來寫「…工程已經刪咗。佢哋嘅工程冇咗，所以…」
+                    —— 同一句嘢講咗兩次。⭐ 後半淨係加後果，⛔ 唔重複前提。 */}
+                {strandedLine}，所以永遠都傳唔上去。
+              </p>
+
+              {clearing === 'confirm' || clearing === 'busy' ? (
+                <>
+                  {/* ⛔⛔ 唔准縮成「確定嗎」—— 句嘢要寫出實數同後果。 */}
+                  <p className="note-box note-box--warn" data-testid="stranded-confirm-text">
+                    {strandedConfirm(stranded)}
+                  </p>
+                  <button
+                    className="button button--danger"
+                    type="button"
+                    data-testid="stranded-confirm"
+                    disabled={clearing === 'busy'}
+                    onClick={() => void handleClearStranded()}
+                  >
+                    {clearing === 'busy' ? '清緊⋯' : `再撳一次確認清掉呢 ${stranded} 張`}
+                  </button>
+                  <button
+                    className="button button--secondary"
+                    type="button"
+                    disabled={clearing === 'busy'}
+                    onClick={() => setClearing('idle')}
+                  >
+                    取消
+                  </button>
+                </>
+              ) : (
+                <button
+                  className="button button--secondary"
+                  type="button"
+                  data-testid="stranded-clear"
+                  onClick={() => {
+                    setClearError(null)
+                    setClearing('confirm')
+                  }}
+                >
+                  清掉傳唔到嘅相
+                </button>
+              )}
+
+              {clearError !== null && (
+                <p className="notice notice--error" role="alert" data-testid="stranded-error">
+                  {clearError}
+                </p>
+              )}
+            </div>
           )}
           <div className="acct-row">
             <span className="acct-label">已載入工程</span>

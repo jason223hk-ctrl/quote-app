@@ -9,6 +9,8 @@ import {
   reverseGeocode,
   type ReverseResult,
 } from '../lib/geo'
+import { deleteUnsyncedWarning, unsyncedInRecord } from '../lib/orphanPhotos'
+import { localStorageAvailable, photoStore, subscribePhotoStore } from '../lib/photoStore'
 import ErrorNotice from '../ui/ErrorNotice'
 import { BackChip, BotanicalHeader, HeaderTitle, ScrollBody } from '../ui/shell'
 import SiteFormFields from './SiteFormFields'
@@ -73,6 +75,40 @@ export default function RecordFormPage({
   const [busy, setBusy] = useState<Busy>(null)
   const [error, setError] = useState<string | null>(null)
   const [confirmingDelete, setConfirmingDelete] = useState(false)
+
+  /**
+   * 呢一單仲有幾多張相未傳上雲端。**用嚟喺刪除確認嗰陣多講一行。**
+   *
+   * ⭐⭐ Jason 2026-09-14：「呢個比清理重要」。⚠️ 而佢係啱嘅 ——
+   *    當日嗰個死結（3 張相永遠傳唔到）成因唔係「冇得清」，
+   *    係**刪嘅時候冇人講過**。有咗呢行，佢當時就會停一停。
+   *
+   * ⛔ 呢行**唔會攔住你刪**，佢淨係講一句。話事嘅仍然係人。
+   * ⛔ 讀唔到部機就當零 ⇒ 唔出 —— ⚠️ 唔准出一個估出嚟嘅數嚇人。
+   */
+  const [unsynced, setUnsynced] = useState(0)
+  useEffect(() => {
+    if (!record || !localStorageAvailable()) return
+    let live = true
+    const recount = () => {
+      void photoStore
+        .listByRecord(record.id)
+        .then((items) => {
+          if (live) setUnsynced(unsyncedInRecord(items, record.id))
+        })
+        .catch((caught: unknown) => {
+          console.error('[quote-app] unsynced photo count failed:', caught)
+          if (live) setUnsynced(0)
+        })
+    }
+    recount()
+    // ⛔ 唔 poll —— 跟返 `usePendingCount` 同一套：有人寫入先重數。
+    const unsubscribe = subscribePhotoStore(recount)
+    return () => {
+      live = false
+      unsubscribe()
+    }
+  }, [record])
 
   const [site, setSite] = useState<SiteFormInput>(EMPTY_SITE_FORM_INPUT)
   const [siteErrors, setSiteErrors] = useState<SiteFormErrors>({})
@@ -378,6 +414,13 @@ export default function RecordFormPage({
           {/* 兩段式確認做喺畫面入面，唔用瀏覽器彈窗（手機易撳錯，亦驗唔到）。 */}
           {confirmingDelete ? (
             <>
+              {/* ⭐ 母單一刪，未傳上雲端嗰啲相就**永遠冇出路** —— 一定要喺
+                  撳落去之前講。⛔ N 係零就唔出。 */}
+              {deleteUnsyncedWarning(unsynced) !== null && (
+                <p className="note-box note-box--warn" data-testid="delete-unsynced-warning">
+                  {deleteUnsyncedWarning(unsynced)}
+                </p>
+              )}
               <button
                 className="button button--danger"
                 type="button"

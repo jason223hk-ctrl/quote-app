@@ -88,6 +88,20 @@ export type PhotoStore = {
    * 嗰陣 `listByRecord` 睇嘅係新嗰單 —— 舊嗰單張相就冇人理，永遠留喺部機。
    */
   listAll: () => Promise<PendingPhoto[]>
+  /**
+   * 由部機**真刪**呢幾張。回傳真係刪咗幾多張。
+   *
+   * ⛔⛔ **全 app 唯一一個真刪。** CLAUDE.md §2.1「零真刪」講嘅係資料庫；
+   *    呢啲相**根本冇入過資料庫**，部機呢一份就係全部。
+   *
+   * ⛔⛔ **只收明文列出嘅編號** —— ⚠️ 冇「全部清」、冇「清晒某一單」、
+   *    冇任何一個 `clear()`。⭐ 要清邊幾張，由叫嗰邊逐個計清楚再交過嚟
+   *    （見 `src/lib/clearStranded.ts`），咁樣「清咩」呢個決定就
+   *    ⛔ 唔會匿喺呢個檔入面。
+   *
+   * ⛔ 空 array ⇒ 乜都唔做、⛔ 亦唔會嘈醒任何人（唔 announce）。
+   */
+  removeMany: (operationIds: string[]) => Promise<number>
 }
 
 export const photoStore: PhotoStore = {
@@ -113,6 +127,28 @@ export const photoStore: PhotoStore = {
   async listAll() {
     const found = await run<PendingPhoto[]>('readonly', (store) => store.getAll())
     return found ?? []
+  },
+
+  async removeMany(operationIds) {
+    if (operationIds.length === 0) return 0
+    const db = await openDb()
+    const removed = await new Promise<number>((resolve, reject) => {
+      const tx = db.transaction(STORE, 'readwrite')
+      const store = tx.objectStore(STORE)
+      // ⭐ 一個 transaction 入面全部刪晒：⛔ 唔會出現「刪咗一半」——
+      //    ⚠️ 刪一半嘅話個數就對唔返，而人唔會知邊幾張仲喺度。
+      for (const id of operationIds) store.delete(id)
+      tx.oncomplete = () => {
+        db.close()
+        resolve(operationIds.length)
+      }
+      tx.onerror = () => {
+        db.close()
+        reject(tx.error ?? new Error('部機嘅相片儲存空間出錯。'))
+      }
+    })
+    announce()
+    return removed
   },
 }
 
