@@ -157,6 +157,24 @@ export function RecordsScreen({
   }
 
   /** 寫入 → 用 server 回傳嘅 row 做準 → 重新攞清單 → 去指定嘅版。 */
+  /**
+   * 由清單度推開張卡刪除。
+   *
+   * ⭐ 同「工程基本資料」入面嗰粒刪除**行同一條路** —— 同一個 `softDelete`、
+   *    同一個 `withRefusalReason`、同一句原因。⛔ 唔係兩套。
+   * ⛔ 失敗要 throw：個彈窗接住之後會出返嗰句，⛔ 唔准食咗佢變「撳咗冇反應」。
+   * ⛔ 成功之後⛔ 唔轉頁 —— 人仲喺清單度，張卡走咗就係咁多。
+   */
+  const deleteRecord = useCallback(
+    async (record: QuoteRecord) => {
+      await withRefusalReason(api.records.softDelete(record.id), () =>
+        refusalReason(record, userId),
+      )
+      await reload()
+    },
+    [api, userId, reload],
+  )
+
   async function afterWrite(write: () => Promise<QuoteRecord>, next: (saved: QuoteRecord) => Route) {
     const saved = await write()
     await reload()
@@ -188,7 +206,15 @@ export function RecordsScreen({
   function renderRoute() {
     switch (route.name) {
       case 'home':
-        return <HomeScreen records={records} loading={loading} nav={nav} onRefresh={reload} />
+        return (
+          <HomeScreen
+            records={records}
+            loading={loading}
+            nav={nav}
+            onRefresh={reload}
+            onDeleteRecord={deleteRecord}
+          />
+        )
 
       case 'records':
         return (
@@ -200,6 +226,7 @@ export function RecordsScreen({
             onOpen={(record) => nav.go({ name: 'record', recordId: record.id })}
             onCreate={() => nav.go({ name: 'record-form', recordId: null })}
             onRetry={() => void reload()}
+            onDeleteRecord={deleteRecord}
           />
         )
 
