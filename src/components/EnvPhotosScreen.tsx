@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import type { PhotosApi } from '../lib/photos'
 import type { QuoteRecord } from '../lib/records'
 import PhotoSlot from './PhotoSlot'
@@ -25,6 +26,13 @@ type Props = {
  * （`worker/src/names.mjs` 個 `sitePhotoFilename`）。
  */
 export default function EnvPhotosScreen({ api, accessToken, record, onBack }: Props) {
+  /**
+   * 向下拉刷新：個數一加，`PhotoSlot` 就攞多次。
+   * ⛔⛔ 刷新淨係「攞」—— 四條保證（唔取消／唔重傳／唔消失／唔傳兩次）
+   *    喺 `src/lib/photoRefresh.ts`，四條各有測試釘住。
+   */
+  const [refreshToken, setRefreshToken] = useState(0)
+
   return (
     <>
       <BotanicalHeader
@@ -34,12 +42,17 @@ export default function EnvPhotosScreen({ api, accessToken, record, onBack }: Pr
         }
       />
 
-      <ScrollBody testid="env-photos-scroll" compact>
+      <ScrollBody
+        testid="env-photos-scroll"
+        compact
+        onRefresh={async () => setRefreshToken((n) => n + 1)}
+      >
         <PhotoSlot
           api={api}
           accessToken={accessToken}
           recordId={record.id}
           treeId={null}
+          refreshToken={refreshToken}
           title="環境相"
           hint="成個工程一份，唔屬於任何一棵樹。想影幾多影幾多。"
         />

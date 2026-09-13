@@ -3037,7 +3037,10 @@ h3 {
    ⚠️ Android Chrome 喺 scrollTop 0 再向下拉會自己 reload 成版 ——
       而 Jason 2026-09-13 第 2 條講明⛔ 唔准整頁 reload（會弄走打到一半嘅字）。
    ⭐ `contain` 只係擋住「傳俾上一層」，⛔ 唔影響版面（實測 ui:check 仍然 90 / 0）。 */
-.float-cards-scroll {
+.float-cards-scroll,
+/* ⚠️ 首頁唔用共用嗰個容器（見 `HomeScreen` 檔頭），所以要明文寫多次 ——
+   ⛔ 漏咗嘅話首頁拉落去會行返 Android 自己嗰個整頁 reload。 */
+.hmain {
   overscroll-behavior-y: contain;
 }
 

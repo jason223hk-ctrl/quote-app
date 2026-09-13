@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { MITIGATION_OPTIONS, MITIGATION_OTHER, REMOVAL_OPTION } from '../lib/options'
 import type { PhotosApi } from '../lib/photos'
 import type { QuoteTree } from '../lib/trees'
@@ -37,6 +38,13 @@ export default function TreePhotosScreen({
   onDelete,
   onBack,
 }: Props) {
+  /**
+   * 向下拉刷新：個數一加，下面**每一格** `PhotoSlot` 都攞多次。
+   * ⛔⛔ 刷新淨係「攞」—— 四條保證（唔取消／唔重傳／唔消失／唔傳兩次）
+   *    喺 `src/lib/photoRefresh.ts`，四條各有測試釘住。
+   */
+  const [refreshToken, setRefreshToken] = useState(0)
+
   const picked = tree.mitigations ?? []
 
   // 只出揀咗嗰啲，⛔ 唔會將十幾個工序全部排出嚟。
@@ -66,7 +74,11 @@ export default function TreePhotosScreen({
         right={<ChipButton icon={ICONS.del} label="刪除呢棵樹" testid="tree-delete" onClick={onDelete} />}
       />
 
-      <ScrollBody testid="tree-photos-scroll" compact>
+      <ScrollBody
+        testid="tree-photos-scroll"
+        compact
+        onRefresh={async () => setRefreshToken((n) => n + 1)}
+      >
         <PhotoSlot
           api={photos}
           accessToken={accessToken}
@@ -75,6 +87,7 @@ export default function TreePhotosScreen({
           mitigation={null}
           title="全景相"
           hint={null}
+          refreshToken={refreshToken}
         />
 
         {slots.map((option) => (
@@ -89,6 +102,7 @@ export default function TreePhotosScreen({
             hint={null}
             readOnly={option.value === REMOVAL_OPTION.value}
             readOnlyNote="全景相已經足夠，唔使再影。"
+            refreshToken={refreshToken}
           />
         ))}
 

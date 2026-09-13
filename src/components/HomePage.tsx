@@ -182,7 +182,7 @@ export function RecordsScreen({
   function renderRoute() {
     switch (route.name) {
       case 'home':
-        return <HomeScreen records={records} loading={loading} nav={nav} />
+        return <HomeScreen records={records} loading={loading} nav={nav} onRefresh={reload} />
 
       case 'records':
         return (
