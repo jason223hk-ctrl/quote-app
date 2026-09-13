@@ -34,8 +34,16 @@ const PROTO_CANDIDATES = [
 ].filter(Boolean)
 
 const args = process.argv.slice(2)
+/**
+ * ⛔⛔ 驗返把尺本身。加咗 `--self-test` 就會**故意整返 2026-09-14 嗰個壞法**，
+ *    然後要求「撳得到」嗰組檢查**真係紅**。綠 ＝ 呢把尺係壞嘅 ⇒ exit 3。
+ *
+ * ⭐ 點解要有：一個「加咗但捉唔到」嘅檢查，比冇檢查更差 ——
+ *    ⚠️ 佢會令下次有人見到綠燈就真係信。
+ */
+const SELF_TEST = args.includes('--self-test')
 const PROTO = args.find((a) => a.endsWith('.html')) ?? PROTO_CANDIDATES.find((f) => fs.existsSync(f))
-const ONLY = args.find((a) => !a.endsWith('.html')) ?? null
+const ONLY = args.find((a) => !a.endsWith('.html') && !a.startsWith('--')) ?? null
 if (!PROTO || !fs.existsSync(PROTO)) {
   console.error('揾唔到原型檔。試過：')
   for (const f of PROTO_CANDIDATES) console.error('  ' + f)
@@ -246,6 +254,42 @@ const SCREENS = {
   },
 }
 
+/**
+ * 「撳得到」檢查。**⛔ 呢個唔係同原型對數，係一個絕對要求。**
+ *
+ * ⭐⭐ **點解要有 —— ⛔ 唔准淨係記住結論**
+ *
+ * 2026-09-14 試過將首頁個 `<main className="hmain">` 換成共用嘅 `ScrollBody`。
+ * **對數出「量咗 90 項，對唔上 0 項」—— 全綠。**
+ *
+ * ⚠️ 但實測用 `elementFromPoint` 打過：**「待報價」嗰粒數字卡撳唔到。**
+ * `.float-cards-scroll` 帶住 `position:absolute; inset:0`，換完之後個捲動區
+ * **由頂到底蓋晒**，上面三個數同品牌字全部俾佢遮住
+ * （實測 `top: 0`、`height: 844`、`padding-top: 164px`）。
+ *
+ * ⭐⭐ **對數量嘅係位置，⛔ 佢唔量撳唔撳得到。**
+ *    三個數嘅**位置**冇郁（padding 啱好補返），所以 90／0 —— 但佢哋已經死咗。
+ *
+ * ⚠️ 呢個窿比對唔對到 pixel 大得多：**位置啱、但個掣係死嘅**，
+ *    喺任何一張截圖上面都睇唔出嚟，而現場同事只會覺得「撳極都冇反應」。
+ *
+ * ⛔⛔ **驗收標準唔係「加咗」，係「捉得到」** —— 所以下面有個 `--self-test`，
+ *    佢會**故意整返 2026-09-14 嗰個壞法**，然後要求呢個檢查**真係紅**。
+ *    ⚠️ 一個捉唔到已知壞法嘅檢查，本身就係一個更大嘅假安全感。
+ */
+const HIT_SELECTOR = 'button, a[href], input, select, textarea, [role=button]'
+
+/**
+ * 每個元素撒幾多個點試。5×5 ＝ 25 點，**有一個點撳得到就算數**。
+ *
+ * ⭐ 點解係「有一個就算」，⛔ 唔係「全部都要」：一粒掣俾第二樣嘢**遮咗一半**
+ *    仍然撳得到，⚠️ 咁樣要求全部點都通就會出一大堆假紅（例如卡片
+ *    最底嗰一兩個 pixel 俾底 nav 壓住），而假紅會令人開始習慣無視佢。
+ */
+const HIT_GRID = 5
+/** 由邊緣縮入幾多 px 先開始撒點。⚠️ 啱啱好喺邊界嗰個 pixel 屬邊個，各瀏覽器唔同。 */
+const HIT_INSET = 2
+
 /** 量咩。位置只量闊高同左右邊距 —— 上下位隨內容變，⛔ 唔可以當差異。 */
 const BOX = ['width', 'height']
 const CSS = [
@@ -300,6 +344,86 @@ const READ = ([sel, box, css]) => {
   out.serif = /serif/i.test(cs.fontFamily) && !/sans-serif/i.test(cs.fontFamily)
   return out
 }
+
+/**
+ * 喺瀏覽器入面行：逐個可撳元素試吓「撳唔撳得到」。
+ *
+ * ⭐⭐ **每個元素先 `scrollIntoView` 再試** —— ⛔ 呢個唔係為咗方便。
+ *    ⚠️ 一張卡片喺捲動區最底、俾底 nav 壓住半橛，**唔係一個 bug** ——
+ *    人碌一碌就撳到。真正嘅 bug 係「**點碌都撳唔到**」，
+ *    ⭐ 而嗰種正正就係唔喺捲動區入面嘅嘢（首頁三個數就係）。
+ *    先碌後試，就啱啱好分開咗呢兩種。
+ */
+const HIT_SCAN = ([selector, grid, inset]) => {
+  const out = []
+  for (const el of document.querySelectorAll(selector)) {
+    if (el.disabled) continue
+    const cs = getComputedStyle(el)
+    // ⛔ 特登收埋／唔收撳嘅嘢唔算 —— 佢哋唔係「壞咗」，係設計就係咁。
+    if (cs.pointerEvents === 'none' || cs.visibility === 'hidden' || cs.display === 'none') continue
+    const box = el.getBoundingClientRect()
+    if (box.width < 4 || box.height < 4) continue
+
+    el.scrollIntoView({ block: 'center' })
+    const r = el.getBoundingClientRect()
+
+    const x0 = Math.max(r.left + inset, 0)
+    const x1 = Math.min(r.right - inset, innerWidth - 1)
+    const y0 = Math.max(r.top + inset, 0)
+    const y1 = Math.min(r.bottom - inset, innerHeight - 1)
+    // ⛔ 碌完仲係完全喺畫面外 ⇒ ⚠️ 唔當佢係「撳唔到」，當佢係「量唔到」。
+    //    （例如一個藏喺閂咗嘅區塊入面嘅 input。⭐ 報一個假紅比唔報更差。）
+    if (x1 < x0 || y1 < y0) continue
+
+    let reachable = false
+    let blocker = '—'
+    for (let i = 0; i < grid && !reachable; i += 1) {
+      for (let j = 0; j < grid && !reachable; j += 1) {
+        const x = x0 + ((x1 - x0) * i) / (grid - 1)
+        const y = y0 + ((y1 - y0) * j) / (grid - 1)
+        const hit = document.elementFromPoint(x, y)
+        if (hit && (el === hit || el.contains(hit))) reachable = true
+        else if (hit && blocker === '—') {
+          blocker =
+            typeof hit.className === 'string' && hit.className !== ''
+              ? hit.className
+              : hit.tagName.toLowerCase()
+        }
+      }
+    }
+
+    out.push({
+      reachable,
+      blocker,
+      tag: el.tagName.toLowerCase(),
+      testid: el.dataset?.testid ?? '',
+      text: (el.textContent ?? '').trim().slice(0, 16),
+      cls: typeof el.className === 'string' ? el.className.slice(0, 40) : '',
+      top: Math.round(r.top),
+    })
+  }
+  return out
+}
+
+/**
+ * ⛔⛔ 2026-09-14 嗰個壞法，逐字整返出嚟。**淨係喺 `--self-test` 用。**
+ *
+ * 當日係將 `<main className="hmain">` 換成 `ScrollBody`（即係
+ * `.float-cards-scroll`）。呢段 CSS 就係嗰個換法帶嚟嘅幾何後果 ——
+ * 實測數字：`top: 0`、`height: 844`、`padding-top: 164.15px`
+ * （`min(38.5vw, 184px) + 14px`，390px 闊之下 ＝ 150.15 + 14）。
+ *
+ * ⭐ 用返實測數字，⛔ 唔係求其寫一個蓋住成版嘅 div ——
+ *    ⚠️ 一個「求其嘅遮擋」證明唔到呢個檢查捉得返**當日嗰件事**。
+ */
+const SELF_TEST_CSS = `
+  [data-testid="home-scroll"] {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    padding-top: calc(min(38.5vw, 184px) + 14px);
+  }
+`
 
 const srv = serve(DIST, PORT)
 /**
@@ -379,6 +503,9 @@ const browser = await openBrowser()
 
 let bad = 0
 let checked = 0
+/** 「撳得到」嗰組：量咗幾多粒、撳唔到幾多粒。⛔ 同上面 90 項分開數。 */
+let hitChecked = 0
+let hitBad = 0
 
 for (const [name, spec] of Object.entries(SCREENS)) {
   if (ONLY && ONLY !== name) continue
@@ -387,9 +514,31 @@ for (const [name, spec] of Object.entries(SCREENS)) {
   // ⛔ 頁面行唔起就一定要嘈出嚟 —— 否則會靜靜咁量到零項然後報「全對」。
   real.on('pageerror', (e) => console.log('  ⚠️ 真 app 出錯：', e.message))
   real.on('console', (m) => { if (m.type() === 'error') console.log('  ⚠️ 真 app console：', m.text()) })
-  await real.goto(`http://localhost:${PORT}/?screen=${name}`)
+  await real.goto(`http://localhost:${PORT}/?screen=${name}${spec.query ?? ''}`)
   await real.evaluate(() => document.fonts.ready)
   await real.waitForTimeout(700)
+  // ⛔ 自我測試嗰陣，喺量之前先整返 2026-09-14 嗰個壞法。
+  if (SELF_TEST && name === 'home') await real.addStyleTag({ content: SELF_TEST_CSS })
+
+  console.log(`\n══ ${name} ══`)
+
+  // ── 撳得到？（⛔ 唔關原型事，係一個絕對要求）──────────────────
+  const hits = await real.evaluate(HIT_SCAN, [HIT_SELECTOR, HIT_GRID, HIT_INSET])
+  for (const one of hits) {
+    hitChecked += 1
+    if (one.reachable) continue
+    hitBad += 1
+    const who = one.testid !== '' ? `[${one.testid}]` : one.text !== '' ? `「${one.text}」` : one.cls
+    console.log(`  ✗ 撳唔到：${one.tag}${who} —— 撳落去撳到嘅係「${one.blocker}」`)
+  }
+
+  // ── 同原型對數 ────────────────────────────────────────────────
+  // ⛔ 冇 `pairs` 嘅畫面（例如「未上載 N 張」）唔開原型頁 ——
+  //    ⚠️ 原型入面根本冇嗰件嘢，開嚟做乜？見下面 `pending` 嗰段。
+  if (!spec.pairs) {
+    await real.close()
+    continue
+  }
 
   const proto = await browser.newPage({ viewport: { width: W, height: H } })
   await proto.goto('file://' + path.resolve(PROTO))
@@ -397,7 +546,6 @@ for (const [name, spec] of Object.entries(SCREENS)) {
   await proto.evaluate((fn) => window[fn](), spec.proto)
   await proto.waitForTimeout(700)
 
-  console.log(`\n══ ${name} ══`)
   for (const [label, a, b, mode, except] of spec.pairs) {
     const ra = await real.evaluate(READ, [a, BOX, CSS])
     const rb = await proto.evaluate(READ, [b, BOX, CSS])
@@ -452,4 +600,18 @@ await browser.close()
 srv.close()
 
 console.log(`\n量咗 ${checked} 項，對唔上 ${bad} 項。`)
-process.exit(bad === 0 ? 0 : 1)
+console.log(`撳得到嘅檢查：量咗 ${hitChecked} 粒掣，撳唔到 ${hitBad} 粒。`)
+
+if (SELF_TEST) {
+  // ⛔⛔ 自我測試：整咗個已知嘅壞法入去，就**一定要紅**。
+  console.log('\n──── 自我測試 ────')
+  console.log('整返咗 2026-09-14 嗰個壞法（首頁容器換成 .float-cards-scroll 嘅幾何）。')
+  if (hitBad > 0) {
+    console.log(`✓ 捉到 —— 撳唔到 ${hitBad} 粒。⭐ 呢把尺係有用嘅。`)
+    process.exit(0)
+  }
+  console.log('✗ ⛔⛔ 捉唔到。呢把尺量唔到佢應該量嘅嘢，即係一個假嘅安全感。')
+  process.exit(3)
+}
+
+process.exit(bad === 0 && hitBad === 0 ? 0 : 1)
