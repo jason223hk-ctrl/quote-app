@@ -58,7 +58,8 @@ export default function HomePage({ client, session }: Props) {
    * ⚠️ 呢度冇任何畫面 —— 佢係背景做嘢。`docs/上線清單.md` 第 1 條第 3 項
    * 要求嘅係「收到網就自動再傳，⛔ 唔使人手撳」，冇要求畫面出數字。
    */
-  useAutoResume(session.access_token, api.photos)
+  // ⭐ 回一個「即刻行一輪」，同步頁向下拉會用到（Jason 2026-09-13 第 4 條）。
+  const retryUploads = useAutoResume(session.access_token, api.photos)
 
   // 加成％ 淨係辦公室改得。⛔ 查唔到一律當唔係 —— 寧願見到但改唔到。
   const [office, setOffice] = useState(false)
@@ -76,6 +77,7 @@ export default function HomePage({ client, session }: Props) {
     <RecordsScreen
       api={api}
       office={office}
+      onRetryUploads={retryUploads}
       user={userInfoFrom(session.user.email ?? '')}
       userId={session.user.id}
       accessToken={session.access_token}
@@ -92,6 +94,8 @@ type ScreenProps = {
   userId: string
   /** 攞 R2 簽名網址嗰陣要用嚟證明身分。⛔ 唔會存落任何地方。 */
   accessToken: string
+  /** 同步頁向下拉嗰陣即刻再試傳一次相。 */
+  onRetryUploads: () => Promise<void>
   onSignOut: () => Promise<unknown>
 }
 
@@ -101,7 +105,15 @@ type ScreenProps = {
  *
  * 資料流冇變（P1 定落）：每次寫入之後由 server 重新攞清單，DB 係唯一 source of truth。
  */
-export function RecordsScreen({ api, office, user, userId, accessToken, onSignOut }: ScreenProps) {
+export function RecordsScreen({
+  api,
+  office,
+  user,
+  userId,
+  accessToken,
+  onRetryUploads,
+  onSignOut,
+}: ScreenProps) {
   const [records, setRecords] = useState<QuoteRecord[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -325,6 +337,7 @@ export function RecordsScreen({ api, office, user, userId, accessToken, onSignOu
             trees={api.trees}
             records={records}
             liveRecordIds={liveIds}
+            onRetryUploads={onRetryUploads}
             onOpenRecord={(recordId) => nav.go({ name: 'record', recordId })}
           />
         )
@@ -337,6 +350,7 @@ export function RecordsScreen({ api, office, user, userId, accessToken, onSignOu
             recordCount={records.length}
             photos={api.photos}
             liveRecordIds={liveIds}
+            onRefresh={reload}
             onOpenPrices={() => nav.go({ name: 'prices' })}
             onOpenClients={() => nav.go({ name: 'clients' })}
             onSignOut={onSignOut}

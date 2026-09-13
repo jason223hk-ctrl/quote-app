@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
 import { RESUME_INTERVAL_MS, mirrorOnce, resumeOnce } from './autoResume'
 import type { PhotosApi } from './photos'
 import { photoStore, localStorageAvailable } from './photoStore'
@@ -25,11 +25,17 @@ import { uploadPending } from './photoUpload'
  * ⭐ Jason 2026-09-05 拍板要補埋 Drive，理由係：「有人會開返嗰版」呢個假設，
  *    同「有人會記得撳再試一次」係同一種假設 —— 而嗰種假設今日已經證明咗唔成立。
  */
-export function useAutoResume(accessToken: string, photos: PhotosApi): void {
+export function useAutoResume(accessToken: string, photos: PhotosApi): () => Promise<void> {
   // ⛔ token 同 api 一變就重掛一次 listener 係嘥嘅，而且會斷咗行緊嗰輪。
   //    改為每次行嗰陣先讀最新嗰個。
   const latest = useRef({ accessToken, photos })
   latest.current = { accessToken, photos }
+  /**
+   * ⭐ 俾同步頁「向下拉」即刻叫一次。
+   * ⛔ 唔會另開一條上載路 —— 佢叫嘅就係下面同一個 `tick`，
+   *    即係一輪最多三張、有鎖、失敗唔會 throw，全部規矩照跟。
+   */
+  const tickRef = useRef<null | (() => Promise<void>)>(null)
 
   useEffect(() => {
     // Worker 未設定就連試都唔好試 —— 每次都實敗，白白令 attempts 一路加。
@@ -68,6 +74,8 @@ export function useAutoResume(accessToken: string, photos: PhotosApi): void {
       }
     }
 
+    tickRef.current = tick
+
     const onOnline = () => void tick()
     const onVisible = () => {
       if (document.visibilityState === 'visible') void tick()
@@ -81,9 +89,16 @@ export function useAutoResume(accessToken: string, photos: PhotosApi): void {
 
     return () => {
       live = false
+      tickRef.current = null
       window.removeEventListener('online', onOnline)
       document.removeEventListener('visibilitychange', onVisible)
       window.clearInterval(timer)
     }
+  }, [])
+
+  // ⛔ 冇掛到（Worker 未設定／冇 IndexedDB）就係一個 no-op ——
+  //    ⚠️ 唔准喺呢度另開一條路繞過嗰兩個 guard。
+  return useCallback(async () => {
+    await tickRef.current?.()
   }, [])
 }

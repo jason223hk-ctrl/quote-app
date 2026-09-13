@@ -180,7 +180,7 @@ export default function TreesScreen({ api, photos, accessToken, record, onBack }
 
       {/* ⛔ 原型呢版一張統計卡都冇。「撞編號」個數本來就喺下面條警告度講返，
           留住兩張卡只係阻住睇樹。 */}
-      <ScrollBody testid="tree-scroll" compact>
+      <ScrollBody testid="tree-scroll" compact onRefresh={reload}>
         {duplicates.length > 0 && (
           <p className="notice notice--warning" role="status">
             有樹撞咗編號：{duplicates.join('、')}。照儲存得，記住之後分得返邊棵就得。
