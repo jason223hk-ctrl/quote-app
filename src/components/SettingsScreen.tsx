@@ -14,6 +14,8 @@ type Props = {
   photos: PhotosApi
   /** ⛔ `null` ＝ 未載完／攞唔到工程清單。見 `src/lib/orphanPhotos.ts`。 */
   liveRecordIds: Set<string> | null
+  /** 向下拉刷新：重新攞工程清單。⛔ 唔傳就冇下拉。 */
+  onRefresh?: () => Promise<unknown>
   onOpenPrices: () => void
   onOpenClients: () => void
   onSignOut: () => Promise<unknown>
@@ -29,6 +31,7 @@ export default function SettingsScreen({
   recordCount,
   photos,
   liveRecordIds,
+  onRefresh,
   onOpenPrices,
   onOpenClients,
   onSignOut,
@@ -52,6 +55,8 @@ export default function SettingsScreen({
    * ⚠️ 攞唔到就當零 —— ⛔ 唔准出一個估出嚟嘅數。
    */
   const [orphans, setOrphans] = useState(0)
+  /** 向下拉之後迫個孤兒數重數一次。⛔ 淨靠 `liveRecordIds` 唔夠 —— 佢冇變就唔會重跑。 */
+  const [recount, setRecount] = useState(0)
   useEffect(() => {
     let live = true
     void (async () => {
@@ -67,7 +72,7 @@ export default function SettingsScreen({
     return () => {
       live = false
     }
-  }, [photos, liveRecordIds])
+  }, [photos, liveRecordIds, recount])
 
   const orphanLine = orphanNote(orphans)
 
@@ -87,7 +92,14 @@ export default function SettingsScreen({
         right={<UserPill user={user} />}
       />
 
-      <ScrollBody testid="settings-scroll" compact>
+      <ScrollBody
+        testid="settings-scroll"
+        compact
+        onRefresh={async () => {
+          await onRefresh?.()
+          setRecount((n) => n + 1)
+        }}
+      >
         <section className="card">
           <h2 className="card__title">帳戶</h2>
           <div className="acct-row">

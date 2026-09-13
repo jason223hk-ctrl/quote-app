@@ -112,7 +112,7 @@ export default function ClientBookScreen({ api, onBack }: Props) {
         }
       />
 
-      <ScrollBody testid="clients-scroll" compact>
+      <ScrollBody testid="clients-scroll" compact onRefresh={reload}>
         <p className="muted soon">
           此處的客戶可在「客戶資料」直接選用。修改只影響日後選用，已填入工程的資料不會變。
         </p>

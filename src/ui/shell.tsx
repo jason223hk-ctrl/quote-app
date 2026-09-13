@@ -1,4 +1,6 @@
 import { useLayoutEffect, useRef, type ReactNode } from 'react'
+import { pullLabel, type PullState } from '../lib/pullToRefresh'
+import { usePullToRefresh } from './usePullToRefresh'
 import { VERSION_LABEL } from './version'
 import type { Nav, Route } from './routes'
 import { Icon, ICONS, IconSprite } from './Icon'
@@ -143,6 +145,33 @@ export function HeaderTitle({
   )
 }
 
+/**
+ * 向下拉刷新嗰個轉圈。
+ *
+ * ⛔⛔ **靜止（idle）嗰陣回 `null`** —— 成個 DOM node 都唔會出。
+ *    ⚠️ 呢個唔止係靚唔靚：`ui:check` 量嘅係靜止嗰個樣，
+ *    出一個高度 0 嘅空 div 都可能推歪下面啲嘢。
+ *
+ * ⛔ 唔准靜靜雞刷完一啲提示都冇（Jason 2026-09-13 第 6 條）——
+ *    人見唔到嘢動，就會拉三四次。
+ */
+function PullIndicator({ state }: { state: PullState }) {
+  const label = pullLabel(state)
+  if (label === null) return null
+  return (
+    <div
+      className={`pull-refresh${state.phase === 'refreshing' ? ' pull-refresh--busy' : ''}`}
+      style={{ height: `${Math.round(state.distance)}px` }}
+      role="status"
+      aria-live="polite"
+      data-testid="pull-refresh"
+    >
+      <span className="pull-refresh__spin" aria-hidden="true" />
+      <span className="pull-refresh__label">{label}</span>
+    </div>
+  )
+}
+
 export function BottomNav({ active, nav }: { active: string; nav: Nav }) {
   const item = (key: string, icon: string, label: string, route: Route) => (
     <button
@@ -212,10 +241,16 @@ export function FloatBody({
   children,
   testid,
   compact,
+  onRefresh,
 }: {
   pills: ReactNode
   children: ReactNode
   testid?: string
+  /**
+   * 向下拉刷新。**⛔ 唔傳就完全冇呢件事**（連 touch handler 都唔會掛）。
+   * ⚠️ 有未儲存輸入嘅畫面（表單）⛔ 一律唔准傳。
+   */
+  onRefresh?: () => Promise<unknown>
   /**
    * 冇波浪嘅版本：統計卡唔再浮喺波浪頂，變返捲動層入面第一件嘢。
    * ⛔ 唔使 ResizeObserver 度高度 —— 冇嘢要疊，就冇嘢要度。
@@ -224,6 +259,7 @@ export function FloatBody({
 }) {
   const pillsRef = useRef<HTMLDivElement>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
+  const pull = usePullToRefresh(onRefresh)
 
   useLayoutEffect(() => {
     const pillsEl = pillsRef.current
@@ -241,7 +277,9 @@ export function FloatBody({
       <div
         className="float-cards-scroll scroll-body scroll-body--compact"
         data-testid={testid}
+        {...pull.handlers}
       >
+        <PullIndicator state={pull.state} />
         {pills}
         {children}
       </div>
@@ -250,7 +288,8 @@ export function FloatBody({
 
   return (
     <>
-      <div ref={scrollRef} className="float-cards-scroll" data-testid={testid}>
+      <div ref={scrollRef} className="float-cards-scroll" data-testid={testid} {...pull.handlers}>
+        <PullIndicator state={pull.state} />
         {children}
       </div>
       <div ref={pillsRef} className="float-pills-layer">
@@ -266,6 +305,7 @@ export function ScrollBody({
   testid,
   compact,
   className,
+  onRefresh,
 }: {
   children: ReactNode
   testid?: string
@@ -273,14 +313,26 @@ export function ScrollBody({
   className?: string
   /** 配 `BotanicalHeader compact` —— 冇波浪就唔使留波浪嗰段位。 */
   compact?: boolean
+  /**
+   * 向下拉刷新。**⛔ 唔傳就完全冇呢件事**（連 touch handler 都唔會掛）。
+   *
+   * ⛔⛔ **有未儲存輸入嘅畫面⛔ 一律唔准傳**（Jason 2026-09-13 第 3 條）——
+   *    報價表、現場資料表、客戶資料表、樹木表、單價設定。
+   *    ⚠️ 嗰啲畫面嘅 state 喺 component 入面，一 reload 就會蓋走人哋打咗嘅字。
+   *    ⭐ 唔傳 ＝ 冇路徑，⛔ 唔係靠記得唔好拉。
+   */
+  onRefresh?: () => Promise<unknown>
 }) {
+  const pull = usePullToRefresh(onRefresh)
   return (
     <div
       className={`float-cards-scroll scroll-body${compact ? ' scroll-body--compact' : ''}${
         className ? ' ' + className : ''
       }`}
       data-testid={testid}
+      {...pull.handlers}
     >
+      <PullIndicator state={pull.state} />
       {children}
     </div>
   )

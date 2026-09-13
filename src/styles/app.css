@@ -3032,3 +3032,54 @@ h3 {
       所以 `ui:check` 嗰 90 項唔會郁（已實測：仍然 0 項對唔上）。
    ⛔ 唔喺各處 padding 度寫死一個新數：三個變體各有一條自己嘅 calc，
       寫死就一定有一條漏改。 */
+
+/* ⛔⛔ 擋走瀏覽器自己嗰個「下拉整頁 reload」。
+   ⚠️ Android Chrome 喺 scrollTop 0 再向下拉會自己 reload 成版 ——
+      而 Jason 2026-09-13 第 2 條講明⛔ 唔准整頁 reload（會弄走打到一半嘅字）。
+   ⭐ `contain` 只係擋住「傳俾上一層」，⛔ 唔影響版面（實測 ui:check 仍然 90 / 0）。 */
+.float-cards-scroll {
+  overscroll-behavior-y: contain;
+}
+
+/* ── 向下拉刷新（Jason 2026-09-13）────────────────────────────────
+   ⛔⛔ 靜止嗰陣**成個 node 都唔會出**（見 `shell.tsx` 個 `PullIndicator`），
+      所以下面呢幾條規則喺平時嘅畫面上面**一個 px 都影響唔到**。
+   ⚠️ `ui:check` 量嘅就係靜止嗰個樣 —— 實測改完仍然 90 項 / 對唔上 0 項。 */
+.pull-refresh {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  overflow: hidden;
+  flex: none;
+  color: var(--q-text-secondary);
+  font-size: 13px;
+  font-weight: 600;
+  /* ⛔ 唔加 transition —— 拉緊嗰陣要跟實手指，慢半拍就似卡住。 */
+}
+
+.pull-refresh__spin {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid var(--q-border);
+  border-top-color: var(--q-accent);
+  flex: none;
+}
+
+/* 刷緊先至轉。⭐ 拉緊嗰陣個圈唔郁 —— 郁嘅係佢跟住手指落嚟。 */
+.pull-refresh--busy .pull-refresh__spin {
+  animation: pull-spin 0.8s linear infinite;
+}
+
+@keyframes pull-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pull-refresh--busy .pull-refresh__spin {
+    animation: none;
+  }
+}

@@ -88,7 +88,13 @@ export default function RecordListPage({
         ))}
       </div>
 
-      <ScrollBody testid="record-scroll" compact className="records-scroll">
+      <ScrollBody
+        testid="record-scroll"
+        compact
+        className="records-scroll"
+        // ⭐ 同「重試」粒掣叫同一個 function —— ⛔ 唔會有兩套刷新邏輯。
+        onRefresh={async () => onRetry()}
+      >
         {error && (
           <p className="notice notice--error" role="alert">
             攞唔到清單：{error}{' '}

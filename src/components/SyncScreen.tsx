@@ -26,6 +26,11 @@ type Props = {
    */
   liveRecordIds: Set<string> | null
   onOpenRecord: (recordId: string) => void
+  /**
+   * 向下拉嗰陣即刻再試傳一次相（Jason 2026-09-13 第 4 條：**佢最想要嘅就係呢個**）。
+   * ⛔ 唔傳都照刷新得到，淨係少咗「即刻再試」嗰半。
+   */
+  onRetryUploads?: () => Promise<unknown>
 }
 
 /**
@@ -46,6 +51,7 @@ export default function SyncScreen({
   records,
   liveRecordIds,
   onOpenRecord,
+  onRetryUploads,
 }: Props) {
   const [rows, setRows] = useState<QuotePhoto[] | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -54,7 +60,7 @@ export default function SyncScreen({
 
   const load = useCallback(() => {
     setError(null)
-    void photos
+    return photos
       .listAll()
       .then(setRows)
       .catch((caught: Error) => {
@@ -63,7 +69,27 @@ export default function SyncScreen({
       })
   }, [photos])
 
-  useEffect(load, [load])
+  useEffect(() => {
+    void load()
+  }, [load])
+
+  /**
+   * 向下拉 ＝ **刷新 ＋ 即刻再試傳一次**。
+   *
+   * ⭐ 次序係特登嘅：**先試傳，後刷新** —— 咁樣傳到嗰張即刻反映喺個數度，
+   * ⛔ 唔會出現「傳完但畫面仲寫住失敗」。
+   * ⛔ 試傳死咗都要照刷新（`catch`），⚠️ 唔係嘅話拉極個畫面都唔會更新。
+   */
+  const refresh = useCallback(async () => {
+    if (onRetryUploads) {
+      try {
+        await onRetryUploads()
+      } catch (caught) {
+        console.error('[quote-app] sync pull retry failed:', caught)
+      }
+    }
+    await load()
+  }, [load, onRetryUploads])
 
   // 樹牌號淨係為咗喺失敗清單度講清楚係邊棵樹。⛔ 攞唔到都唔准當成個頁面壞咗。
   useEffect(() => {
@@ -99,7 +125,7 @@ export default function SyncScreen({
     <>
       <BotanicalHeader compact="big" left={<span className="page-title">同步</span>} />
 
-      <ScrollBody testid="sync-scroll" compact>
+      <ScrollBody testid="sync-scroll" compact onRefresh={refresh}>
         {/* Hero：冇卡邊。⛔ 未攞到資料之前唔准講「已自動同步」。 */}
         <div className="sync-hero">
           {rows === null ? (
