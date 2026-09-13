@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import type { PhotosApi, QuotePhoto } from '../lib/photos'
 import type { QuoteRecord } from '../lib/records'
 import type { TreesApi } from '../lib/trees'
+import { splitOrphanRows } from '../lib/orphanPhotos'
 import {
   allDone,
   byRecord,
@@ -19,6 +20,11 @@ type Props = {
   photos: PhotosApi
   trees: TreesApi
   records: QuoteRecord[]
+  /**
+   * 而家仲攞得返嘅工程 id。⛔ `null` ＝ 未載完／攞唔到 ⇒ **乜都唔隔走**。
+   * 見 `src/lib/orphanPhotos.ts`。
+   */
+  liveRecordIds: Set<string> | null
   onOpenRecord: (recordId: string) => void
 }
 
@@ -34,7 +40,13 @@ type Props = {
  * ⚠️ 「待同步」同「同步失敗」⛔ 唔可以溝埋一齊：
  *    待同步 ＝ 系統會自己搞掂，人唔使做嘢；失敗 ＝ 要人睇。
  */
-export default function SyncScreen({ photos, trees, records, onOpenRecord }: Props) {
+export default function SyncScreen({
+  photos,
+  trees,
+  records,
+  liveRecordIds,
+  onOpenRecord,
+}: Props) {
   const [rows, setRows] = useState<QuotePhoto[] | null>(null)
   const [error, setError] = useState<string | null>(null)
   /** ⛔ null ＝ 攞唔到樹木清單。⛔ 唔准當佢係「冇樹」—— 咁會靜靜咁出「（未填樹牌）」。 */
@@ -69,9 +81,18 @@ export default function SyncScreen({ photos, trees, records, onOpenRecord }: Pro
     }
   }, [trees])
 
-  const counts: SyncCounts = rows ? syncCounts(rows) : { synced: 0, pending: 0, failed: 0 }
-  const failed = rows ? rows.filter((row) => photoSyncState(row) === 'failed') : []
-  const last = rows ? lastSyncedAt(rows) : null
+  /**
+   * ⭐ 母單已經刪咗嗰啲相，⛔ 唔入三個數、⛔ 唔入失敗清單、⛔ 唔出喺逐單嗰度
+   * （Jason 2026-09-12 拍板）。
+   *
+   * ⛔⛔ 佢哋**唔係就咁消失** —— 設定頁最底有一行「另有 N 張相屬於已刪工程」，
+   *    ⭐ 嗰行就係「唔重試」同「靜靜咁冇咗」之間嘅分別。
+   */
+  const visible = rows === null ? null : splitOrphanRows(rows, liveRecordIds).kept
+
+  const counts: SyncCounts = visible ? syncCounts(visible) : { synced: 0, pending: 0, failed: 0 }
+  const failed = visible ? visible.filter((row) => photoSyncState(row) === 'failed') : []
+  const last = visible ? lastSyncedAt(visible) : null
   const nameOf = (id: string) => records.find((r) => r.id === id)?.name ?? '（搵唔到工程）'
 
   return (
@@ -157,12 +178,12 @@ export default function SyncScreen({ photos, trees, records, onOpenRecord }: Pro
 
         <div className="sync-sect">專案同步狀態</div>
 
-        {rows !== null && byRecord(rows).length === 0 && (
+        {visible !== null && byRecord(visible).length === 0 && (
           <div className="muted empty">未有專案</div>
         )}
 
-        {rows !== null &&
-          byRecord(rows).map((item) => (
+        {visible !== null &&
+          byRecord(visible).map((item) => (
             <button
               className="hub-row sync-row"
               key={item.recordId}

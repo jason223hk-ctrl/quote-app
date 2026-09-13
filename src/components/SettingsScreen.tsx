@@ -1,4 +1,7 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { orphanNote, orphanPhotoCount } from '../lib/orphanPhotos'
+import { photoStore, localStorageAvailable } from '../lib/photoStore'
+import type { PhotosApi } from '../lib/photos'
 import { configResult } from '../lib/supabase'
 import { BotanicalHeader, ScrollBody, UserPill, type UserInfo } from '../ui/shell'
 import { Icon, ICONS } from '../ui/Icon'
@@ -8,6 +11,9 @@ type Props = {
   user: UserInfo
   userId: string
   recordCount: number
+  photos: PhotosApi
+  /** ⛔ `null` ＝ 未載完／攞唔到工程清單。見 `src/lib/orphanPhotos.ts`。 */
+  liveRecordIds: Set<string> | null
   onOpenPrices: () => void
   onOpenClients: () => void
   onSignOut: () => Promise<unknown>
@@ -21,12 +27,49 @@ export default function SettingsScreen({
   user,
   userId,
   recordCount,
+  photos,
+  liveRecordIds,
   onOpenPrices,
   onOpenClients,
   onSignOut,
 }: Props) {
   const [confirming, setConfirming] = useState(false)
   const [busy, setBusy] = useState(false)
+
+  /**
+   * 「另有 N 張相屬於已刪工程」個 N。
+   *
+   * ⛔⛔ 呢行**唔係警告**，係一行俾 Jason 查嘅細字（Jason 2026-09-12 講明）——
+   *    ⛔ 唔紅、⛔ 冇「需要處理」、⛔ 冇得撳走、⛔ N 係零就成行唔出。
+   *
+   * ⭐ 佢存在嘅唯一理由：**甲類**孤兒相（母單刪咗＋已經有雲端副本）
+   *    唔會再出喺同步頁 —— 如果連呢行都冇，佢哋就係**真係靜靜咁冇咗**。
+   *
+   * ⛔⛔ **乙類⛔ 唔會喺呢個數入面**（母單刪咗但一份雲端副本都冇）——
+   *    佢哋仲喺「未上載 N 張」同同步頁度企硬，⭐ 數兩次反而會令人
+   *    以為有兩批唔同嘅嘢。見 `src/lib/orphanPhotos.ts` 檔頭。
+   *
+   * ⚠️ 攞唔到就當零 —— ⛔ 唔准出一個估出嚟嘅數。
+   */
+  const [orphans, setOrphans] = useState(0)
+  useEffect(() => {
+    let live = true
+    void (async () => {
+      try {
+        const rows = await photos.listAll()
+        const local = localStorageAvailable() ? await photoStore.listAll() : []
+        if (live) setOrphans(orphanPhotoCount(rows, local, liveRecordIds))
+      } catch (caught) {
+        console.error('[quote-app] orphan photo count failed:', caught)
+        if (live) setOrphans(0)
+      }
+    })()
+    return () => {
+      live = false
+    }
+  }, [photos, liveRecordIds])
+
+  const orphanLine = orphanNote(orphans)
 
   const host = configResult.ok ? new URL(configResult.config.url).host : '（未設定）'
 
@@ -138,6 +181,13 @@ export default function SettingsScreen({
             <span className="acct-label">環境變數</span>
             <span className="acct-val">{configResult.ok ? '已設定' : '未設定'}</span>
           </div>
+
+          {/* ⛔ N 係零就成行唔出 —— 見上面 `orphans` 嗰段。 */}
+          {orphanLine !== null && (
+            <p className="muted soon" data-testid="orphan-note">
+              {orphanLine}
+            </p>
+          )}
           <div className="acct-row">
             <span className="acct-label">已載入工程</span>
             <span className="acct-val">{recordCount}</span>
