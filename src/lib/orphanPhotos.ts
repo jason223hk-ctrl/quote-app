@@ -153,3 +153,113 @@ export function orphanNote(count: number): string | null {
   if (count <= 0) return null
   return `另有 ${count} 張相屬於已刪工程`
 }
+
+/* ══════════════════════════════════════════════════════════════════
+   乙類·卡死 —— ⭐ 唯一清得嘅嗰批（Jason 2026-09-14 拍板）
+   ══════════════════════════════════════════════════════════════════
+
+   **點解要開呢一段 —— ⛔ 唔准淨係記住結論**
+
+   2026-09-14：Jason 加咗自己做 quote admin 之後，「未上載 4 張」
+   終於郁 —— 三日嚟第一次，跌到 3 張。⭐ 證實咗係權限問題，⛔ 唔係上載邏輯。
+
+   ⚠️ 但跟住佢**把所有工程都刪咗**，於是剩返嗰 3 張相**永遠傳唔到**：
+   母單冇咗 ⇒ `can_edit_quote_record()` 永遠 false ⇒ insert 永遠俾人拒。
+   而條 bar 照寫住「未上載 3 張」。
+
+   ⭐⭐ **條 bar 冇壞** —— 佢係照上面「乙類⛔ 唔准收埋」嗰條規矩做。
+      問題係：**呢個狀態冇出口。** 佢會一路數住幾張永遠都上唔到嘅相，
+      而唯一嘅出路（改返母單）已經冇咗。⛔ 呢個係我哋設計嘅空白，
+      唔係一個 bug —— ⚠️ 所以修法唔係改條 bar，係開一個出口。
+
+   ⛔⛔ **範圍要死死地守住**：清得嘅**只有**「母單刪咗 ＋ 一份雲端副本都冇
+      ＋ 資料庫一行都冇」。母單仲喺度嗰啲**一張都唔准清** ——
+      ⚠️ 嗰啲仲有機會傳得到，而佢哋可能係全世界唯一一份。
+*/
+
+/**
+ * 清得嘅嗰批。**三個條件缺一不可。**
+ *
+ * ⛔⛔ `live === null`（唔知邊啲工程仲喺度）⇒ **一張都唔准清**。
+ *    ⚠️ 呢個係整段最重要嘅一句：清單未載完嗰陣，每一單睇落都「刪咗」——
+ *    當咗真，就會一次過清走成部機所有未上載嘅相，⛔ 而且冇得返轉頭。
+ *
+ * ⛔ 第三個條件（資料庫一行都冇）係額外嘅保險：
+ *    ⚠️ 部機話 `error`、但 DB 其實寫咗行，係有可能嘅（寫成功但覆返嚟嗰下斷咗）。
+ *    ⭐ 嗰種情況雲端有嘢，⛔ 唔應該由呢度清 —— 寧願少清一張。
+ *
+ * ⚠️ **一句要老實講**：R2 度**可能**仲有一份 bytes（`uploadPending` 係
+ *    先上 R2、後寫 DB 行）。⛔ 但冇咗 DB 行就冇任何嘢指得返去嗰個 key，
+ *    成個 app 攞唔返。⭐ 所以確認嗰句照講「全世界只剩部機呢一份」——
+ *    ⛔ 呢句係向**安全嗰邊**講多咗，唔係講少咗。
+ */
+export function strandedPending(
+  items: PendingPhoto[],
+  rows: QuotePhoto[],
+  live: Set<string> | null,
+): PendingPhoto[] {
+  if (!live) return []
+  const known = new Set(rows.map((row) => row.operation_id))
+  return items.filter(
+    (item) =>
+      isOrphan(item.recordId, live) &&
+      !pendingHasCloudCopy(item) &&
+      !known.has(item.operationId),
+  )
+}
+
+/** 幾多張清得。⛔ 同上面同一個判斷，⚠️ 唔准另外數一次 —— 兩個數唔同就係災難。 */
+export function strandedCount(
+  items: PendingPhoto[],
+  rows: QuotePhoto[],
+  live: Set<string> | null,
+): number {
+  return strandedPending(items, rows, live).length
+}
+
+/**
+ * 設定頁嗰行字。**N 係零就回 `null`（⛔ 成行唔出，連粒掣都冇）。**
+ *
+ * ⛔⛔ 呢個唔係「暫時 disable」——**係根本冇呢樣嘢喺畫面上面**。
+ *    ⚠️ 一粒平時就企喺度嘅「清相」掣，遲早有人得閒撳。
+ */
+export function strandedNote(count: number): string | null {
+  if (count <= 0) return null
+  return `有 ${count} 張相傳唔到，而佢哋嘅工程已經刪咗`
+}
+
+/**
+ * 兩段式第二段嗰句。⛔⛔ **唔准縮成「確定嗎」**（Jason 2026-09-14 原話）。
+ *
+ * ⭐ 三樣嘢缺一不可：**實數**、**「全世界只剩部機呢一份」**、**「清咗就真係冇」**。
+ * ⚠️ 呢個係全 app **唯一**一個真刪（CLAUDE.md §2.1 零真刪講嘅係資料庫；
+ *    呢啲相根本冇入過資料庫）—— ⭐ 所以句嘢要嚇得親人，⛔ 唔准客氣。
+ */
+export function strandedConfirm(count: number): string {
+  return `呢 ${count} 張相全世界只剩部機呢一份，清咗就真係冇。`
+}
+
+/**
+ * 呢一單仲有幾多張未傳上雲端。**刪工程之前要講嘅嗰個 N。**
+ *
+ * ⚠️ 呢度⛔ 唔理母單刪咗未 —— 問呢句嗰陣，母單**仲喺度**（就快刪）。
+ */
+export function unsyncedInRecord(items: PendingPhoto[], recordId: string): number {
+  return items.filter((item) => item.recordId === recordId && !pendingHasCloudCopy(item)).length
+}
+
+/**
+ * 刪工程確認嗰陣多出嗰行字。**N 係零就回 `null`（⛔ 唔出）。**
+ *
+ * ⭐⭐ **呢行係四項入面最重要嗰一項**（Jason 2026-09-14：「呢個比清理重要」）。
+ *
+ * ⚠️ 2026-09-14 嗰個死結，成因唔係「冇得清」，係**刪嘅時候冇人講過**：
+ *    Jason 刪工程嗰陣，完全唔知嗰單仲有相未傳上雲端。
+ *    ⭐ 有咗呢行，佢當時就會停一停 —— 而個死結**根本唔會出現**。
+ *
+ * ⛔ 呢行**唔會攔住你刪** —— 佢淨係講一句。話事嘅仍然係人。
+ */
+export function deleteUnsyncedWarning(count: number): string | null {
+  if (count <= 0) return null
+  return `⚠️ 呢單仲有 ${count} 張相未傳上雲端，刪咗佢哋就冇出路。`
+}
