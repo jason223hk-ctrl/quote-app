@@ -81,7 +81,15 @@ export function lastSyncedAt(rows: QuotePhoto[]): string | null {
  *
  * ⛔ 環境相唔屬於任何一棵樹，所以⛔ 唔可以出一個空白樹牌。
  */
-export function photoWhere(row: QuotePhoto, treeNo: string | null): string {
+/**
+ * ⚠️ 收窄咗個參數型別（2026-09-14）：本來要一個完整 `QuotePhoto`，但佢淨係讀
+ * `tree_id` 同 `mitigation` 兩個欄。⭐ 放寬咗之後，**部機嗰啲仲未入到 DB 嘅相**
+ * 都用得返同一句 —— ⛔ 唔使另外抄一份出嚟（抄兩份 ⇒ 兩邊講法遲早唔同）。
+ */
+export function photoWhere(
+  row: { tree_id: string | null; mitigation: string | null },
+  treeNo: string | null,
+): string {
   if (row.tree_id === null) return '環境相'
   const tag = treeNo === null || treeNo.trim() === '' ? '（未填樹牌）' : treeNo
   if (row.mitigation === null) return `${tag}・全景相`

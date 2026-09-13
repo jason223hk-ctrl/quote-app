@@ -3,6 +3,9 @@ import type { PhotosApi, QuotePhoto } from '../lib/photos'
 import type { QuoteRecord } from '../lib/records'
 import type { TreesApi } from '../lib/trees'
 import { splitOrphanRows } from '../lib/orphanPhotos'
+import { photoStore } from '../lib/photoStore'
+import type { PendingPhoto } from '../lib/photoUpload'
+import { stuckAdvice, stuckLocal, stuckRaw } from '../lib/stuckPhotos'
 import {
   allDone,
   byRecord,
@@ -31,6 +34,13 @@ type Props = {
    * ⛔ 唔傳都照刷新得到，淨係少咗「即刻再試」嗰半。
    */
   onRetryUploads?: () => Promise<unknown>
+  /**
+   * 部機（IndexedDB）嗰批相。⛔ 唔傳就用返 `photoStore.listAll`。
+   *
+   * ⭐ 出咗做 prop 淨係為咗對數個殼同測試可以餵一批定死嘅資料入嚟，
+   *    ⛔ 唔係俾人換一條第二嘅讀取路 —— 真 app 一定係 `photoStore`。
+   */
+  listLocal?: () => Promise<PendingPhoto[]>
 }
 
 /**
@@ -52,22 +62,32 @@ export default function SyncScreen({
   liveRecordIds,
   onOpenRecord,
   onRetryUploads,
+  listLocal = photoStore.listAll,
 }: Props) {
   const [rows, setRows] = useState<QuotePhoto[] | null>(null)
+  /** 部機嗰批。⛔ 讀唔到就當空 —— ⚠️ 讀唔到唔應該令成版嘢死。 */
+  const [local, setLocal] = useState<PendingPhoto[]>([])
   const [error, setError] = useState<string | null>(null)
   /** ⛔ null ＝ 攞唔到樹木清單。⛔ 唔准當佢係「冇樹」—— 咁會靜靜咁出「（未填樹牌）」。 */
   const [treeNos, setTreeNos] = useState<Record<string, string> | null>(null)
 
-  const load = useCallback(() => {
+  const load = useCallback(async () => {
     setError(null)
-    return photos
-      .listAll()
-      .then(setRows)
-      .catch((caught: Error) => {
-        setRows(null)
-        setError(caught.message)
-      })
-  }, [photos])
+    // ⭐ 兩邊分開接：雲端死咗**唔准連部機嗰批都唔出** ——
+    //    ⚠️ 2026-09-05 就係咁中過一次（`photoRefresh.ts` 有記低）。
+    try {
+      setLocal(await listLocal())
+    } catch (caught) {
+      console.error('[quote-app] sync: cannot read local photos:', caught)
+      setLocal([])
+    }
+    try {
+      setRows(await photos.listAll())
+    } catch (caught) {
+      setRows(null)
+      setError(caught instanceof Error ? caught.message : String(caught))
+    }
+  }, [photos, listLocal])
 
   useEffect(() => {
     void load()
@@ -120,6 +140,17 @@ export default function SyncScreen({
   const failed = visible ? visible.filter((row) => photoSyncState(row) === 'failed') : []
   const last = visible ? lastSyncedAt(visible) : null
   const nameOf = (id: string) => records.find((r) => r.id === id)?.name ?? '（搵唔到工程）'
+
+  /**
+   * ⭐⭐ 部機有、但**資料庫一行都冇**嗰啲。呢啲相以前喺呢版**完全睇唔到** ——
+   *    底 bar 數住佢哋（「未上載 N 張」），而呢版淨係讀 DB 行 ⇒ 一張都揾唔到。
+   *    ⚠️ Jason 2026-09-14 原話：「一直存在、唔識消失」。
+   *
+   * ⛔ `rows === null`（問唔到 DB）嗰陣 `stuckLocal` 回空 —— ⛔ 唔准報假警。
+   * ⛔ 亦都唔准入上面三個數：嗰三個數係講 **Google Drive** 同步，
+   *    ⚠️ 「未入到資料庫」係另一件事，溝埋一齊就兩樣都講唔清。
+   */
+  const stuck = stuckLocal(local, rows)
 
   return (
     <>
@@ -201,6 +232,40 @@ export default function SyncScreen({
             )
           })}
         </section>
+
+        {stuck.length > 0 && (
+          <>
+            <div className="sync-sect">仲喺部機、未入到資料庫</div>
+            <section className="card card--bare">
+              <p className="note-box note-box--warn">
+                呢 {stuck.length} 張相仲喺部機度，⛔ 唔會冇咗，但未寫得入資料庫，
+                所以上面三個數唔會計佢哋。逐張嘅原因列咗喺下面。
+              </p>
+              {stuck.map((item) => {
+                const advice = stuckAdvice(item)
+                const raw = stuckRaw(item)
+                return (
+                  <div className="sync-fail" key={item.operationId}>
+                    <div className="sync-fail__where">
+                      ⚠️ {nameOf(item.recordId)}・
+                      {photoWhere(
+                        { tree_id: item.treeId, mitigation: item.mitigation },
+                        item.treeId === null ? null : (treeNos?.[item.treeId] ?? null),
+                      )}
+                    </div>
+                    <div
+                      className={`sync-fail__advice${advice.permanent ? ' sync-fail__advice--bad' : ''}`}
+                    >
+                      {advice.text}
+                    </div>
+                    {/* ⛔ 原文全文照出、⛔ 唔准截。冇原文（仲未試過傳）就唔出呢行。 */}
+                    {raw !== '' && <div className="sync-fail__raw">錯誤原文：{raw}</div>}
+                  </div>
+                )
+              })}
+            </section>
+          </>
+        )}
 
         <div className="sync-sect">專案同步狀態</div>
 
