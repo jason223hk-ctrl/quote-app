@@ -13,6 +13,7 @@ import {
 } from '../lib/photos'
 import { photoStore, localStorageAvailable } from '../lib/photoStore'
 import { BUSY_MESSAGE, claimUpload, releaseUpload } from '../lib/autoResume'
+import { refreshPhotos } from '../lib/photoRefresh'
 import { uploadPending, type PendingPhoto } from '../lib/photoUpload'
 import {
   WORKER_MISSING_MESSAGE,
@@ -38,6 +39,14 @@ type Props = {
   title?: string
   /** 標題下面一行細字。寫 `null` 就唔出。 */
   hint?: string | null
+  /**
+   * 由外面（向下拉刷新）迫佢攞多次。**個數一變就 reload 一次。**
+   *
+   * ⛔⛔ 刷新**淨係「攞」** —— ⛔ 唔取消上載中嗰張、⛔ 唔令佢重頭再傳、
+   *    ⛔ 唔令佢消失、⛔ 唔會傳兩次。點解做唔到嗰四樣，見
+   *    `src/lib/photoRefresh.ts` 檔頭，四條各有測試釘住。
+   */
+  refreshToken?: number
 }
 
 /** 畫面上一格相：本機嗰份（有縮圖）加雲端嗰行（有狀態）。 */
@@ -114,6 +123,7 @@ export default function PhotoSlot({
   readOnlyNote,
   title = '全景相（成棵樹）',
   hint = 'P3a 只做呢一格。近景、工程相、畫線係之後嘅階段。',
+  refreshToken = 0,
 }: Props) {
   const [pending, setPending] = useState<PendingPhoto[]>([])
   const [rows, setRows] = useState<QuotePhoto[]>([])
@@ -160,12 +170,18 @@ export default function PhotoSlot({
    * ⭐ 部機嗰份係**唯一唔使網絡都有**嘅嘢，所以佢一定要行先、一定要出到。
    */
   const reload = useCallback(async () => {
+    // ⛔⛔ 由 `refreshPhotos()` 攞 —— **同「向下拉刷新」行同一個 function**。
+    //    ⚠️ 兩套嘅話，`photoRefresh.test.ts` 嗰四條保證就只釘住其中一套。
+    const { local, rows: fresh, stale: missed } = await refreshPhotos({
+      listLocal: () => (storeReady ? photoStore.listByRecord(recordId) : Promise.resolve([])),
+      listRows: () => api.listByRecord(recordId),
+    })
+
     if (storeReady) {
-      const localItems = await photoStore.listByRecord(recordId)
-      setPending(localItems)
+      setPending(local)
 
       const next: Record<string, string> = {}
-      for (const item of localItems) {
+      for (const item of local) {
         if (item.treeId === treeId && (item.mitigation ?? null) === mitigation)
           next[item.operationId] = URL.createObjectURL(item.blob)
       }
@@ -177,20 +193,17 @@ export default function PhotoSlot({
 
     // 雲端嗰份攞唔到⛔ 唔算大件事：影相、睇「未上載幾多張」、撳「再試一次」
     // 三樣都唔需要佢。⛔ 但亦唔准當冇事發生 —— 出一句話俾人知睇緊嘅係部機嗰份。
-    try {
-      setRows(await api.listByRecord(recordId))
-      setStale(false)
-    } catch {
-      // ⛔ 唔准清空 `rows` —— 上一次攞到嗰批仍然係啱嘅，清咗反而少咗嘢睇。
-      setStale(true)
-    }
+    // ⛔ `fresh` 係 `null`（問唔到）就唔准清空 `rows` —— 上一批仍然係啱嘅。
+    if (fresh !== null) setRows(fresh)
+    setStale(missed)
   }, [api, recordId, treeId, mitigation, storeReady])
 
   useEffect(() => {
     void reload().catch((caught: unknown) => {
       setError(caught instanceof Error ? caught.message : String(caught))
     })
-  }, [reload])
+    // ⭐ `refreshToken` 一變就再攞一次 —— 呢個就係「向下拉刷新」條路。
+  }, [reload, refreshToken])
 
 
   // Drive 試咗幾多次係本機記住嘅（DB 冇呢個欄）。第二部機影嘅相冇本機紀錄，當 0。

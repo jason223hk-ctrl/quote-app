@@ -154,8 +154,12 @@ export function HeaderTitle({
  *
  * ⛔ 唔准靜靜雞刷完一啲提示都冇（Jason 2026-09-13 第 6 條）——
  *    人見唔到嘢動，就會拉三四次。
+ *
+ * ⭐ 出咗俾外面用，係因為**首頁唔用共用嗰個容器**（見 `HomeScreen`）——
+ *    ⛔ 但佢一定要用返呢個指示器同 `usePullToRefresh`，
+ *    唔准另外砌一套（Jason 2026-09-14：「⭐ 唔好另外拄一套」）。
  */
-function PullIndicator({ state }: { state: PullState }) {
+export function PullIndicator({ state }: { state: PullState }) {
   const label = pullLabel(state)
   if (label === null) return null
   return (

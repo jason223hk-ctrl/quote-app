@@ -2,6 +2,8 @@ import { useMemo } from 'react'
 import { EMPTY_FILTERS, filterRecords } from '../lib/filters'
 import type { QuoteRecord } from '../lib/records'
 import type { Nav } from '../ui/routes'
+import { PullIndicator } from '../ui/shell'
+import { usePullToRefresh } from '../ui/usePullToRefresh'
 import { Icon, ICONS } from '../ui/Icon'
 import brandMark from '../assets/brand-lockup.png'
 import RecordCard from './RecordCard'
@@ -10,6 +12,8 @@ type Props = {
   records: QuoteRecord[]
   loading: boolean
   nav: Nav
+  /** 向下拉刷新。⛔ 唔傳就冇下拉（同 `ScrollBody` 同一套規矩）。 */
+  onRefresh?: () => Promise<unknown>
 }
 
 /**
@@ -22,7 +26,21 @@ type Props = {
  * ⚠️ 原型嗰句「你好，Jason」同「今日有 N 個工程待報價」喺 stage57 度係
  *    `display:none` —— 即係最後決定咗唔出。⛔ 所以呢度都唔做，唔係漏咗。
  */
-export default function HomeScreen({ records, loading, nav }: Props) {
+export default function HomeScreen({ records, loading, nav, onRefresh }: Props) {
+  /**
+   * ⚠️⚠️ 首頁**唔用 `ScrollBody`**，⛔ 唔係懶。
+   *
+   * 2026-09-14 試過將 `<main className="hmain">` 換成 `ScrollBody` ——
+   * **`ui:check` 照樣 90 項 / 對唔上 0 項**，但實測用 `elementFromPoint` 打過：
+   * ⛔⛔ **「待報價」嗰粒數字卡撳唔到** —— `.float-cards-scroll` 帶住
+   * `position:absolute; inset:0`，成個捲動區蓋咗上面三個數同品牌字。
+   *
+   * ⭐ 即係話：**對數量嘅係位置，⛔ 唔量撳唔撳得到。** 綠燈唔等於冇壞。
+   *
+   * ⇒ 所以呢度改為**用返共用嗰個 hook 同共用嗰個指示器**，
+   *   ⛔ 唔郁容器、⛔ 亦冇另外砌一套下拉邏輯。
+   */
+  const pull = usePullToRefresh(onRefresh)
   const live = useMemo(() => filterRecords(records, EMPTY_FILTERS), [records])
 
   const counts = useMemo(
@@ -71,7 +89,9 @@ export default function HomeScreen({ records, loading, nav }: Props) {
         </button>
       </div>
 
-      <main className="hmain" data-testid="home-scroll">
+      <main className="hmain" data-testid="home-scroll" {...pull.handlers}>
+        <PullIndicator state={pull.state} />
+
         <div className="sect">
           <h3>待報價工程</h3>
           <button className="link sect-more" onClick={goRecords}>
