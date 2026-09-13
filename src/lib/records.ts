@@ -230,9 +230,81 @@ export function rowToInput(record: QuoteRecord): RecordInput {
 /**
  * RLS 唔會 throw，佢只係令 0 行受影響。所以改唔到嘅時候要講得清楚點解，
  * 唔可以扮成功（P0 定落嘅規矩：未 readback 確認唔算成功）。
+ *
+ * ⚠️ 呢句係**兜底**嗰句 —— 兩個「可能」，因為呢一層淨係知個 id，唔知邊個原因。
+ *    ⭐ 叫得出邊個原因嗰陣，用 `refusalReason()` 換走佢（見下面）。
  */
-const NO_ROW_MESSAGE =
+export const NO_ROW_MESSAGE =
   '改唔到呢一單。可能已經鎖定（locked），或者唔係你開嘅單。要 admin 幫手先改得。'
+
+/**
+ * 「伺服器收咗個請求，但一行都冇改到」。
+ *
+ * ⭐ 特登開一個 class：**0 行同「網絡斷咗」、「欄位填漏」係完全兩件事**，
+ *    但三樣喺舊 code 度全部係一個冇分別嘅 `Error`，叫嗰邊分唔出，
+ *    於是就只可以出返嗰句有兩個「可能」嘅兜底話。
+ *
+ * ⛔ 唔准用個訊息字串嚟認佢（`message.includes(...)`）——
+ *    ⚠️ 一改文案就靜靜咁失靈，而失靈嗰陣冇人見到。
+ */
+export class NoRowError extends Error {
+  constructor(message: string = NO_ROW_MESSAGE) {
+    super(message)
+    this.name = 'NoRowError'
+  }
+}
+
+/** `refusalReason()` 要知嘅嘢。⛔ 淨係呢兩樣 —— 部機本身已經有，唔使再問 server。 */
+export type RefusalFacts = {
+  locked: boolean
+  created_by: string | null
+}
+
+/**
+ * 伺服器唔俾改呢一單，**點解**。
+ *
+ * ⭐⭐ 呢個係 2026-09-14 真機嗰單嘢帶出嚟嘅：Jason 撳「刪除」冇反應，
+ *    而畫面就算出到嗰句話，都係「可能 A，或者 B」—— ⚠️ 兩個可能等於冇答案。
+ *
+ * ⭐ 但 `locked` 同 `created_by` **部機本身一路都有**（清單攞返嚟嗰行就帶住），
+ *    所以分得出邊個原因，⛔ 冇理由推個「可能」俾現場同事自己估。
+ *
+ * ⛔⛔ 呢個 function **只係解釋，唔係判斷** ——
+ *    ⚠️ ⛔ 唔准攞佢去 disable 粒掣、⛔ 唔准攞佢去攔住個請求。
+ *    **話事嘅永遠係 server**：admin 改得到人哋嘅單，而部機根本唔知邊個係 admin。
+ *    部機估錯 ⇒ 鎖死一個本來做得到嘅動作，而且冇得申訴。
+ *    所以次序永遠係：**照發請求 → server 拒絕 → 先至用呢句解釋**。
+ *
+ * 第三句（兩樣都正常但照樣俾人拒）⛔ 唔准寫成「你做錯嘢」——
+ * 嗰個情況係權限設定嗰邊有問題，⭐ 要講明係設定問題，唔係人手誤。
+ */
+export function refusalReason(facts: RefusalFacts, userId: string): string {
+  if (facts.locked) {
+    return '呢一單已經鎖定咗。鎖定咗就改唔到、封存唔到、亦都刪唔到。要解鎖，請截圖，用 WhatsApp 搵 Jason。'
+  }
+  if (facts.created_by !== userId) {
+    return '呢一單唔係你開嘅，你只可以改同刪自己開嗰啲單。要處理呢一單，請截圖，用 WhatsApp 搵 Jason。'
+  }
+  return '伺服器唔俾改呢一單，但部機睇落你就係開單嗰個、亦都冇鎖定 —— 即係權限設定嗰邊有嘢唔對，⛔ 唔係你做錯嘢。請截圖，用 WhatsApp 搵 Jason。'
+}
+
+/**
+ * 行一個寫入，如果伺服器回「0 行」就換上一句**講得出原因**嘅話。
+ *
+ * ⛔ 其他錯（冇網、填漏欄、permission denied）原封不動掟返上去 ——
+ *    ⚠️ 嗰啲已經有自己嘅中文訊息，蓋咗佢就變返「可能 A 或者 B」。
+ */
+export async function withRefusalReason<T>(
+  work: Promise<T>,
+  explain: () => string,
+): Promise<T> {
+  try {
+    return await work
+  } catch (caught) {
+    if (caught instanceof NoRowError) throw new Error(explain())
+    throw caught
+  }
+}
 
 /**
  * DB 嘅英文 error 阿耀、聰、Isaac 睇唔明，所以譯返人話中文。
@@ -280,7 +352,15 @@ export function createRecordsApi(client: SupabaseClient, userId: string): Record
   ): Promise<QuoteRecord> {
     const { data, error } = await promise
     if (error) throw reportError(error.message)
-    if (!data) throw new Error(NO_ROW_MESSAGE)
+    if (!data) {
+      // ⛔⛔ 呢條路本來**一隻字都唔留**（2026-09-14 查 Testing01 嗰單嘢揾到）。
+      //    ⚠️ RLS 拒絕 ＝ 冇 error、只有 0 行 ⇒ 上面條 `reportError` 唔會行到，
+      //    於是「伺服器拒絕咗一次寫入」呢件事**事後喺任何地方都查唔返**。
+      //    ⭐ CLAUDE.md §2.7 要求英文原文入 console；呢度冇 DB 原文，
+      //       所以自己寫一句英文，講明係邊張表、邊一行。
+      console.error('[quote-app] write affected 0 rows (RLS refused): quote_records')
+      throw new NoRowError()
+    }
     return data as QuoteRecord
   }
 

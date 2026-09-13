@@ -1,6 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { Session, SupabaseClient } from '@supabase/supabase-js'
-import { createRecordsApi, type QuoteRecord, type RecordsApi } from '../lib/records'
+import {
+  createRecordsApi,
+  refusalReason,
+  withRefusalReason,
+  type QuoteRecord,
+  type RecordsApi,
+} from '../lib/records'
 import { createClientsApi, type ClientsApi } from '../lib/clients'
 import { createTreesApi, type TreesApi } from '../lib/trees'
 import { createSiteFormApi, type SiteFormApi } from '../lib/siteForm'
@@ -245,11 +251,23 @@ export function RecordsScreen({
                 (saved) => ({ name: 'record', recordId: saved.id }),
               )
             }
+            /**
+             * ⭐ 封存同刪除都經 `withRefusalReason`：伺服器回「0 行」嗰陣，
+             *    用部機本身已經有嘅 `locked` / `created_by` 講返**邊個原因**，
+             *    ⛔ 唔再推一句「可能 A，或者 B」俾現場同事自己估。
+             *
+             * ⛔⛔ 呢度**淨係解釋，⛔ 唔係判斷**：粒掣照撳得、請求照發出去。
+             *    ⚠️ admin 改得到人哋嘅單，而部機根本唔知邊個係 admin ——
+             *    部機自己攔 ⇒ 會鎖死一個本來做得到嘅動作。話事嘅永遠係 server。
+             */
             onArchiveToggle={() =>
               afterWrite(
                 () => {
                   if (!record) throw new Error('搵唔到呢一單，請返清單再試。')
-                  return api.records.setArchived(record.id, !record.archived)
+                  return withRefusalReason(
+                    api.records.setArchived(record.id, !record.archived),
+                    () => refusalReason(record, userId),
+                  )
                 },
                 () => ({ name: 'records' }),
               )
@@ -258,7 +276,10 @@ export function RecordsScreen({
               afterWrite(
                 () => {
                   if (!record) throw new Error('搵唔到呢一單，請返清單再試。')
-                  return api.records.softDelete(record.id)
+                  return withRefusalReason(
+                    api.records.softDelete(record.id),
+                    () => refusalReason(record, userId),
+                  )
                 },
                 () => ({ name: 'records' }),
               )

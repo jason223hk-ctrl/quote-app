@@ -9,6 +9,7 @@ import {
   reverseGeocode,
   type ReverseResult,
 } from '../lib/geo'
+import ErrorNotice from '../ui/ErrorNotice'
 import { BackChip, BotanicalHeader, HeaderTitle, ScrollBody } from '../ui/shell'
 import SiteFormFields from './SiteFormFields'
 import {
@@ -344,11 +345,9 @@ export default function RecordFormPage({
           />
         </label>
 
-        {error && (
-          <p className="notice notice--error" role="alert">
-            {error}
-          </p>
-        )}
+        {/* ⭐ 自己會拉入畫面。⛔ 唔係普通一行紅字 —— 見 `ErrorNotice` 頂嗰段：
+            2026-09-14 真機「撳咗冇反應」，就係因為呢行字出咗喺手指上面 2037px。 */}
+        <ErrorNotice message={error} />
 
         {/* 新增嗰陣仲未有 record id，寫唔到現場資料 —— 建立咗入返嚟就有。 */}
         {record && !siteLoading && (

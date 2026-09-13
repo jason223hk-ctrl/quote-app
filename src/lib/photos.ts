@@ -259,8 +259,22 @@ function reportError(message: string): Error {
   return new Error(translateDbError(message))
 }
 
-const NO_ROW_MESSAGE =
-  '相片記錄寫唔入資料庫。可能母單已經鎖定，或者唔係你開嘅單。相仲喺部機度，唔會冇咗。'
+/**
+ * 相片行俾 RLS 拒絕（0 行）嗰句。
+ *
+ * ⚠️ 2026-09-14 補咗最後一句。原本得「…相仲喺部機度，唔會冇咗。」——
+ *    ⛔ 冇講**下一步搵邊個、做乜**，違反 CLAUDE.md §2.7。
+ *    ⭐ 而呢句正正就係 Testing01 嗰 4 張相會出嘅句，即係最需要講清楚嗰句。
+ *
+ * ⭐⭐ 出咗做 `export`：`stuckPhotos.ts` 要認得返呢一句，
+ *    ⛔ 但**唔准喺嗰邊自己抄一段字串落去對** —— 抄咗，改文案就會靜靜咁失靈。
+ *    ⚠️ 呢度冇得用 `instanceof`：張相嘅錯誤係**存落 IndexedDB 嘅一個字串**，
+ *    過咗序列化，型別冚唪唥冇晒。所以唯一守得住嘅做法係大家用返同一個常數。
+ */
+export const PHOTO_NO_ROW_MESSAGE =
+  '相片記錄寫唔入資料庫。可能母單已經鎖定，或者唔係你開嘅單。相仲喺部機度，唔會冇咗。請截圖，用 WhatsApp 搵 Jason。'
+
+const NO_ROW_MESSAGE = PHOTO_NO_ROW_MESSAGE
 
 export function createPhotosApi(client: SupabaseClient, userId: string): PhotosApi {
   const api: PhotosApi = {
@@ -337,7 +351,12 @@ export function createPhotosApi(client: SupabaseClient, userId: string): PhotosA
         throw reportError(error.message)
       }
       // RLS 唔會 throw，佢只係令 0 行受影響。0 行一定要當被拒絕（CLAUDE.md §2.6）。
-      if (!data) throw new Error(NO_ROW_MESSAGE)
+      // ⛔ 2026-09-14 補返 console：呢條路本來一隻字都唔留，
+      //    ⚠️ 事後想查「究竟有冇試過寫」都查唔到（同 `records.ts` 同一個窿）。
+      if (!data) {
+        console.error('[quote-app] write affected 0 rows (RLS refused): quote_photos')
+        throw new Error(NO_ROW_MESSAGE)
+      }
       return data as QuotePhoto
     },
   }

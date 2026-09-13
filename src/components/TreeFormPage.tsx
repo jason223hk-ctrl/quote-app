@@ -17,6 +17,7 @@ import {
   type TreeInput,
 } from '../lib/trees'
 import OptionGroup from './OptionGroup'
+import ErrorNotice from '../ui/ErrorNotice'
 import { BackChip, BotanicalHeader, HeaderTitle, ScrollBody } from '../ui/shell'
 
 type Props = {
@@ -211,11 +212,11 @@ export default function TreeFormPage({
           />
         </label>
 
-        {error && (
-          <p className="notice notice--error" role="alert">
-            {error}
-          </p>
-        )}
+        {/* ⭐ 同「工程資料」嗰版**一模一樣嘅結構問題**：呢行紅字喺 `</form>` 上面，
+            而「刪除呢棵樹」粒掣喺下面嗰張 `.card danger-zone`。
+            ⛔ 所以呢度都要用會自己拉入畫面嗰個 —— 唔係嘅話「刪一棵樹撳咗冇反應」
+            會照樣存在，⚠️ 而且係同一日、同一個原因。 */}
+        <ErrorNotice message={error} />
 
         <button className="button" type="submit" disabled={busy !== null}>
           {busy === 'save' ? '儲存中…' : '儲存'}

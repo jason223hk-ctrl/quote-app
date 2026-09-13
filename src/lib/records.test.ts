@@ -1,10 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import {
   EMPTY_INPUT,
+  NO_ROW_MESSAGE,
+  NoRowError,
   inputToRow,
+  refusalReason,
   rowToInput,
   translateDbError,
   validateInput,
+  withRefusalReason,
   type QuoteRecord,
   type RecordInput,
 } from './records'
@@ -255,5 +259,98 @@ describe('todayIso', () => {
 
   it('月同日補零', () => {
     expect(todayIso(new Date(2026, 0, 5))).toBe('2026-01-05')
+  })
+})
+
+/* ══════════════════════════════════════════════════════════════════
+   2026-09-14「Testing01 刪唔到、撳咗冇反應」帶出嚟嗰組。
+   ══════════════════════════════════════════════════════════════════ */
+
+describe('refusalReason —— 伺服器唔俾改，⭐ 講得出邊個原因', () => {
+  const ME = 'me-uuid'
+
+  it('鎖定咗 ⇒ 講鎖定，⛔ 唔提「唔係你開嘅」', () => {
+    const text = refusalReason({ locked: true, created_by: ME }, ME)
+    expect(text).toContain('鎖定')
+    expect(text).not.toContain('唔係你開嘅')
+  })
+
+  it('⭐ 鎖定行先 —— 兩樣都中嗰陣淨係講鎖定（解鎖先係下一步）', () => {
+    const text = refusalReason({ locked: true, created_by: '第二個人' }, ME)
+    expect(text).toContain('鎖定')
+    expect(text).not.toContain('唔係你開嘅')
+  })
+
+  it('唔係你開嘅 ⇒ 講清楚，⛔ 唔提鎖定', () => {
+    const text = refusalReason({ locked: false, created_by: '第二個人' }, ME)
+    expect(text).toContain('唔係你開嘅')
+    expect(text).not.toContain('鎖定')
+  })
+
+  it('⭐⭐ 兩樣都正常但照樣俾人拒 ⇒ 要講明係設定問題，⛔ 唔准話人做錯嘢', () => {
+    const text = refusalReason({ locked: false, created_by: ME }, ME)
+    expect(text).toContain('權限設定')
+    expect(text).toContain('唔係你做錯嘢')
+  })
+
+  it('created_by 係 null（舊資料）⇒ 當唔係你開嘅，⛔ 唔准當佢正常', () => {
+    expect(refusalReason({ locked: false, created_by: null }, ME)).toContain('唔係你開嘅')
+  })
+
+  it('⛔ 三句都要講得出搵邊個、做乜（CLAUDE.md §2.7）', () => {
+    const all = [
+      refusalReason({ locked: true, created_by: ME }, ME),
+      refusalReason({ locked: false, created_by: 'x' }, ME),
+      refusalReason({ locked: false, created_by: ME }, ME),
+    ]
+    for (const text of all) {
+      expect(text).toContain('截圖')
+      expect(text).toContain('WhatsApp 搵 Jason')
+    }
+  })
+
+  it('⛔ 三句都唔准再出「可能 A，或者 B」', () => {
+    const all = [
+      refusalReason({ locked: true, created_by: ME }, ME),
+      refusalReason({ locked: false, created_by: 'x' }, ME),
+      refusalReason({ locked: false, created_by: ME }, ME),
+    ]
+    for (const text of all) expect(text).not.toContain('可能')
+    // 兜底嗰句先至有兩個「可能」—— ⭐ 佢仲喺度，淨係唔應該再出到畫面。
+    expect(NO_ROW_MESSAGE).toContain('可能')
+  })
+})
+
+describe('withRefusalReason —— 淨係換走「0 行」嗰句', () => {
+  const explain = () => '講得出原因嗰句'
+
+  it('成功就原封不動', async () => {
+    await expect(withRefusalReason(Promise.resolve('ok'), explain)).resolves.toBe('ok')
+  })
+
+  it('0 行 ⇒ 換上講得出原因嗰句', async () => {
+    await expect(
+      withRefusalReason(Promise.reject(new NoRowError()), explain),
+    ).rejects.toThrow('講得出原因嗰句')
+  })
+
+  it('⛔ 其他錯原封不動掟返上去 —— 蓋咗就變返「可能 A 或者 B」', async () => {
+    await expect(
+      withRefusalReason(Promise.reject(new Error('連唔到伺服器，請check返個網絡再試。')), explain),
+    ).rejects.toThrow('連唔到伺服器')
+  })
+
+  it('⛔⛔ 唔准靠訊息字串認 0 行 —— 一個一模一樣訊息嘅普通 Error 唔會俾人換走', async () => {
+    // ⚠️ 呢條係守住「⛔ 唔准 message.includes(...)」：文案一改就會靜靜咁失靈。
+    await expect(
+      withRefusalReason(Promise.reject(new Error(NO_ROW_MESSAGE)), explain),
+    ).rejects.toThrow(NO_ROW_MESSAGE)
+  })
+
+  it('NoRowError 認得出係 Error，亦認得出係自己', () => {
+    const caught = new NoRowError()
+    expect(caught).toBeInstanceOf(Error)
+    expect(caught).toBeInstanceOf(NoRowError)
+    expect(caught.name).toBe('NoRowError')
   })
 })
