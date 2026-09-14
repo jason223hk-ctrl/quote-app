@@ -66,21 +66,47 @@ body{display:flex;flex-direction:column;overflow:hidden}
   border-radius:999px;padding:3px 9px}
 .flag{font-size:12px;font-weight:700;color:var(--warn)}
 
-/* ── 第二段：確認（⛔ 唔係彈窗，就喺張卡度）──────────── */
-.confirm{border:1px solid var(--danger);border-radius:var(--r-md);background:var(--danger-bg);
-  padding:14px 16px;display:flex;flex-direction:column;gap:10px;flex:none}
-.confirm .q{font:700 16px/1.35 var(--serif)}
-.confirm .who{font-size:13px;color:var(--text2)}
-.confirm .warn{font-size:13px;line-height:1.5;color:var(--warn);font-weight:600}
-.confirm .truth{font-size:13px;line-height:1.5;color:var(--text2)}
-.acts{display:flex;gap:8px}
-.acts button{flex:1;appearance:none;border-radius:var(--r-sm);padding:13px 10px;
-  font:700 15px/1 inherit;cursor:pointer;border:1px solid var(--border);
-  background:transparent;color:var(--text)}
-.acts .go{background:var(--danger);border-color:var(--danger);color:#fff}
+/* ── 第二段：確認彈窗 —— ⭐ 照 Jason 2026-09-14 交嗰張 tree app 截圖 ──
+   由上而下：垃圾桶 ＋ 標題／工程名／日期／id／連帶消失 N 張相／說明／兩粒掣。
+   兩粒掣：左邊紅底實心「刪除」、右邊描邊「取消」，⭐ 一樣闊。
+   ⛔ 左右位置照 tree app —— Jason 揀咗（⚠️ 即係「取消放近手指」嗰條作廢）。 */
+.scrim{position:fixed;inset:0;z-index:50;background:rgba(0,0,0,.62);
+  display:flex;align-items:center;justify-content:center;padding:20px}
+.dlg{width:100%;max-width:340px;border-radius:18px;display:flex;flex-direction:column;
+  padding:20px 18px;gap:14px;text-align:left}
+/* 白底（跟 tree app 截圖） */
+.dlg.light{background:#fbf8f1;color:#1b2018;border:1px solid rgba(0,0,0,.12)}
+.dlg.light .sub{color:#5f665a}
+.dlg.light .idline{color:#8d948a}
+.dlg.light .keep{background:#fff;border-color:rgba(0,0,0,.28);color:#1b2018}
+/* 深色（跟 quote app 其餘所有畫面） */
+.dlg.dark{background:var(--card-alt);color:var(--text);border:1px solid var(--border)}
+.dlg.dark .sub{color:var(--text2)}
+.dlg.dark .idline{color:var(--text3)}
+.dlg.dark .keep{background:transparent;border-color:var(--border);color:var(--text)}
+
+.dlg .head{display:flex;align-items:center;gap:9px;font:700 18px/1.3 var(--serif)}
+.dlg .head span{font-size:22px}
+/* ⛔⛔ 呢個高度係固定嘅，⛔ 唔准改成 auto —— 見下面 HTML 嗰段註解。 */
+.dlg .body{height:168px;overflow-y:auto;overscroll-behavior:contain;
+  display:flex;flex-direction:column;gap:5px}
+.dlg .nm2{font:700 16px/1.35 inherit}
+.dlg .dt{font:700 15px/1.35 inherit}
+.dlg .idline{font:400 11.5px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;word-break:break-all;margin-top:2px}
+.dlg .loss{font-size:14px;font-weight:600;margin-top:8px}
+.dlg .loss b{color:#c0392b;font-weight:800}
+.dlg.dark .loss b{color:#e07a63}
+.dlg .truth{font-size:13px;line-height:1.55;margin-top:8px}
+.dlg .warn2{font-size:13px;line-height:1.5;font-weight:700;color:#9a6b16;margin-top:8px}
+.dlg.dark .warn2{color:var(--warn)}
+/* ⛔ `flex:none` ＝ 兩粒掣永遠喺同一個位。 */
+.acts{display:flex;gap:10px;flex:none}
+.acts button{flex:1 1 0;appearance:none;border-radius:12px;padding:13px 10px;
+  font:700 15px/1 inherit;cursor:pointer;border:1px solid transparent}
+.acts .go{background:#c0392b;border-color:#c0392b;color:#fff}
 .acts button[disabled]{opacity:.55;cursor:default}
-.err{font-size:13px;line-height:1.55;color:#fff;background:var(--danger);
-  border-radius:12px;padding:10px 12px;font-weight:600}
+.err{font-size:13px;line-height:1.55;color:#fff;background:#c0392b;
+  border-radius:12px;padding:10px 12px;font-weight:600;margin-top:8px}
 .gone{border:1px dashed var(--border);border-radius:var(--r-md);padding:16px 18px;
   color:var(--text3);font-size:13px;flex:none}
 .note{font-size:12px;line-height:1.55;color:var(--text3);margin:4px 2px 0}
@@ -117,12 +143,17 @@ body{display:flex;flex-direction:column;overflow:hidden}
   </p>
 
   <div class="row">
-    <b>② 確認排法</b>
-    <div class="seg" id="styleSeg">
-      <button data-v="stack" aria-pressed="true">甲・上下排</button>
-      <button data-v="inline">乙・一行兩粒</button>
+    <b>② 彈窗底色</b>
+    <div class="seg" id="skinSeg">
+      <button data-v="light" aria-pressed="true">白底（跟 tree app 截圖）</button>
+      <button data-v="dark">深色（跟 quote app 其餘畫面）</button>
     </div>
   </div>
+  <p style="margin:-4px 0 8px">
+    ⚠️ 你張截圖係<b>白底</b>，但 quote app 其餘每一版都係深色 ——
+    白底會係全 app 唯一一塊白。⛔ 呢個我唔自己揀，你用眼睇邊個順。
+    <b>排列同兩粒掣嘅左右位置兩邊都一模一樣</b>，淨係底色唔同。
+  </p>
 
   <div class="live" id="live">未推過。喺下面清單度推吓。</div>
   <div class="diag" id="diag">⚠️ 儀器：等緊你推第一下。</div>
@@ -148,18 +179,24 @@ var ACTION_W = 76;          // 露出幾闊（tree app 實測）
 var OPEN_AT  = ACTION_W/2;  // 推過幾多先停住（tree app 實測 38px）
 var PULL_MAX = 120, PULL_THRESHOLD = 72;   // 下拉刷新：quote app 現行數字
 
-var style  = 'stack';       // 確認排法
+var skin = 'light';   // 彈窗底色：light（跟 tree app 截圖）／dark（跟 quote app）
 
 /** 真工程名 —— 由 quote app 對數用嗰批樣本抄過嚟，⛔ 唔用假名。 */
 var SEED = [
-  { id:'1', nm:'彩霞邨 彩月樓', meta:'2026-08-22・九龍・日更', st:'待報價', mine:true,  unsent:0, fail:null },
-  { id:'2', nm:'天水圍天恆邨 恆貴樓', meta:'2026-08-28・新界・夜更', st:'待報價', mine:true, unsent:3, fail:null },
-  { id:'3', nm:'觀塘順利邨 利安樓', meta:'2026-08-27・九龍・日更', st:'待報價', mine:true, unsent:0, fail:null },
-  { id:'4', nm:'Testing01', meta:'2026-08-14・九龍・日更・Isaac 開', st:'現場中', mine:false, unsent:4,
+  { id:'1', uuid:'95852001-1832-4c7a-9f3d-2b6e41a70c18', nm:'彩霞邨 彩月樓', dt:'2026-08-22',
+    cust:'房屋署（彩霞邨管理處）', meta:'2026-08-22・九龍・日更', st:'待報價', photos:12, unsent:0, fail:null },
+  { id:'2', uuid:'0c4f1de6-77b2-4a91-8e05-1d3ab9c6f240', nm:'天水圍天恆邨 恆貴樓', dt:'2026-08-28',
+    cust:'碧瑤（陳生）', meta:'2026-08-28・新界・夜更', st:'待報價', photos:31, unsent:3, fail:null },
+  { id:'3', uuid:'7a1b90cd-5e42-4f18-b6a7-c02d8e5417f9', nm:'觀塘順利邨 利安樓', dt:'2026-08-27',
+    cust:'房屋署（順利邨管理處）', meta:'2026-08-27・九龍・日更', st:'待報價', photos:0, unsent:0, fail:null },
+  { id:'4', uuid:'3f6e2a84-91c0-42db-8a15-6b7d0e93cf51', nm:'Testing01', dt:'2026-08-14',
+    cust:'Isaac，KLB', meta:'2026-08-14・九龍・日更・Isaac 開', st:'現場中', photos:4, unsent:4,
     fail:'呢一單唔係你開嘅，你只可以改同刪自己開嗰啲單。要處理呢一單，請截圖，用 WhatsApp 搵 Jason。' },
-  { id:'5', nm:'麗宮 A 座', meta:'2026-08-20・香港／大嶼山・日更', st:'已報價', mine:true, unsent:0,
+  { id:'5', uuid:'d820b47f-6c39-4ea5-9b71-58c1f2a06d3e', nm:'麗宮 A 座', dt:'2026-08-20',
+    cust:'麗宮業主立案法團', meta:'2026-08-20・香港／大嶼山・日更', st:'已報價', photos:8, unsent:0,
     fail:'呢一單已經鎖定咗。鎖定咗就改唔到、封存唔到、亦都刪唔到。要解鎖，請截圖，用 WhatsApp 搵 Jason。' },
-  { id:'6', nm:'石籬邨', meta:'2026-08-11・新界・日更', st:'中標', mine:true, unsent:0, fail:null }
+  { id:'6', uuid:'b5719ca3-0d68-4b27-a34e-9f01e7d2586b', nm:'石籬邨', dt:'2026-08-11',
+    cust:'房屋署（石籬邨管理處）', meta:'2026-08-11・新界・日更', st:'中標', photos:0, unsent:0, fail:null }
 ];
 var rows = JSON.parse(JSON.stringify(SEED));
 
@@ -180,47 +217,80 @@ function render(){
       g.textContent = '「' + r.nm + '」已經收埋咗。喺後台（工程清單嘅「封存／已刪」篩選）搵得返。';
       listEl.appendChild(g); return;
     }
-    if (r.confirming){ listEl.appendChild(confirmCard(r)); return; }
+    // ⭐ 張卡照出，彈窗疊喺上面 —— 截圖係「背後畫面變暗」，⛔ 唔係換走張卡。
     listEl.appendChild(swipeCard(r));
+    if (r.confirming) listEl.appendChild(confirmCard(r));
   });
 }
 
+/**
+ * 確認彈窗 —— ⭐ 照 Jason 2026-09-14 交嗰張 tree app 截圖排。
+ *
+ * ⛔⛔ 三句字**特登同 tree app 唔同**，因為照抄就會係假嘅
+ *    （佢嗰條路真係永久刪，我哋只寫 `deleted_at`）：
+ *      · 標題「永久刪除？」→ **「刪除工程？」**
+ *      · 「此操作無法還原。」→ **「刪除係收埋，⛔ 唔係真刪 —— 後台仲攞得返。」**
+ *      · 左邊粒掣「永久刪除」→ **「刪除」**
+ *
+ * ⛔⛔ **中間 `.body` 個高度係寫死嘅（168px），⛔ 唔准改成 auto。**
+ *    ⚠️ 呢個就係 2026-08-11 tree app 真實誤刪嘅解藥：內容多定少，
+ *    卡都係同一個高度 ⇒ **兩粒掣永遠喺同一個位**。
+ *    ⭐ 內容長過個框就中間嗰段自己捲，⛔ 唔准推動粒掣。
+ *    ⚠️ 代價：內容短嗰陣個框會有啲空 —— 呢個係特登嘅，⛔ 唔係執漏。
+ */
 function confirmCard(r){
-  var box = document.createElement('div');
-  box.className = 'confirm';
+  var scrim = document.createElement('div');
+  scrim.className = 'scrim';
 
-  var q = document.createElement('div'); q.className='q'; q.textContent='刪咗「' + r.nm + '」？';
-  box.appendChild(q);
+  var d = document.createElement('div');
+  d.className = 'dlg ' + skin;
 
-  // ⭐ 未傳相警告 —— 換咗個入口都⛔ 唔准少咗呢句。
+  var head = document.createElement('div');
+  head.className = 'head';
+  head.innerHTML = '<span>🗑</span>刪除工程？';   // ⛔ 唔係「永久刪除？」
+  d.appendChild(head);
+
+  var body = document.createElement('div');
+  body.className = 'body';
+
+  var nm = document.createElement('div'); nm.className='nm2'; nm.textContent = r.nm; body.appendChild(nm);
+  var dt = document.createElement('div'); dt.className='dt'; dt.textContent = r.dt; body.appendChild(dt);
+  var cu = document.createElement('div'); cu.className='sub'; cu.style.fontSize='13px'; cu.textContent = r.cust; body.appendChild(cu);
+  var idl = document.createElement('div'); idl.className='idline'; idl.textContent = r.uuid; body.appendChild(idl);
+
+  var loss = document.createElement('div'); loss.className='loss';
+  loss.innerHTML = '連帶消失：<b>' + r.photos + '</b> 張相';
+  body.appendChild(loss);
+
+  // ⭐ 未傳上雲端嗰句照出，⛔ 換咗個樣都唔准少（PR #19 定落嘅）。
   if (r.unsent > 0){
-    var w = document.createElement('div'); w.className='warn';
+    var w = document.createElement('div'); w.className='warn2';
     w.textContent = '⚠️ 呢單仲有 ' + r.unsent + ' 張相未傳上雲端，刪咗佢哋就冇出路。';
-    box.appendChild(w);
+    body.appendChild(w);
   }
 
-  // ⛔⛔ ⛔ 唔准寫「無法還原」—— 喺我哋呢邊嗰句係假嘅。零真刪，只寫 deleted_at。
+  // ⛔⛔ 唔准寫「此操作無法還原」—— 喺我哋呢邊嗰句係假嘅。
   var t = document.createElement('div'); t.className='truth';
   t.textContent = '刪除係收埋，⛔ 唔係真刪 —— 後台仲攞得返。';
-  box.appendChild(t);
+  body.appendChild(t);
 
-  if (r.err){ var e=document.createElement('div'); e.className='err'; e.textContent=r.err; box.appendChild(e); }
+  if (r.err){ var e=document.createElement('div'); e.className='err'; e.textContent=r.err; body.appendChild(e); }
+  d.appendChild(body);
 
   var acts = document.createElement('div'); acts.className='acts';
-  if (style === 'stack') acts.style.flexDirection = 'column';
-
+  // ⛔ 左邊紅底實心＝刪除，右邊描邊＝取消。⭐ 照 tree app 嘅左右位置。
   var go = document.createElement('button'); go.className='go';
-  go.textContent = r.busy ? '處理中⋯' : '再撳一次確認刪除';
+  go.textContent = r.busy ? '處理中⋯' : '刪除';      // ⛔ 唔係「永久刪除」
   go.disabled = !!r.busy;
   go.onclick = function(){ doDelete(r); };
-
-  var no = document.createElement('button');
+  var no = document.createElement('button'); no.className='keep';
   no.textContent = '取消'; no.disabled = !!r.busy;
   no.onclick = function(){ r.confirming=false; r.err=null; render(); say('取消咗。⭐ 張卡返返原狀，⛔ 乜都冇改。'); };
-
   acts.appendChild(go); acts.appendChild(no);
-  box.appendChild(acts);
-  return box;
+  d.appendChild(acts);
+
+  scrim.appendChild(d);
+  return scrim;
 }
 
 function doDelete(r){
@@ -407,8 +477,8 @@ function seg(id, set){
     set(b.dataset.v);
   });
 }
-seg('styleSeg', function(v){ style = v; render();
-  say('確認排法轉咗做 <em>' + (v==='stack'?'甲・上下排':'乙・一行兩粒') + '</em>。推開一張卡撳 🗑 睇下夠唔夠位。'); });
+seg('skinSeg', function(v){ skin = v; render();
+  say('彈窗底色轉咗做 <em>' + (v==='light'?'白底（跟 tree app）':'深色（跟 quote app）') + '</em>。推開一張卡撳 🗑 睇下邊個順。'); });
 
 document.getElementById('reset').onclick = function(){
   rows = JSON.parse(JSON.stringify(SEED)); render();
