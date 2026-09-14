@@ -253,6 +253,25 @@ const SCREENS = {
   /* ⭐⭐ 刪工程確認彈窗 —— **兩個極端**。⛔ 原型入面冇呢件嘢，所以冇 `pairs`：
      ⚠️ 唔係跳過咗，係根本冇尺可以對（stage57 早過呢個決定）。
      呢兩個畫面量嘅係**絕對要求**：兩粒掣撳唔撳得到、兩邊座標一唔一樣。 */
+  /* ⭐⭐ 工程卡向左推 —— **用真滑鼠拖真嗰張 `RecordCard`（一個 `<button>`）**。
+     ⛔ 原型 stage57 冇呢件嘢，所以冇 `pairs`：量嘅係**絕對要求**，⛔ 唔係對數。
+
+     ⛔⛔ **點解一定要係真滑鼠 —— ⛔ 唔准淨係記住結論**
+     2026-09-14 上一版嘅驗證係自己 `dispatchEvent` 整個 `TouchEvent` 出嚟，
+     **綠燈**；Jason 真機推，**張卡一 px 都唔郁**。⚠️ 自己發嘅事件繞過晒瀏覽器
+     嘅手勢仲裁，所以壞咗嘅 code 一樣過。⭐ Playwright 個 `page.mouse` 係經 CDP
+     打真嘅輸入 —— **佢當日就係量到 `0px`**（實測，commit `3738140`）。
+
+     ⭐ 呢一下拖同時量緊兩樣嘢：
+       ① Pointer Events ＋ `touch-action` 有冇接返到（唔係就停喺 0px）
+       ② 放手之後**尾隨嗰下 click 有冇順手收返張卡**（係就彈返 0px）
+     ⚠️ 而且**特登喺 `hits` 之前拖** —— 推開咗之後個垃圾桶掣先至露出嚟，
+        跟住個「撳得到」掃描就會順手驗埋「露咗出嚟真係撳得到」。 */
+  swipe: {
+    query: '',
+    drag: { testid: 'record-row', by: -90, expect: -76 },
+  },
+
   dialog: {
     query: '',
     remember: ['delete-cancel', 'delete-confirm'],
@@ -265,6 +284,12 @@ const SCREENS = {
     // 撳一下「刪除」令佢出埋錯誤 —— ⭐ 咁先係真正嘅「內容最長」。
     before: async (page) => { await page.click('[data-testid="delete-confirm"]') },
     remember: ['delete-cancel', 'delete-confirm'],
+    /* ⭐⭐ **錯誤訊息一定要真係睇得到，⛔ 唔係「有出喺 DOM」。**
+       ⚠️ 2026-09-14 影相驗返先發現：彈窗中間嗰段係一個**寫死高度嘅捲動框**
+       （186px，為咗釘死兩粒掣嘅位）。工程名一長，錯誤訊息就出咗喺**框底之外**——
+       ⭐ 同「錯誤訊息渲染喺手指上面 2037px」係**同一個病**，淨係細部咗個框咁解。
+       ⇒ 呢度量返佢喺唔喺框入面。醫法係 `ErrorNotice` 自己捲返入嚟。 */
+    inView: [{ what: 'delete-error', inside: 'delete-dialog-body' }],
   },
 }
 
@@ -501,6 +526,33 @@ function localChromiums() {
  *    結果 `npm run ui:check` 要人手加 `CHROMIUM_PATH` 先行到 ——
  *    ⚠️ 一個要靠人記得嘅步驟，遲早會漏，而漏咗就等於「對數」嗰關靜靜跳咗。
  */
+/**
+ * **用真滑鼠拖一嘢**，然後讀返張卡最尾停咗喺邊。
+ *
+ * ⛔⛔ 呢度⛔ 唔准改成自己 `dispatchEvent` —— 見上面 `swipe` 個註解。
+ * ⭐ 讀嘅係 `getComputedStyle().transform` 個 `m41`（＝ translateX），
+ *    ⚠️ ⛔ 唔係讀 React state：state 啱而畫面唔郁，正正就係要捉嗰種病。
+ * ⭐ 拖完等 400ms 先量：⛔ 要等埋 `.2s` 嗰個 transition，
+ *    **亦都要等埋放手之後瀏覽器補嗰一下 `click`** —— 嗰下就係會令佢彈返 0 嗰個。
+ */
+async function realMouseDrag(page, { testid, by, steps = 12 }) {
+  const box = await page.locator(`[data-testid="${testid}"]`).first().boundingBox()
+  if (!box) return null
+  const y = box.y + box.height / 2
+  const x = box.x + box.width * 0.7
+  await page.mouse.move(x, y)
+  await page.mouse.down()
+  for (let i = 1; i <= steps; i += 1) await page.mouse.move(x + (by * i) / steps, y)
+  await page.mouse.up()
+  await page.waitForTimeout(400)
+  return await page.evaluate((id) => {
+    const el = document.querySelector(`[data-testid="${id}"]`)
+    if (!el) return null
+    const m = new DOMMatrixReadOnly(getComputedStyle(el).transform)
+    return Math.round(m.m41 * 10) / 10
+  }, testid)
+}
+
 async function openBrowser() {
   const tries = [
     process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : null,
@@ -532,6 +584,12 @@ let checked = 0
 /** 「撳得到」嗰組：⛔ 同上面 90 項分開數，唔想令一個熟悉嘅數字突然變樣。 */
 let hitChecked = 0
 let hitBad = 0
+/** 「真滑鼠拖得郁」嗰組：⛔ 一樣分開數。 */
+let dragChecked = 0
+let dragBad = 0
+/** 「訊息睇得到」嗰組（⛔ 唔係「有冇喺 DOM」）。 */
+let seenChecked = 0
+let seenBad = 0
 
 for (const [name, spec] of Object.entries(SCREENS)) {
   if (ONLY && ONLY !== name) continue
@@ -549,6 +607,25 @@ for (const [name, spec] of Object.entries(SCREENS)) {
   if (spec.before) { await spec.before(real); await real.waitForTimeout(500) }
 
   console.log(`\n══ ${name} ══`)
+
+  // ── 真滑鼠拖（⛔ 一定要喺「撳得到」掃描之前 —— 推開咗個垃圾桶掣先露出嚟）──
+  if (spec.drag) {
+    const got = await realMouseDrag(real, spec.drag)
+    dragChecked += 1
+    if (got === null || Math.abs(got - spec.drag.expect) > TOL) {
+      dragBad += 1
+      console.log(
+        `  ✗ 真滑鼠向左拖 ${-spec.drag.by}px —— 張卡停咗喺 ${got}px，應該係 ${spec.drag.expect}px`,
+      )
+      console.log(
+        got === 0
+          ? '      ⛔ 0px ＝ 完全冇郁過。Pointer Events 甩咗，或者尾隨嗰下 click 收返咗佢。'
+          : '      ⛔ 見 src/lib/swipeDelete.ts 檔頭。',
+      )
+    } else {
+      console.log(`  ✓ 真滑鼠向左拖 ${-spec.drag.by}px ⇒ 停喺 ${got}px（露出個刪除掣）`)
+    }
+  }
 
   // ── 有啲畫面要記低粒掣喺邊，事後對（⛔ 唔同原型比，係兩個畫面互相比）──
   //    ⚠️ 一定要喺任何捲動之前攞 —— 下面個 hit 掃描會逐粒掣 scrollIntoView。
@@ -620,6 +697,29 @@ for (const [name, spec] of Object.entries(SCREENS)) {
     await proto.close()
   }
 
+  // ── 睇得到？（⛔ 一定要行喺 hit 掃描之前 —— 嗰個會逐粒掣 scrollIntoView）──
+  for (const one of spec.inView ?? []) {
+    seenChecked += 1
+    const r = await real.evaluate(([a, b]) => {
+      const el = document.querySelector(`[data-testid="${a}"]`)
+      const box = document.querySelector(`[data-testid="${b}"]`)
+      if (!el || !box) return null
+      const e = el.getBoundingClientRect()
+      const g = box.getBoundingClientRect()
+      return { top: Math.round(e.top), bottom: Math.round(e.bottom), gTop: Math.round(g.top), gBottom: Math.round(g.bottom) }
+    }, [one.what, one.inside])
+    if (r === null) {
+      seenBad += 1
+      console.log(`  ✗ [${one.what}] 根本冇出（或者 [${one.inside}] 揾唔到）`)
+    } else if (r.top >= r.gTop - 1 && r.bottom <= r.gBottom + 1) {
+      console.log(`  ✓ [${one.what}] 喺 [${one.inside}] 睇得到（${r.top}–${r.bottom} 喺 ${r.gTop}–${r.gBottom} 入面）`)
+    } else {
+      seenBad += 1
+      console.log(`  ✗ [${one.what}] 出咗喺 [${one.inside}] 睇得到嘅範圍以外`)
+      console.log(`      訊息 ${r.top}–${r.bottom}，個框 ${r.gTop}–${r.gBottom} ⇒ ⛔ 撳完睇唔到，即係「撳咗冇反應」。`)
+    }
+  }
+
   // ── 撳得到？（⛔ 唔關原型事，係一個絕對要求。⛔ 一定要行喺對數之後）──
   const hits = await real.evaluate(HIT_SCAN, [HIT_SELECTOR, HIT_GRID, HIT_INSET])
   for (const one of hits) {
@@ -669,6 +769,8 @@ if (!ONLY || ONLY === 'dialog' || ONLY === 'dialoglong') {
 console.log(`\n量咗 ${checked} 項，對唔上 ${bad} 項。`)
 console.log(`撳得到嘅檢查：量咗 ${hitChecked} 粒掣，撳唔到 ${hitBad} 粒。`)
 console.log(`彈窗掣位：對咗 ${sameSpot} 粒，郁咗 ${sameSpotBad} 粒。`)
+console.log(`真滑鼠拖：試咗 ${dragChecked} 下，推唔郁 ${dragBad} 下。`)
+console.log(`訊息睇得到：量咗 ${seenChecked} 句，睇唔到 ${seenBad} 句。`)
 
 if (SELF_TEST) {
   console.log('\n──── 自我測試 ────')
@@ -681,4 +783,6 @@ if (SELF_TEST) {
   process.exit(3)
 }
 
-process.exit(bad === 0 && hitBad === 0 && sameSpotBad === 0 ? 0 : 1)
+process.exit(
+  bad === 0 && hitBad === 0 && sameSpotBad === 0 && dragBad === 0 && seenBad === 0 ? 0 : 1,
+)

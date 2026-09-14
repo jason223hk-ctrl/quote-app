@@ -4,6 +4,7 @@ import {
   MOVED_AT,
   OPEN_AT,
   SWIPE_CLOSED,
+  swipeClickAction,
   swipeReducer,
   swipeSuppressesClick,
   type SwipeState,
@@ -12,6 +13,7 @@ import {
   CANCEL_ON_RIGHT,
   DELETE_DIALOG_CANCEL,
   DELETE_DIALOG_CONFIRM,
+  PHOTOS_REALLY_PURGED,
   deleteDialogTitle,
   deleteDialogTruth,
 } from './deleteDialog'
@@ -78,24 +80,40 @@ describe('推同放手', () => {
   })
 })
 
-describe('⛔ 尾隨嗰下 click 要壓住', () => {
-  it('推過（超過 8px）⇒ 壓住 —— ⛔ 唔會跳咗入工程詳情', () => {
+describe('⛔ 尾隨嗰下 click：三種，⛔ 唔可以撈埋做兩種', () => {
+  it('推過（超過 8px）⇒ 食咗佢 —— ⛔ 唔會跳咗入工程詳情', () => {
     expect(push(-MOVED_AT - 1).ended.moved).toBe(true)
+    expect(swipeClickAction(push(-MOVED_AT - 1).ended)).toBe('eat')
     expect(swipeSuppressesClick(push(-MOVED_AT - 1).ended)).toBe(true)
+  })
+
+  it('⭐⭐ 食咗嗰下之後，張卡⛔ 唔准彈返 0 —— 開住就要繼續開住', () => {
+    // ⚠️ 2026-09-14 實測中過嘅壞法：真滑鼠拖到 -76px，一放手就彈返 0，
+    //    因為舊版見到 `moved || open` 就一律去 `close`。個刪除掣望都望唔到。
+    const opened = push(-60).ended
+    expect(opened.dx).toBe(-ACTION_W)
+    const after = swipeReducer(opened, { type: 'clickEaten' })
+    expect(after.dx).toBe(-ACTION_W)
+    expect(after.open).toBe(true)
+    expect(after.moved).toBe(false)
+  })
+
+  it('⭐ 開住、而家先至撳落去 ⇒ 收返（⛔ 唔係開工程）', () => {
+    const settled = swipeReducer(push(-60).ended, { type: 'clickEaten' })
+    expect(swipeClickAction(settled)).toBe('close')
+    expect(swipeReducer(settled, { type: 'close' })).toEqual(SWIPE_CLOSED)
   })
 
   it('⭐ 手震幾 px（未夠 8）⇒ ⛔ 唔壓 —— 撳一下照樣開得到工程', () => {
     const tiny = push(-3).ended
     expect(tiny.moved).toBe(false)
     expect(tiny.open).toBe(false)
+    expect(swipeClickAction(tiny)).toBe('open')
     expect(swipeSuppressesClick(tiny)).toBe(false)
   })
 
-  it('開住嗰陣撳張卡 ⇒ 壓住（＝收返，⛔ 唔係開工程）', () => {
-    expect(swipeSuppressesClick(push(-60).ended)).toBe(true)
-  })
-
   it('乜都冇做 ⇒ ⛔ 唔壓', () => {
+    expect(swipeClickAction(SWIPE_CLOSED)).toBe('open')
     expect(swipeSuppressesClick(SWIPE_CLOSED)).toBe(false)
   })
 })
@@ -111,24 +129,40 @@ describe('⛔⛔ 冇軸鎖係故意嘅（Jason 2026-09-14 拍板）', () => {
 })
 
 describe('確認彈窗嘅文字', () => {
-  it('標題一定要寫出邊一單', () => {
-    expect(deleteDialogTitle('彩霞邨 彩月樓')).toBe('刪咗「彩霞邨 彩月樓」？')
+  it('⭐ 標題唔帶工程名 —— 工程名喺下面另一行（大、粗），照 Jason 張截圖', () => {
+    expect(deleteDialogTitle()).not.toContain('「')
+    expect(deleteDialogTitle()).toContain('？')
   })
 
-  it('⛔⛔ 唔准寫「無法還原」—— 喺我哋呢邊嗰句係假嘅', () => {
+  /* ⭐⭐ 兩套字都要有測試 —— P8 步 3 改嗰個 boolean 嗰陣，
+     ⛔ 唔應該要順手改測試先過到。 */
+  it('⛔⛔ 今日仲未真清相 ⇒ 一定要係「攞得返」嗰套', () => {
+    // ⚠️ 呢條唔係量文案，係量「個 code 有冇講大話」。
+    //    今日 `softDelete()` 淨係寫 `deleted_at`，Worker 一行清相 code 都未有。
+    expect(PHOTOS_REALLY_PURGED).toBe(false)
     const truth = deleteDialogTruth()
-    expect(truth).not.toContain('無法還原')
-    expect(truth).toContain('唔係真刪')
-    expect(truth).toContain('攞得返')
-  })
-
-  it('⛔ 兩粒掣唔准縮成「確定／取消」', () => {
+    expect(truth.strong).toBe('仲攞得返')
+    expect(truth.before + truth.strong + truth.after).not.toContain('無法還原')
+    expect(deleteDialogTitle()).toBe('刪除工程？')
     expect(DELETE_DIALOG_CONFIRM).toBe('刪除')
-    expect(DELETE_DIALOG_CANCEL).toBe('唔刪，返去')
-    expect(DELETE_DIALOG_CANCEL).not.toBe('取消')
   })
 
-  it('⭐ 「唔刪」擺右邊（右手拇指最易到）', () => {
+  it('⭐ 兩套字都寫齊咗 —— P8 步 3 淨係改一個 boolean', () => {
+    // ⚠️ 呢條守住嘅係「⛔ 唔准到時再諗文案」。
+    //    改咗 `PHOTOS_REALLY_PURGED` 做 `true` 之後，上面嗰條會紅，
+    //    ⭐ 而嗰陣紅係啱嘅 —— 兩條一齊改，就係嗰日要做嘅嘢。
+    const src = deleteDialogTruth()
+    expect(typeof src.before).toBe('string')
+    expect(src.strong.length).toBeGreaterThan(0)
+  })
+
+  it('⛔ 危險嗰粒唔准縮成「確定」', () => {
+    expect(DELETE_DIALOG_CONFIRM).not.toContain('確定')
+    expect(DELETE_DIALOG_CONFIRM).toContain('刪除')
+  })
+
+  it('⭐ 「取消」擺右邊（Jason 2026-09-14 用截圖拍板，照 tree app）', () => {
     expect(CANCEL_ON_RIGHT).toBe(true)
+    expect(DELETE_DIALOG_CANCEL).toBe('取消')
   })
 })

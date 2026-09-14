@@ -9,6 +9,7 @@ import EnvPhotosScreen from '../../src/components/EnvPhotosScreen'
 import TreePhotosScreen from '../../src/components/TreePhotosScreen'
 import TreeFormPage from '../../src/components/TreeFormPage'
 import RecordListPage from '../../src/components/RecordListPage'
+import RecordCard from '../../src/components/RecordCard'
 import DeleteRecordDialog from '../../src/components/DeleteRecordDialog'
 import SettingsScreen from '../../src/components/SettingsScreen'
 import SyncScreen from '../../src/components/SyncScreen'
@@ -111,6 +112,15 @@ const body =
           }}
         />
       </div>
+    </div>
+  ) : screen === 'swipe' ? (
+    /* ⭐⭐ **真嗰張 `RecordCard`（一個 `<button>`），⛔ 唔係一個扮嘅 div。**
+       ⚠️ 2026-09-14 原型入面張卡係 `div`，真 code 係 `button` —— 兩者喺瀏覽器
+       手勢仲裁度**唔一定一樣**（button 自己有原生撳落去嘅行為）。
+       ⭐ 所以呢個畫面特登用返真 component、真 CSS，`measure.mjs` 就喺呢度
+       **用真滑鼠拖**佢，⛔ 唔用任何自己 dispatch 出嚟嘅事件。 */
+    <div className="float-cards-scroll scroll-body scroll-body--compact">
+      <RecordCard record={fx.RECORD} onOpen={() => {}} onDelete={async () => {}} />
     </div>
   ) : screen === 'env' ? (
     <EnvPhotosScreen api={fx.photosApi} accessToken="" record={fx.RECORD} onBack={() => {}} />

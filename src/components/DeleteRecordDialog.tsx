@@ -12,14 +12,30 @@ import { deleteUnsyncedWarning, unsyncedInRecord } from '../lib/orphanPhotos'
 import { localStorageAvailable, photoStore } from '../lib/photoStore'
 import type { PendingPhoto } from '../lib/photoUpload'
 import type { QuoteRecord } from '../lib/records'
+import ErrorNotice from '../ui/ErrorNotice'
+import { Icon, ICONS } from '../ui/Icon'
 
 /**
- * 刪工程確認 —— **貼住畫面底嘅彈窗**（Jason 2026-09-14 推過原型之後拍板用彈窗）。
+ * 刪工程確認 —— **畫面中間嘅彈窗**，版面照 **Jason 2026-09-14 交嗰張截圖**
+ * （佢喺原型 `public/proto-swipe-delete.html` 撳過之後回：「試咗無問題」）。
  *
- * ⭐⭐ **點解係「貼住畫面底」而唔係「畫面中間」**：
- *    2026-08-11 tree app 嗰單真實誤刪，成因係**粒掣會郁**（內容變長 ⇒ 超出範圍 ⇒
- *    掣換咗位）。貼住底嘅話，**兩粒掣嘅座標由畫面底決定，⛔ 同內容幾長完全無關**。
- *    見 `src/lib/deleteDialog.ts` 檔頭嘅完整經過。
+ * 由上而下，⛔ 冇別嘅字：
+ *   ① 垃圾桶圖示 ＋ 標題
+ *   ② 工程名（大、粗）
+ *   ③ 日期（大、粗、另一行）
+ *   ④ 【P8 步 2 補】「連帶消失：N 棵樹、N 張相」
+ *   ⑤ 「此操作無法還原。」／今日仲係「後台仲攞得返」—— 見 `deleteDialog.ts`
+ *   ⑥ ⚠️ 只剩部機一份嗰行（⛔ 截圖冇，但呢行係另一個真相，⛔ 唔准拆）
+ *   ⑦ 左紅底實心、右描邊，⭐ 一樣闊
+ *
+ * ⛔⛔ **底色跟返 quote app 其餘畫面（深色），⛔ 唔用截圖嗰個白底。**
+ *    Jason 2026-09-14 明文：「排列、字、掣位仲然照佢张截圖，只係底色跟 app」。
+ *
+ * ⛔⛔ **`.sheet__body` 個高度係寫死嘅，⛔ 唔准改成 `auto`。**
+ *    2026-08-11 tree app 嗰單真實誤刪，成因係**粒掣會郁**（內容變長 ⇒ 掣換咗位）。
+ *    寫死高度 ⇒ 成個彈窗高度固定 ⇒ 兩粒掣座標固定，⛔ 同內容幾長完全無關。
+ *    ⚠️ 代價：內容短嗰陣個框會有啲空 —— **特登嘅，⛔ 唔係執漏。**
+ *    見 `src/lib/deleteDialog.ts` 檔頭嘅完整經過；`npm run ui:check` 每次都量返。
  *
  * ⛔⛔ **唔用 `<dialog>` element**：⚠️ 佢自己帶住一套 UA 樣式（置中、
  *    `max-height: calc(100% - 6px - 2em)`），要逐條拆返，而拆漏一條就正正係
@@ -70,8 +86,9 @@ export default function DeleteRecordDialog({
     }
   }, [record.id, listLocal])
 
-  // ⭐ 一開就 focus「唔刪」—— ⛔ 唔係 focus「刪除」。
+  // ⭐ 一開就 focus「取消」—— ⛔ 唔係 focus 危險嗰粒。
   //    ⚠️ 手機外接鍵盤／輔助操作撳一下 Enter 就唔會刪咗嘢。
+  //    ⭐ 呢個係「危險嗰粒係實色紅、最搶眼」之後剩返嘅三度保險之一，⛔ 唔准拆。
   useEffect(() => {
     cancelRef.current?.focus()
   }, [])
@@ -98,6 +115,7 @@ export default function DeleteRecordDialog({
   }
 
   const warning = deleteUnsyncedWarning(unsynced)
+  const truth = deleteDialogTruth()
 
   const cancel = (
     <button
@@ -113,7 +131,7 @@ export default function DeleteRecordDialog({
   )
   const confirm = (
     <button
-      className="button button--danger sheet__go"
+      className="button sheet__go"
       type="button"
       data-testid="delete-confirm"
       disabled={busy}
@@ -143,33 +161,54 @@ export default function DeleteRecordDialog({
         className="sheet"
         role="dialog"
         aria-modal="true"
-        aria-labelledby="del-title"
+        aria-labelledby="del-title del-name"
         data-testid="delete-dialog"
       >
-        {/* ⭐ 中間呢段先至捲。⛔ 佢幾長都好，下面兩粒掣一步都唔會郁。 */}
-        <div className="sheet__body" data-testid="delete-dialog-body">
-          <h2 className="sheet__title" id="del-title">
-            {deleteDialogTitle(record.name)}
-          </h2>
+        <h2 className="sheet__head" id="del-title">
+          <Icon name={ICONS.del} />
+          {deleteDialogTitle()}
+        </h2>
 
+        {/* ⭐ 中間呢段先至捲，而且**高度寫死**。⛔ 佢入面幾長都好，
+            下面兩粒掣一步都唔會郁。 */}
+        <div className="sheet__body" data-testid="delete-dialog-body">
+          {/* ⛔ 照截圖：工程名同日期兩行，兩行都係大、粗。
+              ⛔ 冇 uuid（Jason 自己喺截圖度拍掉咗）、⛔ 冇客戶。 */}
+          <div className="sheet__name" id="del-name">
+            {record.name}
+          </div>
+          <div className="sheet__date">{record.record_date}</div>
+
+          {/* ⚠️⚠️ 【P8 步 2】「連帶消失：N 棵樹、N 張相」擺喺呢度。
+              ⛔ 而家未擺 —— 數數嗰個 `purgeCounts()` 仲喺另一個 PR（P8 步 1），
+              ⛔ 而 CLAUDE.md 嗰邊唔准疊 PR。⭐ 個框高度已經留咗位俾佢，
+              所以到時加落嚟**兩粒掣一 px 都唔會郁**。 */}
+
+          <p className="sheet__truth">
+            {truth.before}
+            <b>{truth.strong}</b>
+            {truth.after}
+          </p>
+
+          {/* ⛔⛔ 呢行**唔准因為要照截圖而拆掉**（截圖冇呢行，但呢行係另一個真相）。
+              ⚠️ 未傳上雲端嗰啲相係**全世界只剩部機一份** —— 母單一冇咗，
+              佢哋就永遠傳唔上去。⭐ P8 步 3 相真清咗之後，呢行只會更重要。 */}
           {warning !== null && (
-            <p className="note-box note-box--warn" data-testid="delete-unsynced-warning">
+            <p className="sheet__warn" data-testid="delete-unsynced-warning">
               {warning}
             </p>
           )}
 
-          {/* ⛔⛔ 唔准寫「無法還原」—— 喺我哋呢邊嗰句係假嘅。 */}
-          <p className="sheet__truth">{deleteDialogTruth()}</p>
-
-          {error !== null && (
-            <p className="notice notice--error" role="alert" data-testid="delete-error">
-              {error}
-            </p>
-          )}
+          {/* ⛔⛔ **一定要用 `ErrorNotice`，⛔ 唔准就咁出一行 `<p>`。**
+              ⚠️ 上面個框係**寫死高度嘅捲動框** —— 工程名長嗰陣，一行就咁擺落嚟
+              會出咗喺框底之外，人撳完睇唔到，變返「撳咗冇反應」（PR #17 嗰單）。
+              ⭐ `ErrorNotice` 會自己捲返入畫面（捲最近嗰個捲動祖先，即係呢個框）。 */}
+          <ErrorNotice message={error} testId="delete-error" />
         </div>
 
-        {/* ⛔⛔ `flex:none`，釘死喺最底。⚠️ 呢一行就係 2026-08-11 嗰單嘢嘅解藥 ——
-            粒掣嘅座標由畫面底決定，⛔ 同上面幾多字完全無關。 */}
+        {/* ⛔⛔ `flex:none`。⚠️ 連埋上面寫死嘅高度，呢一行就係 2026-08-11 嗰單嘢嘅解藥
+            —— 粒掣嘅座標⛔ 同上面幾多字完全無關。
+            ⛔ 左＝刪除（紅底實心）、右＝取消（描邊），⭐ 一樣闊 —— 照 Jason 張截圖。 */}
         <div className="sheet__acts">
           {CANCEL_ON_RIGHT ? (
             <>
