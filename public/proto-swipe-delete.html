@@ -88,15 +88,16 @@ body{display:flex;flex-direction:column;overflow:hidden}
 .dlg .head{display:flex;align-items:center;gap:9px;font:700 18px/1.3 var(--serif)}
 .dlg .head span{font-size:22px}
 /* ⛔⛔ 呢個高度係固定嘅，⛔ 唔准改成 auto —— 見下面 HTML 嗰段註解。 */
-.dlg .body{height:168px;overflow-y:auto;overscroll-behavior:contain;
+.dlg .body{height:186px;overflow-y:auto;overscroll-behavior:contain;
   display:flex;flex-direction:column;gap:5px}
-.dlg .nm2{font:700 16px/1.35 inherit}
-.dlg .dt{font:700 15px/1.35 inherit}
+.dlg .nm2{font:800 20px/1.3 inherit}
+.dlg .dt{font:800 20px/1.3 inherit}
 .dlg .idline{font:400 11.5px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;word-break:break-all;margin-top:2px}
 .dlg .loss{font-size:14px;font-weight:600;margin-top:8px}
 .dlg .loss b{color:#c0392b;font-weight:800}
 .dlg.dark .loss b{color:#e07a63}
-.dlg .truth{font-size:13px;line-height:1.55;margin-top:8px}
+.dlg .truth{font-size:14px;line-height:1.55;margin-top:10px}
+.dlg .truth b{font-weight:800}
 .dlg .warn2{font-size:13px;line-height:1.5;font-weight:700;color:#9a6b16;margin-top:8px}
 .dlg.dark .warn2{color:var(--warn)}
 /* ⛔ `flex:none` ＝ 兩粒掣永遠喺同一個位。 */
@@ -184,19 +185,19 @@ var skin = 'light';   // 彈窗底色：light（跟 tree app 截圖）／dark（
 /** 真工程名 —— 由 quote app 對數用嗰批樣本抄過嚟，⛔ 唔用假名。 */
 var SEED = [
   { id:'1', uuid:'95852001-1832-4c7a-9f3d-2b6e41a70c18', nm:'彩霞邨 彩月樓', dt:'2026-08-22',
-    cust:'房屋署（彩霞邨管理處）', meta:'2026-08-22・九龍・日更', st:'待報價', photos:12, unsent:0, fail:null },
+    cust:'房屋署（彩霞邨管理處）', trees:5, meta:'2026-08-22・九龍・日更', st:'待報價', photos:12, unsent:0, fail:null },
   { id:'2', uuid:'0c4f1de6-77b2-4a91-8e05-1d3ab9c6f240', nm:'天水圍天恆邨 恆貴樓', dt:'2026-08-28',
-    cust:'碧瑤（陳生）', meta:'2026-08-28・新界・夜更', st:'待報價', photos:31, unsent:3, fail:null },
+    cust:'碧瑤（陳生）', trees:12, meta:'2026-08-28・新界・夜更', st:'待報價', photos:31, unsent:3, fail:null },
   { id:'3', uuid:'7a1b90cd-5e42-4f18-b6a7-c02d8e5417f9', nm:'觀塘順利邨 利安樓', dt:'2026-08-27',
-    cust:'房屋署（順利邨管理處）', meta:'2026-08-27・九龍・日更', st:'待報價', photos:0, unsent:0, fail:null },
+    cust:'房屋署（順利邨管理處）', trees:3, meta:'2026-08-27・九龍・日更', st:'待報價', photos:0, unsent:0, fail:null },
   { id:'4', uuid:'3f6e2a84-91c0-42db-8a15-6b7d0e93cf51', nm:'Testing01', dt:'2026-08-14',
-    cust:'Isaac，KLB', meta:'2026-08-14・九龍・日更・Isaac 開', st:'現場中', photos:4, unsent:4,
+    cust:'Isaac，KLB', trees:2, meta:'2026-08-14・九龍・日更・Isaac 開', st:'現場中', photos:4, unsent:4,
     fail:'呢一單唔係你開嘅，你只可以改同刪自己開嗰啲單。要處理呢一單，請截圖，用 WhatsApp 搵 Jason。' },
   { id:'5', uuid:'d820b47f-6c39-4ea5-9b71-58c1f2a06d3e', nm:'麗宮 A 座', dt:'2026-08-20',
-    cust:'麗宮業主立案法團', meta:'2026-08-20・香港／大嶼山・日更', st:'已報價', photos:8, unsent:0,
+    cust:'麗宮業主立案法團', trees:7, meta:'2026-08-20・香港／大嶼山・日更', st:'已報價', photos:8, unsent:0,
     fail:'呢一單已經鎖定咗。鎖定咗就改唔到、封存唔到、亦都刪唔到。要解鎖，請截圖，用 WhatsApp 搵 Jason。' },
   { id:'6', uuid:'b5719ca3-0d68-4b27-a34e-9f01e7d2586b', nm:'石籬邨', dt:'2026-08-11',
-    cust:'房屋署（石籬邨管理處）', meta:'2026-08-11・新界・日更', st:'中標', photos:0, unsent:0, fail:null }
+    cust:'房屋署（石籬邨管理處）', trees:0, meta:'2026-08-11・新界・日更', st:'中標', photos:0, unsent:0, fail:null }
 ];
 var rows = JSON.parse(JSON.stringify(SEED));
 
@@ -247,32 +248,39 @@ function confirmCard(r){
 
   var head = document.createElement('div');
   head.className = 'head';
-  head.innerHTML = '<span>🗑</span>刪除工程？';   // ⛔ 唔係「永久刪除？」
+  // ⭐ 照最終截圖。⚠️ 我上一版寫「刪除工程？」係基於「只 soft delete」嗰個前提，
+  //    而個前提 2026-09-14 已經唔成立 —— 相真係清走。
+  head.innerHTML = '<span>🗑</span>永久刪除？';
   d.appendChild(head);
 
   var body = document.createElement('div');
   body.className = 'body';
 
+  // ⭐ 照 Jason 2026-09-14 最終版截圖，⛔ 冇別嘅字。
+  //    ⚠️ uuid 嗰行係佢自己拍掉嘅，⛔ 唔好加返。
   var nm = document.createElement('div'); nm.className='nm2'; nm.textContent = r.nm; body.appendChild(nm);
   var dt = document.createElement('div'); dt.className='dt'; dt.textContent = r.dt; body.appendChild(dt);
-  var cu = document.createElement('div'); cu.className='sub'; cu.style.fontSize='13px'; cu.textContent = r.cust; body.appendChild(cu);
-  var idl = document.createElement('div'); idl.className='idline'; idl.textContent = r.uuid; body.appendChild(idl);
 
+  // ⛔⛔ 兩個 N 而家係**真會消失**嘅嘢 —— 唔准估，要數得準。
   var loss = document.createElement('div'); loss.className='loss';
-  loss.innerHTML = '連帶消失：<b>' + r.photos + '</b> 張相';
+  loss.innerHTML = '連帶消失：<b>' + r.trees + '</b> 棵樹、<b>' + r.photos + '</b> 張相';
   body.appendChild(loss);
 
-  // ⭐ 未傳上雲端嗰句照出，⛔ 換咗個樣都唔准少（PR #19 定落嘅）。
+  // ⭐ 「無法還原」而家係真嘅 —— Jason 2026-09-14 拍板相真係清走，救唔返。
+  //    ⚠️ 我之前叫人改走呢句係錯嘅（嗰陣仲以為淨係 soft delete）。
+  var t = document.createElement('div'); t.className='truth';
+  t.innerHTML = '此操作<b>無法還原</b>。';
+  body.appendChild(t);
+
+  /* ⛔⛔ 呢行**唔准因為要照截圖而拆掉**（截圖冇呢行，但呢行係另一個真相）。
+     ⚠️ 2026-09-14 先發現有相**只剩部機一份** —— 未傳上雲端嗰啲，
+     一清就係**真正永遠冇咗**，連 R2 同 Drive 都冇得救。
+     ⭐ 相真清咗之後，呢行比以前更重要，⛔ 唔係更輕。 */
   if (r.unsent > 0){
     var w = document.createElement('div'); w.className='warn2';
-    w.textContent = '⚠️ 呢單仲有 ' + r.unsent + ' 張相未傳上雲端，刪咗佢哋就冇出路。';
+    w.innerHTML = '⚠️ 呢單仲有 <b>' + r.unsent + '</b> 張相<b>只剩部機呢一份</b>（未傳上雲端）。清咗就真正永遠冇咗。';
     body.appendChild(w);
   }
-
-  // ⛔⛔ 唔准寫「此操作無法還原」—— 喺我哋呢邊嗰句係假嘅。
-  var t = document.createElement('div'); t.className='truth';
-  t.textContent = '刪除係收埋，⛔ 唔係真刪 —— 後台仲攞得返。';
-  body.appendChild(t);
 
   if (r.err){ var e=document.createElement('div'); e.className='err'; e.textContent=r.err; body.appendChild(e); }
   d.appendChild(body);
@@ -280,7 +288,7 @@ function confirmCard(r){
   var acts = document.createElement('div'); acts.className='acts';
   // ⛔ 左邊紅底實心＝刪除，右邊描邊＝取消。⭐ 照 tree app 嘅左右位置。
   var go = document.createElement('button'); go.className='go';
-  go.textContent = r.busy ? '處理中⋯' : '刪除';      // ⛔ 唔係「永久刪除」
+  go.textContent = r.busy ? '處理中⋯' : '永久刪除';
   go.disabled = !!r.busy;
   go.onclick = function(){ doDelete(r); };
   var no = document.createElement('button'); no.className='keep';
