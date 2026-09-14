@@ -40,7 +40,7 @@ body{display:flex;flex-direction:column;overflow:hidden}
 .live s{text-decoration:none;color:var(--danger)}
 
 /* ── 清單 ───────────────────────────────────────────── */
-.scroll{flex:1;min-height:0;overflow-y:auto;overscroll-behavior-y:contain;
+.scroll{flex:1;min-height:0;overflow-y:auto;overscroll-behavior-y:contain;overscroll-behavior-x:contain;
   padding:10px 16px calc(24px + env(safe-area-inset-bottom,0px));
   display:flex;flex-direction:column;gap:12px}
 .pull{flex:none;height:0;overflow:hidden;display:flex;align-items:flex-end;justify-content:center;
@@ -52,7 +52,10 @@ body{display:flex;flex-direction:column;overflow:hidden}
   display:flex;align-items:center;justify-content:flex-end}
 .bin{width:76px;height:100%;display:flex;align-items:center;justify-content:center;
   background:transparent;border:0;color:#fff;font-size:26px;cursor:pointer;padding:0}
-.card{position:relative;z-index:1;will-change:transform;background:var(--card);
+/* ⛔⛔ `touch-action:pan-y` 係整件事嘅關鍵。冇佢，Android Chrome 會把橫向手勢
+   當成佢自己嘅（捲動／邊緣返回），跟住發一個 touchcancel 就抵制咗我哋個 handler。
+   ⭐ `pan-y` ＝「上下你攞去，左右我自己嚟」。 */
+.card{touch-action:pan-y;position:relative;z-index:1;will-change:transform;background:var(--card);
   border:1px solid var(--border);border-radius:var(--r-md);padding:18px 20px;min-height:96px;
   display:flex;align-items:center;gap:10px;text-align:left;width:100%}
 .card .main{flex:1;min-width:0;display:flex;flex-direction:column;gap:5px}
@@ -81,6 +84,11 @@ body{display:flex;flex-direction:column;overflow:hidden}
 .gone{border:1px dashed var(--border);border-radius:var(--r-md);padding:16px 18px;
   color:var(--text3);font-size:13px;flex:none}
 .note{font-size:12px;line-height:1.55;color:var(--text3);margin:4px 2px 0}
+.diag{font:600 11.5px/1.55 ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--text2);
+  background:#0d120e;border:1px solid var(--border);border-radius:10px;padding:8px 10px;margin-top:8px;
+  white-space:pre-wrap;word-break:break-all}
+.diag b{color:var(--accent)}
+.diag s{text-decoration:none;color:var(--danger)}
 </style>
 </head>
 <body>
@@ -91,24 +99,21 @@ body{display:flex;flex-direction:column;overflow:hidden}
 </div>
 
 <div class="panel">
-  <h2>今次淨係要你試兩樣</h2>
+  <h2>⚠️ 第二版 —— 上一版你推唔郁，修咗</h2>
   <p>
-    ⛔ <b>唔使</b>再試「推開露出一粒掣好唔好用」—— tree app 你日日喺用。
-    今次淨係試 tree app 答唔到嘅兩樣：<b>①</b> 斜斜咁推嗰下點分；<b>②</b> 確認擺喺張卡上面夠唔夠位。
+    上一版<b>淨係掛咗 touch 事件</b>：喺電腦度根本冇 touch（⛔ 拖極都唔郁），
+    而喺 Android，張卡冇 <b>touch-action</b>，瀏覽器會搶走橫向手勢。
+    而家改用 <b>Pointer Events</b>（滑鼠／手指／筆一次過）＋ <b>touch-action: pan-y</b>。
+  </p>
+  <p>
+    ⭐ 下面加咗一格<b>儀器</b>：你推嗰陣佢會即時講返瀏覽器做咗乜
+    （用滑鼠定手指、touch-action 有冇生效、有冇俾人搶走）。
+    ⚠️ <b>我喺雲端試唔出你部機嗰個情況</b> —— 所以要靠你推嗰下嚟攞證據。
   </p>
 
-  <div class="row">
-    <b>① 軸鎖遠度</b>
-    <div class="seg" id="lockSeg">
-      <button data-v="6">寬鬆 6px</button>
-      <button data-v="12" aria-pressed="true">中 12px</button>
-      <button data-v="20">嚴 20px</button>
-      <button data-v="0">⛔ 冇軸鎖（＝ tree app 而家）</button>
-    </div>
-  </div>
   <p style="margin:-4px 0 8px">
-    手指郁夠呢個距離，先決定「今次係橫推」定「今次係上下」。
-    ⭐ 一鎖定就唔准中途改 —— 試吓斜斜咁推，睇下面嗰行講咩。
+    ⛔ 軸鎖嗰組拆咗 —— Jason 2026-09-14 拍板<b>完全跟 tree app、⛔ 唔要軸鎖</b>。
+    今次淨係要你確認<b>推唔推得郁</b>，同埋下面第 ② 條。
   </p>
 
   <div class="row">
@@ -120,6 +125,7 @@ body{display:flex;flex-direction:column;overflow:hidden}
   </div>
 
   <div class="live" id="live">未推過。喺下面清單度推吓。</div>
+  <div class="diag" id="diag">⚠️ 儀器：等緊你推第一下。</div>
 </div>
 
 <div class="scroll" id="scroll">
@@ -142,7 +148,6 @@ var ACTION_W = 76;          // 露出幾闊（tree app 實測）
 var OPEN_AT  = ACTION_W/2;  // 推過幾多先停住（tree app 實測 38px）
 var PULL_MAX = 120, PULL_THRESHOLD = 72;   // 下拉刷新：quote app 現行數字
 
-var lockPx = 12;            // 軸鎖遠度（可以喺上面切）
 var style  = 'stack';       // 確認排法
 
 /** 真工程名 —— 由 quote app 對數用嗰批樣本抄過嚟，⛔ 唔用假名。 */
@@ -272,56 +277,94 @@ function swipeCard(r){
    ⇒ 喺最頂斜斜咁推，兩樣會一齊出。呢度加咗一個佢冇嘅「軸鎖」。 */
 var G = null;   // 而家嗰下手指
 
+/* ── 手指 ／ 滑鼠 ────────────────────────────────────────
+   ⛔⛔ **⛔ 唔再用 touchstart/touchmove/touchend。**
+
+   ⚠️⚠️ 2026-09-14：上一版淨係掛 touch 事件，Jason 真機推唔郁 ——
+   **兩個原因，兩個都係真嘅**：
+
+     ① **電腦度完全冇 touch 事件** ⇒ 拖極都唔郁。
+        （實測：真滑鼠拖 90px，張卡 `translateX(0px)`。）
+     ② 張卡冇 `touch-action`，Android Chrome 就會把橫向手勢當成
+        佢自己嘅，發個 touchcancel 抵制咗個 handler。
+
+   ⭐ Pointer Events 一次過收 滑鼠／手指／筆，
+     `setPointerCapture` 令手指行出咗張卡都仲跟住。
+   ⭐ CSS 個 `touch-action: pan-y` 就係同瀏覽器講「左右我自己嚟」。
+
+   ⛔ 行為照舊冇軸鎖（Jason 拍板）—— 下面只讀 X。 */
+var G = null;
+var diagEl = document.getElementById('diag');
+var DIAG = { type:'—', cancel:0, seq:[], firstCancelable:'—', ta:'—' };
+
+function paintDiag(){
+  var ta = DIAG.ta;
+  diagEl.innerHTML =
+    '⚠️ 儀器（俾我睇，⛔ 唔會入真 app）\n' +
+    '指標種類：<b>' + DIAG.type + '</b>　touch-action：' + (ta==='pan-y' ? '<b>pan-y</b>' : '<s>'+ta+'</s>') + '\n' +
+    '第一下 move 攔唔攔得住：' + DIAG.firstCancelable + '\n' +
+    '瀏覽器有冇搶走（cancel）：' + (DIAG.cancel ? '<s>有，'+DIAG.cancel+' 次</s>' : '冇') + '\n' +
+    '事件次序：' + DIAG.seq.slice(-8).join(' → ');
+}
+
 function attachSwipe(card, r){
-  card.addEventListener('touchstart', function(e){
-    if (e.touches.length !== 1) { G = null; return; }
-    G = { r:r, card:card, x0:e.touches[0].clientX, y0:e.touches[0].clientY,
-          dx0:(r.dx||0), axis:null, moved:false };
-    say('手指落咗。<em>仲未定</em>橫定直 —— 要郁夠 ' + (lockPx || 0) + 'px 先定。');
-  }, {passive:true});
+  card.addEventListener('pointerdown', function(e){
+    if (!e.isPrimary) return;
+    G = { r:r, card:card, x0:e.clientX, y0:e.clientY, dx0:(r.dx||0), moved:false, id:e.pointerId };
+    DIAG.type = e.pointerType; DIAG.cancel = 0; DIAG.seq = ['down'];
+    DIAG.firstCancelable = '—';
+    DIAG.ta = getComputedStyle(card).touchAction;
+    try { card.setPointerCapture(e.pointerId); } catch (err) { /* 舊瀏覽器 */ }
+    paintDiag();
+    say('手指／滑鼠落咗（<em>' + e.pointerType + '</em>）。推吓。');
+  });
 
-  card.addEventListener('touchmove', function(e){
-    if (!G || G.card !== card) return;
-    var dx = e.touches[0].clientX - G.x0;
-    var dy = e.touches[0].clientY - G.y0;
-
-    if (G.axis === null){
-      if (lockPx === 0){
-        // ⛔ tree app 而家嘅做法：冇軸鎖 —— 橫推同下拉一齊出。
-        G.axis = 'both';
-        say('<s>⛔ 冇軸鎖</s>：橫推同下拉<s>一齊</s>觸發 —— 呢個就係 tree app 而家嘅情況。');
-      } else if (Math.abs(dx) < lockPx && Math.abs(dy) < lockPx){
-        return;   // 未夠遠，⛔ 咩都唔做
-      } else {
-        G.axis = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y';
-        say('鎖咗做 <em>' + (G.axis==='x' ? '橫推' : '上下') + '</em>'
-          + '（橫 ' + Math.round(Math.abs(dx)) + 'px vs 直 ' + Math.round(Math.abs(dy)) + 'px）。'
-          + ' ⛔ 而家中途改都冇用。');
-      }
-    }
-
-    if (G.axis === 'y') return;   // ⭐ 交返俾捲動／下拉刷新，⛔ 唔郁張卡
-
-    G.moved = true;
+  card.addEventListener('pointermove', function(e){
+    if (!G || G.card !== card || e.pointerId !== G.id) return;
+    var dx = e.clientX - G.x0;
+    if (DIAG.seq.length < 3) DIAG.seq.push('move');
+    if (DIAG.firstCancelable === '—') DIAG.firstCancelable = e.cancelable ? '攔得住' : '⛔ 攔唔住（唔緊要，靠 touch-action）';
+    if (Math.abs(dx) > 3) G.moved = true;
     r.dx = Math.max(-ACTION_W, Math.min(0, G.dx0 + dx));
     card.style.transition = 'none';
     card.style.transform = 'translateX(' + r.dx + 'px)';
-    if (e.cancelable) e.preventDefault();
-  }, {passive:false});
+    paintDiag();
+  });
 
-  card.addEventListener('touchend', function(){
+  function finish(e, cancelled){
     if (!G || G.card !== card) return;
-    if (G.axis === 'x' || G.axis === 'both'){
-      var open = r.dx < -OPEN_AT;
-      r.dx = open ? -ACTION_W : 0;
-      card.style.transition = 'transform .2s ease';
-      card.style.transform = 'translateX(' + r.dx + 'px)';
-      say(open
+    if (cancelled) { DIAG.cancel += 1; DIAG.seq.push('cancel'); }
+    else DIAG.seq.push('up');
+    // ⭐ 記住「今次真係推過」—— 下面嗰下補嚟嘅 click 要靠佢分辨。
+    r.justDragged = G.moved;
+    var open = r.dx < -OPEN_AT;
+    r.dx = open ? -ACTION_W : 0;
+    card.style.transition = 'transform .2s ease';
+    card.style.transform = 'translateX(' + r.dx + 'px)';
+    paintDiag();
+    say(cancelled
+      ? '<s>瀏覽器搶咗個手勢走</s>（cancel）—— 張卡彈返。⚠️ 呢個就係要修嗰樣。'
+      : (open
         ? '推咗 ' + Math.round(-r.dx) + 'px ⇒ <em>停住</em>（過咗 ' + OPEN_AT + 'px 門檻）。撳個 🗑 就入第二段。'
-        : '唔夠 ' + OPEN_AT + 'px ⇒ <em>彈返</em>，⛔ 乜都冇發生。');
-    }
+        : '唔夠 ' + OPEN_AT + 'px ⇒ <em>彈返</em>，⛔ 乜都冇發生。'));
     G = null;
-  }, {passive:true});
+  }
+  card.addEventListener('pointerup', function(e){ finish(e, false); });
+  card.addEventListener('pointercancel', function(e){ finish(e, true); });
+
+  /* ⛔⛔ 推完放手，瀏覽器會補一下 click。要分開兩種，⛔ 唔可以撈埋：
+       · **啱啱推完** ⇒ 淨係壓住嗰下 click，⛔ 唔准順手收返張卡
+         （⚠️ 2026-09-14 實測中過：滑鼠拖到 -76px，放手一下就彈返 0，
+           因為呢度見到 dx ≠ 0 就當「撳咗張開住嘅卡」）
+       · **開住而家先至撳** ⇒ 收返，⛔ 唔係開工程 */
+  card.addEventListener('click', function(e){
+    if (r.justDragged) { r.justDragged = false; e.preventDefault(); e.stopPropagation(); return; }
+    if (r.dx !== 0) { e.preventDefault(); e.stopPropagation(); r.dx = 0;
+      card.style.transition = 'transform .2s ease';
+      card.style.transform = 'translateX(0px)'; say('撳咗張卡 ⇒ 收返，⛔ 唔會開工程。'); }
+  }, true);
+  // ⚠️ 淨係為咗量：Android 搶手勢嗰陣會發 touchcancel，記低佢。
+  card.addEventListener('touchcancel', function(){ DIAG.cancel += 1; DIAG.seq.push('touchcancel'); paintDiag(); }, {passive:true});
 }
 
 /* ── 下拉刷新（同一套軸鎖）───────────────────────────── */
@@ -334,7 +377,8 @@ scrollEl.addEventListener('touchstart', function(e){
 scrollEl.addEventListener('touchmove', function(e){
   if (!P || !P.armed) return;
   // ⛔ 軸鎖鎖咗做「橫推」就唔准出轉圈 —— 呢個就係「唔准打架」。
-  if (G && G.axis === 'x') { pullEl.style.height='0px'; P.d=0; return; }
+  // ⛔ 而家推緊一張卡就唔出轉圈（⚠️ 但冇軸鎖，所以斜推仍然兩樣一齊 —— 拍咗板嘅）。
+  if (G && G.moved) { pullEl.style.height='0px'; P.d=0; return; }
   var dy = e.touches[0].clientY - P.y0;
   if (dy <= 0 || scrollEl.scrollTop > 0){ pullEl.style.height='0px'; P.d=0; return; }
   P.d = Math.min(dy/2, PULL_MAX);
@@ -363,12 +407,6 @@ function seg(id, set){
     set(b.dataset.v);
   });
 }
-seg('lockSeg', function(v){
-  lockPx = Number(v);
-  say(lockPx === 0
-    ? '轉咗做 <s>⛔ 冇軸鎖</s>（tree app 而家嘅做法）。喺最頂斜斜咁推，睇下係咪兩樣一齊出。'
-    : '軸鎖 = <em>' + lockPx + 'px</em>。斜斜咁推試吓 —— 太細會誤推，太大會推唔郁。');
-});
 seg('styleSeg', function(v){ style = v; render();
   say('確認排法轉咗做 <em>' + (v==='stack'?'甲・上下排':'乙・一行兩粒') + '</em>。推開一張卡撳 🗑 睇下夠唔夠位。'); });
 
