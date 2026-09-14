@@ -20,24 +20,28 @@ html,body{margin:0;height:100%;background:var(--bg);color:var(--text);
   -webkit-text-size-adjust:100%}
 body{display:flex;flex-direction:column;overflow:hidden}
 
-/* ── 頂部：樣板告示 ─────────────────────────────────── */
-.stamp{flex:none;background:var(--warn);color:#0d120e;padding:9px 14px;font-weight:800;font-size:13px;line-height:1.4}
-.stamp span{display:block;font-weight:600;opacity:.85;margin-top:2px}
+/* ── 頂部：⛔ 最多兩行。⚠️ 唔准變成一篇文章（2026-09-14 教訓）── */
+.topbar{flex:none;padding:9px 16px 7px;border-bottom:1px solid var(--border);
+  font-size:12.5px;line-height:1.5;color:var(--text3)}
+.topbar__do{color:var(--text);font-weight:700;font-size:14px;margin-top:1px}
 
-/* ── 控制台（⛔ 唔會出喺真 app）──────────────────────── */
-.panel{flex:none;background:#141b15;border-bottom:1px solid var(--border);padding:10px 14px 12px}
-.panel h2{margin:0 0 2px;font:700 13px/1.4 inherit;color:var(--accent);letter-spacing:.04em}
-.panel p{margin:0 0 9px;font-size:12px;line-height:1.5;color:var(--text3)}
-.row{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:7px}
-.row>b{font-size:12px;font-weight:700;color:var(--text2);min-width:74px}
-.seg{display:flex;gap:5px;flex-wrap:wrap}
+/* ── 張卡下面嗰堆：睇得到，⛔ 唔佔第一屏 ─────────────── */
+.tools{flex:none;display:flex;flex-direction:column;gap:7px;margin-top:14px}
+.seg{display:flex;gap:6px}
 .seg button{appearance:none;border:1px solid var(--border);background:transparent;color:var(--text2);
-  border-radius:999px;padding:6px 11px;font:600 12px/1 inherit;cursor:pointer}
+  border-radius:999px;padding:7px 14px;font:600 13px/1 inherit;cursor:pointer}
 .seg button[aria-pressed=true]{background:var(--accent);border-color:var(--accent);color:#0d120e}
-.live{font:600 12px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--text2);
-  background:#0d120e;border:1px solid var(--border);border-radius:10px;padding:7px 10px;min-height:44px}
+.live{font:600 12.5px/1.5 inherit;color:var(--text2);
+  background:#141b15;border:1px solid var(--border);border-radius:10px;padding:8px 11px}
 .live em{font-style:normal;color:var(--accent)}
 .live s{text-decoration:none;color:var(--danger)}
+
+/* ── 解釋：⛔ 收埋，⛔ 永遠喺最底 ───────────────────── */
+.why{flex:none;margin-top:22px;border-top:1px solid var(--border);padding-top:12px}
+.why summary{font-size:13px;color:var(--text3);cursor:pointer;padding:4px 0}
+.why p{font-size:12.5px;line-height:1.6;color:var(--text3);margin:8px 0}
+.why button{appearance:none;background:transparent;border:1px solid var(--border);
+  color:var(--text2);border-radius:999px;padding:8px 14px;font:600 13px/1 inherit;cursor:pointer}
 
 /* ── 清單 ───────────────────────────────────────────── */
 .scroll{flex:1;min-height:0;overflow-y:auto;overscroll-behavior-y:contain;overscroll-behavior-x:contain;
@@ -111,8 +115,8 @@ body{display:flex;flex-direction:column;overflow:hidden}
 .gone{border:1px dashed var(--border);border-radius:var(--r-md);padding:16px 18px;
   color:var(--text3);font-size:13px;flex:none}
 .note{font-size:12px;line-height:1.55;color:var(--text3);margin:4px 2px 0}
-.diag{font:600 11.5px/1.55 ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--text2);
-  background:#0d120e;border:1px solid var(--border);border-radius:10px;padding:8px 10px;margin-top:8px;
+.diag{font:600 11.5px/1.55 ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--text3);
+  background:#0d120e;border:1px solid var(--border);border-radius:10px;padding:8px 10px;
   white-space:pre-wrap;word-break:break-all}
 .diag b{color:var(--accent)}
 .diag s{text-decoration:none;color:var(--danger)}
@@ -120,55 +124,55 @@ body{display:flex;flex-direction:column;overflow:hidden}
 </head>
 <body>
 
-<div class="stamp">
-  樣板 —— ⛔ 唔會真係存嘢
-  <span>撳邊度都唔會寫入任何資料。刪咗嘅卡撳最底「重新開始」就返晒嚟。</span>
-</div>
-
-<div class="panel">
-  <h2>⚠️ 第二版 —— 上一版你推唔郁，修咗</h2>
-  <p>
-    上一版<b>淨係掛咗 touch 事件</b>：喺電腦度根本冇 touch（⛔ 拖極都唔郁），
-    而喺 Android，張卡冇 <b>touch-action</b>，瀏覽器會搶走橫向手勢。
-    而家改用 <b>Pointer Events</b>（滑鼠／手指／筆一次過）＋ <b>touch-action: pan-y</b>。
-  </p>
-  <p>
-    ⭐ 下面加咗一格<b>儀器</b>：你推嗰陣佢會即時講返瀏覽器做咗乜
-    （用滑鼠定手指、touch-action 有冇生效、有冇俾人搶走）。
-    ⚠️ <b>我喺雲端試唔出你部機嗰個情況</b> —— 所以要靠你推嗰下嚟攞證據。
-  </p>
-
-  <p style="margin:-4px 0 8px">
-    ⛔ 軸鎖嗰組拆咗 —— Jason 2026-09-14 拍板<b>完全跟 tree app、⛔ 唔要軸鎖</b>。
-    今次淨係要你確認<b>推唔推得郁</b>，同埋下面第 ② 條。
-  </p>
-
-  <div class="row">
-    <b>② 彈窗底色</b>
-    <div class="seg" id="skinSeg">
-      <button data-v="light" aria-pressed="true">白底（跟 tree app 截圖）</button>
-      <button data-v="dark">深色（跟 quote app 其餘畫面）</button>
-    </div>
-  </div>
-  <p style="margin:-4px 0 8px">
-    ⚠️ 你張截圖係<b>白底</b>，但 quote app 其餘每一版都係深色 ——
-    白底會係全 app 唯一一塊白。⛔ 呢個我唔自己揀，你用眼睇邊個順。
-    <b>排列同兩粒掣嘅左右位置兩邊都一模一樣</b>，淨係底色唔同。
-  </p>
-
-  <div class="live" id="live">未推過。喺下面清單度推吓。</div>
-  <div class="diag" id="diag">⚠️ 儀器：等緊你推第一下。</div>
+<!-- ⛔⛔ 第一屏只准得兩行 ＋ 張卡。
+     ⚠️ 2026-09-14：上一版成版都係解釋，Jason 一開就話「上面既描述多到我撳唔到下面」。
+     ⭐ 原型自己犯咗當日修緊嗰個病 —— 要驗嘅嘢俾字推咗出畫面外，
+        同「錯誤訊息渲染喺手指上面 2037px」一模一樣。
+     ⇒ 規矩：要驗嘅嘢一定要喺第一屏，⛔ 唔使碌就撳到；解釋永遠喺最底、收埋。 -->
+<div class="topbar">
+  <div>樣板，唔會真係存嘢</div>
+  <div class="topbar__do">向左推張卡試一試</div>
 </div>
 
 <div class="scroll" id="scroll">
   <div class="pull" id="pull"></div>
-  <div class="sect">工程清單（真名，⛔ 假資料）</div>
   <div id="list"></div>
-  <p class="note">
-    ⛔ 呢個原型冇「工程基本資料」嗰版 —— 真 app 嗰條刪除路照留，
-    桌面、唔識推、手指唔方便嘅人都有得刪。
-  </p>
-  <p class="note"><button id="reset" style="appearance:none;background:transparent;border:1px solid var(--border);color:var(--text2);border-radius:999px;padding:8px 14px;font:600 13px/1 inherit;cursor:pointer">重新開始</button></p>
+
+  <!-- ⭐ 擺喺張卡下面：睇得到，但⛔ 唔佔第一屏。 -->
+  <div class="tools">
+    <div class="seg" id="skinSeg">
+      <button data-v="light" aria-pressed="true">白底</button>
+      <button data-v="dark">深色</button>
+    </div>
+    <div class="live" id="live">未推過。推吓上面張卡。</div>
+    <div class="diag" id="diag">儀器：等緊你推第一下。</div>
+  </div>
+  <details class="why">
+    <summary>點解要呢個原型？</summary>
+    <p>
+      第二版改咗咩：上一版淨係掛咗 touch 事件 —— 喺電腦度根本冇 touch，所以拖極都唔郁；
+      而喺 Android，張卡冇 touch-action，瀏覽器會搶走橫向手勢。
+      而家改用 Pointer Events（滑鼠／手指／筆一次過）＋ touch-action: pan-y。
+    </p>
+    <p>
+      儀器嗰格：你推嗰陣即時講返瀏覽器做咗乜（用滑鼠定手指、touch-action 有冇生效、
+      有冇俾人搶走）。我喺雲端試唔出你部機嗰個情況，所以要靠你推嗰下嚟攞證據。
+    </p>
+    <p>
+      軸鎖嗰組拆咗 —— 你 2026-09-14 拍板完全跟 tree app、唔要軸鎖。
+    </p>
+    <p>
+      白底／深色：你張截圖係白底，但 quote app 其餘每一版都係深色，白底會係全 app
+      唯一一塊白。排列同兩粒掣嘅左右位置兩邊一模一樣，淨係底色唔同。
+    </p>
+    <p>
+      呢個原型冇「工程基本資料」嗰版 —— 真 app 嗰條刪除路照留，
+      桌面、唔識推、手指唔方便嘅人都有得刪。
+    </p>
+    <p>
+      <button id="reset">重新開始</button>
+    </p>
+  </details>
 </div>
 
 <script>
@@ -378,11 +382,10 @@ var DIAG = { type:'—', cancel:0, seq:[], firstCancelable:'—', ta:'—' };
 function paintDiag(){
   var ta = DIAG.ta;
   diagEl.innerHTML =
-    '⚠️ 儀器（俾我睇，⛔ 唔會入真 app）\n' +
-    '指標種類：<b>' + DIAG.type + '</b>　touch-action：' + (ta==='pan-y' ? '<b>pan-y</b>' : '<s>'+ta+'</s>') + '\n' +
+    '儀器　指標：<b>' + DIAG.type + '</b>　touch-action：' + (ta==='pan-y' ? '<b>pan-y</b>' : '<s>'+ta+'</s>') + '\n' +
     '第一下 move 攔唔攔得住：' + DIAG.firstCancelable + '\n' +
-    '瀏覽器有冇搶走（cancel）：' + (DIAG.cancel ? '<s>有，'+DIAG.cancel+' 次</s>' : '冇') + '\n' +
-    '事件次序：' + DIAG.seq.slice(-8).join(' → ');
+    '瀏覽器有冇搶走：' + (DIAG.cancel ? '<s>有，'+DIAG.cancel+' 次</s>' : '冇') + '\n' +
+    '次序：' + DIAG.seq.slice(-8).join(' → ');
 }
 
 function attachSwipe(card, r){
