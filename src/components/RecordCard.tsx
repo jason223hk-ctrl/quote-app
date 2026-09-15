@@ -1,5 +1,6 @@
 import { useRef, useState, type MouseEvent, type PointerEvent } from 'react'
 import { clientAddressLine, regionLabel, shiftLabel, statusLabel } from '../lib/labels'
+import type { PurgeCountApis } from '../lib/purgeCounts'
 import type { QuoteRecord } from '../lib/records'
 import { quotedAgeText } from '../lib/status'
 import {
@@ -25,7 +26,7 @@ import DeleteRecordDialog from './DeleteRecordDialog'
  * ⭐⭐ **向左推露出刪除**（Jason 2026-09-14 推過原型之後拍板，完全跟 tree app）：
  *   · ⛔ **冇軸鎖** —— 斜推嗰陣張卡同下拉刷新會一齊郁。
  *     ⚠️ **呢個係佢知道代價之後揀嘅**，⛔ 唔係漏咗。見 `src/lib/swipeDelete.ts` 檔頭。
- *   · ⛔ **唔傳 `onDelete` 就完全冇呢件事** —— 連一個 handler 都唔掛。
+ *   · ⛔ **唔傳 `swipeDelete` 就完全冇呢件事** —— 連一個 handler 都唔掛。
  *   · ⛔⛔ **唔准靠部機自己判斷邊個刪得**：唔係你開嘅單**照樣推得開、撳得落**，
  *     做唔到就由伺服器拒絕，然後出返三句原因入面啱嗰一句（PR #17）。
  *     ⚠️ tree app 嗰邊係 `enabled={canDelete}`（部機自己攔）—— ⛔ 呢樣**唔跟**：
@@ -37,15 +38,30 @@ import DeleteRecordDialog from './DeleteRecordDialog'
  *    `.swipe-wrap > .proj-card`）先至係完整嘅修法 —— **⛔ 兩邊缺一不可**。
  *    完整經過同「點樣先算驗過」喺 `src/lib/swipeDelete.ts` 檔頭。
  */
+/**
+ * 向左推刪除嗰一組嘢。**⛔ 要就三樣一齊要，⛔ 唔要就一樣都冇。**
+ *
+ * ⭐⭐ **點解綁埋做一個 prop，⛔ 唔係三個 optional**
+ *    ⚠️ 拆開就有得「推得開、但數唔到」—— 而嗰個樣係**粒「刪除」永遠撳唔落**，
+ *    畫面淨係寫「請check返個網絡」。⭐ 冇人會諗到係 props 漏咗駁。
+ *    ⛔ 綁埋一齊，TypeScript 就令呢個半拉子狀態**根本寫唔出嚟**。
+ */
+export type SwipeDeleteProps = {
+  /** ⛔ 失敗要 throw，訊息會原封不動出喺彈窗。 */
+  run: (record: QuoteRecord) => Promise<void>
+  /** 數「連帶消失：N 棵樹、N 張相」用。見 `src/lib/purgeCounts.ts`。 */
+  apis: PurgeCountApis
+}
+
 export default function RecordCard({
   record,
   onOpen,
-  onDelete,
+  swipeDelete,
 }: {
   record: QuoteRecord
   onOpen: () => void
-  /** ⛔ 唔傳就冇滑動刪除（桌面、對數個殼）。失敗要 throw，訊息會出喺彈窗。 */
-  onDelete?: (record: QuoteRecord) => Promise<void>
+  /** ⛔ 唔傳就完全冇滑動刪除（桌面、對數個殼）—— 連 handler 都唔掛。 */
+  swipeDelete?: SwipeDeleteProps
 }) {
   const line = clientAddressLine(record.client, record.address)
   // ⛔ 用部機當日。⚠️ 唔喺上面 memo：一日淨係變一次，慳嗰下唔值得多一層。
@@ -66,7 +82,7 @@ export default function RecordCard({
    * ⭐ 記住 `pointerId` 係為咗**第二隻手指落嚟嗰陣唔好撈亂** —— 只認第一隻。
    */
   const drag = useRef<{ x0: number; id: number } | null>(null)
-  const swipeable = typeof onDelete === 'function'
+  const swipeable = swipeDelete !== undefined
 
   const card = (
     <button
@@ -160,8 +176,8 @@ export default function RecordCard({
     </button>
   )
 
-  // ⛔ 冇 `onDelete` ⇒ 原封不動出返張卡，⛔ 連個 wrapper 都唔加。
-  if (!swipeable) return card
+  // ⛔ 冇 `swipeDelete` ⇒ 原封不動出返張卡，⛔ 連個 wrapper 都唔加。
+  if (swipeDelete === undefined) return card
 
   return (
     <div className="swipe-wrap" style={{ '--swipe-w': `${ACTION_W}px` } as React.CSSProperties}>
@@ -188,9 +204,10 @@ export default function RecordCard({
       {asking && (
         <DeleteRecordDialog
           record={record}
+          apis={swipeDelete.apis}
           onCancel={() => setAsking(false)}
           onConfirm={async () => {
-            await onDelete(record)
+            await swipeDelete.run(record)
             setAsking(false)
           }}
         />

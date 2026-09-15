@@ -276,6 +276,13 @@ const SCREENS = {
     query: '',
     remember: ['delete-cancel', 'delete-confirm'],
   },
+  /* ⭐⭐ 數唔到嗰個樣 —— 量嘅係**一條安全性質**，⛔ 唔係一個版面。 */
+  dialogfail: {
+    screen: 'dialogfail',
+    query: '',
+    mustLock: [{ testid: 'delete-confirm', needs: 'delete-cannot-count' }],
+  },
+
   dialoglong: {
     // ⚠️ 同上面用同一個畫面，⛔ 唔係另一個 component —— 一模一樣嘅 code，
     //    淨係內容唔同。咁對出嚟嘅先算數。
@@ -590,6 +597,9 @@ let dragBad = 0
 /** 「訊息睇得到」嗰組（⛔ 唔係「有冇喺 DOM」）。 */
 let seenChecked = 0
 let seenBad = 0
+/** 「數唔到就鎖住」嗰組 —— P8 步 2 最緊要嗰條性質。 */
+let lockChecked = 0
+let lockBad = 0
 
 for (const [name, spec] of Object.entries(SCREENS)) {
   if (ONLY && ONLY !== name) continue
@@ -697,6 +707,32 @@ for (const [name, spec] of Object.entries(SCREENS)) {
     await proto.close()
   }
 
+  /* ── 數唔到就鎖住？ ────────────────────────────────────────────
+     ⛔⛔ 兩樣一齊要，⛔ 唔可以淨係一樣：
+       ① 粒危險掣真係 `disabled`（⛔ 唔係「睇落灰灰哋」）
+       ② 同時有一句中文講返點解（⛔ 唔准靜靜咁鎖住，人會以為個 app 壞咗） */
+  for (const one of spec.mustLock ?? []) {
+    lockChecked += 1
+    const r = await real.evaluate(([a, b]) => {
+      const btn = document.querySelector(`[data-testid="${a}"]`)
+      const why = document.querySelector(`[data-testid="${b}"]`)
+      return {
+        found: btn !== null,
+        disabled: btn !== null && btn.disabled === true,
+        why: why === null ? null : (why.textContent ?? '').trim().slice(0, 24),
+      }
+    }, [one.testid, one.needs])
+    if (r.found && r.disabled && r.why !== null) {
+      console.log(`  ✓ 數唔到 ⇒ [${one.testid}] 鎖住咗，而且有講原因（「${r.why}…」）`)
+    } else {
+      lockBad += 1
+      console.log(`  ✗ ⛔⛔ 數唔到，但 [${one.testid}] ${r.disabled ? '鎖咗' : '仲撳得落'}`)
+      if (!r.disabled)
+        console.log('      ⛔ 我哋自己都唔知會冇幾多嘢，粒掣⛔ 唔可以撳得落。')
+      if (r.why === null) console.log(`      ⛔ 冇 [${one.needs}] —— 靜靜咁鎖住，人會以為個 app 壞咗。`)
+    }
+  }
+
   // ── 睇得到？（⛔ 一定要行喺 hit 掃描之前 —— 嗰個會逐粒掣 scrollIntoView）──
   for (const one of spec.inView ?? []) {
     seenChecked += 1
@@ -771,6 +807,7 @@ console.log(`撳得到嘅檢查：量咗 ${hitChecked} 粒掣，撳唔到 ${hitB
 console.log(`彈窗掣位：對咗 ${sameSpot} 粒，郁咗 ${sameSpotBad} 粒。`)
 console.log(`真滑鼠拖：試咗 ${dragChecked} 下，推唔郁 ${dragBad} 下。`)
 console.log(`訊息睇得到：量咗 ${seenChecked} 句，睇唔到 ${seenBad} 句。`)
+console.log(`數唔到就鎖住：量咗 ${lockChecked} 粒掣，冇鎖 ${lockBad} 粒。`)
 
 if (SELF_TEST) {
   console.log('\n──── 自我測試 ────')
@@ -784,5 +821,7 @@ if (SELF_TEST) {
 }
 
 process.exit(
-  bad === 0 && hitBad === 0 && sameSpotBad === 0 && dragBad === 0 && seenBad === 0 ? 0 : 1,
+  bad === 0 && hitBad === 0 && sameSpotBad === 0 && dragBad === 0 && seenBad === 0 && lockBad === 0
+    ? 0
+    : 1,
 )

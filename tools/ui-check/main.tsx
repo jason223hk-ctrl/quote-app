@@ -102,6 +102,7 @@ const body =
       <div className="swipe-wrap">
         <DeleteRecordDialog
           record={dialogRecord}
+          apis={fx.purgeApis}
           listLocal={dialogPhotos}
           onCancel={() => {}}
           onConfirm={async () => {
@@ -113,6 +114,29 @@ const body =
         />
       </div>
     </div>
+  ) : screen === 'dialogfail' ? (
+    /* ⭐⭐ **數唔到嗰個樣。** ⛔ 呢個唔係一個「順手加埋」嘅畫面 ——
+       佢係整個 P8 步 2 最緊要嗰條性質：**我哋自己都唔知會冇幾多嘢嗰陣，
+       粒「刪除」一定要撳唔落。**
+       ⚠️ 呢條性質壞咗係**完全睇唔出**嘅：個彈窗照出、兩個 N 唔見咗、
+       粒掣照紅 —— 然後撳落去就真係刪咗。⇒ 所以要一把尺量住。
+       ⛔ `listTrees` 特登 throw，⛔ 唔係回 `[]`（回 `[]` ＝ 講「冇嘢會消失」）。 */
+    <div className="float-cards-scroll scroll-body scroll-body--compact">
+      <div className="swipe-wrap">
+        <DeleteRecordDialog
+          record={dialogRecord}
+          apis={{
+            listTrees: async () => {
+              throw new Error('對數殼特登整嘅：攞唔到樹')
+            },
+            listRows: fx.purgeApis.listRows,
+          }}
+          listLocal={dialogPhotos}
+          onCancel={() => {}}
+          onConfirm={async () => {}}
+        />
+      </div>
+    </div>
   ) : screen === 'swipe' ? (
     /* ⭐⭐ **真嗰張 `RecordCard`（一個 `<button>`），⛔ 唔係一個扮嘅 div。**
        ⚠️ 2026-09-14 原型入面張卡係 `div`，真 code 係 `button` —— 兩者喺瀏覽器
@@ -120,7 +144,11 @@ const body =
        ⭐ 所以呢個畫面特登用返真 component、真 CSS，`measure.mjs` 就喺呢度
        **用真滑鼠拖**佢，⛔ 唔用任何自己 dispatch 出嚟嘅事件。 */
     <div className="float-cards-scroll scroll-body scroll-body--compact">
-      <RecordCard record={fx.RECORD} onOpen={() => {}} onDelete={async () => {}} />
+      <RecordCard
+        record={fx.RECORD}
+        onOpen={() => {}}
+        swipeDelete={{ run: async () => {}, apis: fx.purgeApis }}
+      />
     </div>
   ) : screen === 'env' ? (
     <EnvPhotosScreen api={fx.photosApi} accessToken="" record={fx.RECORD} onBack={() => {}} />
