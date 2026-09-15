@@ -1,0 +1,302 @@
+<!doctype html>
+<html lang="zh-HK">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>樣板：工程基本資料嗰條刪除路</title>
+<style>
+/* 色同尺寸全部由 src/styles/tokens.css 抄過嚟，⛔ 冇一個係自己調。 */
+:root{
+  --page:#0d120e; --card:linear-gradient(180deg,#283229 0%,#1f2720 44%,#161d17 100%);
+  --card-alt:#1c241d; --header:#16201a; --header-deep:#101711;
+  --text:#f1ebdd; --text2:#bdb6a6; --text3:#96978e; --on-header:#f1ebdd;
+  --danger:#b35d4a; --danger-bg:rgba(179,93,74,.16); --warn:#b68a45;
+  --border:rgba(190,178,139,.28); --accent:#98a56b;
+  --r-sm:14px; --r-md:20px;
+  --serif:'Noto Serif TC','Songti TC',serif;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--page);color:var(--text);
+  font:15px/1.5 'Noto Sans TC','PingFang TC',system-ui,sans-serif;
+  padding:0 16px 40px;max-width:430px;margin:0 auto}
+
+/* ⛔⛔ 頂部最多兩行。⚠️ 2026-09-14 上一個原型就係死喺呢度：
+   Jason 一開就話「上面既描述多到我撳唔到下面」。 */
+.topbar{padding:10px 2px 8px;display:flex;justify-content:space-between;gap:10px;
+  font-size:12px;color:var(--text3);border-bottom:1px solid var(--border)}
+.topbar b{color:var(--accent);font-weight:700}
+
+/* ── 第一屏：真卡 ───────────────────────────────── */
+.zone{display:flex;flex-direction:column;gap:12px;margin-top:16px;padding-top:16px;
+  border-top:1px solid var(--border)}
+.btn{width:100%;min-height:48px;padding:0 16px;border:1px solid transparent;
+  border-radius:var(--r-sm);background:var(--header);color:var(--on-header);
+  font:700 15px/1 inherit;cursor:pointer}
+.btn.sec{background:var(--card);border-color:var(--border);color:var(--text)}
+.btn.dan{background:var(--card);border-color:var(--danger);color:var(--danger)}
+.btn:disabled{opacity:.6;cursor:default}
+.note{margin:0;color:var(--text3);font-size:12px}
+.nb{margin:0;padding:12px 14px;border:1px solid var(--border);border-radius:14px;
+  background:rgba(152,165,107,.1);color:var(--text2);font-size:12.5px;line-height:1.55}
+.nb.warn{border-color:rgba(182,138,69,.4);background:rgba(182,138,69,.14);color:var(--warn)}
+.nb.loss{border-color:rgba(179,93,74,.4);background:rgba(179,93,74,.12);color:var(--text)}
+.nb.loss b{color:var(--danger);font-weight:800}
+.nb.dead{border-color:rgba(179,93,74,.5);background:rgba(179,93,74,.14);color:var(--danger);font-weight:700}
+.lossline{margin:0;font-size:14px;font-weight:600;color:var(--text)}
+.lossline b{color:var(--danger);font-weight:800}
+
+/* 彈窗（乙）—— 同真 app 一樣，照 Jason 張截圖 */
+.scrim{position:fixed;inset:0;z-index:50;background:rgba(0,0,0,.62);
+  display:flex;align-items:center;justify-content:center;padding:20px}
+.dlg{width:100%;max-width:340px;background:var(--card-alt);border:1px solid var(--border);
+  border-radius:18px;padding:20px 18px;display:flex;flex-direction:column;gap:14px}
+.dlg .head{display:flex;align-items:center;gap:9px;font:700 18px/1.3 var(--serif)}
+/* ⛔ 高度寫死 —— 兩粒掣唔准郁。同真 app 一樣 186px。 */
+.dlg .body{height:186px;overflow-y:auto;display:flex;flex-direction:column;gap:5px}
+.dlg .nm{font:800 20px/1.3 inherit}
+.dlg .dt{font:800 20px/1.3 inherit}
+.dlg .truth{margin:10px 0 0;font-size:14px;line-height:1.55;color:var(--text2)}
+.dlg .truth b{font-weight:800;color:var(--text)}
+.acts{display:flex;gap:10px;flex:none}
+.acts button{flex:1 1 0;border-radius:12px;padding:13px 10px;font:700 15px/1 inherit;
+  border:1px solid transparent;cursor:pointer}
+.acts .go{background:var(--danger);border-color:var(--danger);color:#fff}
+.acts .keep{background:transparent;border-color:var(--border);color:var(--text)}
+.acts button:disabled{opacity:.55;cursor:default}
+
+/* ── 掣：三個做法 ＋ 三個情況 ───────────────────── */
+.pick{margin-top:18px;display:flex;flex-direction:column;gap:8px}
+.pick .lbl{font-size:12px;color:var(--text3)}
+.row{display:flex;gap:6px;flex-wrap:wrap}
+.chip{background:var(--card-alt);border:1px solid var(--border);color:var(--text2);
+  border-radius:999px;padding:8px 13px;font:600 13px/1 inherit;cursor:pointer}
+.chip[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:#16201a}
+.say{margin:10px 2px 0;font-size:12.5px;line-height:1.6;color:var(--text3)}
+.say em{color:var(--accent);font-style:normal;font-weight:700}
+
+/* ── 解釋：全部收埋，喺最底 ─────────────────────── */
+.why{margin-top:26px;border-top:1px solid var(--border);padding-top:10px}
+.why summary{font-size:13px;color:var(--text3);cursor:pointer;padding:6px 0}
+.why div{font-size:13px;line-height:1.7;color:var(--text2)}
+.why h4{margin:16px 0 4px;font-size:13px;color:var(--text)}
+.why code{background:var(--card-alt);padding:1px 5px;border-radius:5px;font-size:12px}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div>樣板，唔會真係存嘢</div>
+  <div><b>撳下面粒紅色「刪除」試一試</b></div>
+</div>
+
+<!-- ⛔⛔ 要驗嘅嘢（張卡）一定要喺第一屏。解釋全部喺最底、收埋。 -->
+<div id="zone"></div>
+
+<div class="pick">
+  <div class="lbl">三個做法，撳嚟換</div>
+  <div class="row" id="ways"></div>
+  <div class="lbl" style="margin-top:6px">三個情況，撳嚟開關</div>
+  <div class="row" id="flags"></div>
+</div>
+
+<p class="say" id="say">撳「刪除」睇吓每個做法點樣行。</p>
+
+<details class="why">
+  <summary>點解要出呢個樣板（撳開睇）</summary>
+  <div>
+    <h4>要解決咩</h4>
+    而家全個 app 有<b>兩條刪工程嘅路</b>：
+    <br>①<b>工程清單推開張卡</b> → 彈窗，已經有「連帶消失：N 棵樹、N 張相」，
+    而且<code>數唔到就撳唔落</code>。
+    <br>②<b>工程基本資料最底嗰條 danger zone</b>（就係呢度）→ 畫面內兩段式，
+    <b>冇數、冇攔</b>。
+
+    <h4>點解今日先至係問題</h4>
+    Jason 2026-09-14 拍板：刪工程 ＝ <b>啲相真係清走</b>（R2 刪、Drive 掉垃圾桶）。
+    嗰日之前兩條路都淨係寫 <code>deleted_at</code>，所以冇數都唔會咬親人。
+    <b>P8 步 3 落地嗰日就會咬</b>：由呢條路刪一單，會靜靜雞清走啲相，
+    而畫面由頭到尾冇講過有幾多。
+
+    <h4>點解要出樣板，⛔ 唔直接改</h4>
+    CLAUDE.md §2.11：<b>任何畫面改動，寫真 code 之前要有一個撳得到嘅樣板</b>，
+    Jason 喺手機撳過拍板先開工。呢度係加成行字落一個現有版面 —— 一樣算。
+
+    <h4>三個做法嘅分別</h4>
+    <b>甲</b>：兩段式照舊，撳完第一下之後先出個數。<br>
+    <b>乙</b>：撳「刪除」直接出同推卡一模一樣嗰個彈窗 —— 全 app 一套確認。<br>
+    <b>丙</b>：個數長期擺喺度，未撳之前就見到。
+
+    <h4>最底嗰句而家係假嘅</h4>
+    今日寫住「封存同刪除都唔會喺資料庫真刪任何嘢」。
+    <b>P8 步 3 之後呢句就係假</b>（相真係清走）—— 所以三個做法都要換咗佢，
+    撳「P8 步 3 之後」個掣就見到換成點。
+
+    <h4>⛔ 呢個樣板驗唔到啲乜</h4>
+    佢驗「順唔順手、夠唔夠清楚」。<b>⛔ 佢驗唔到</b>「個數啱唔啱」、
+    「相係咪真係清咗」—— 嗰啲要兩邊對數（Drive <code>files.list</code> 對 DB <code>select</code>）。
+  </div>
+</details>
+
+<script>
+/* ⛔ 樣板，冇任何真寫入。真資料樣本：真工程名、真日期。 */
+var R = { nm:'天水圍天恆邨恆貴樓', dt:'2026-08-28', trees:2, photos:4, unsent:3 };
+
+var way = 'a';                                   // a 甲 ／ b 乙 ／ c 丙
+var F = { blind:false, unsent:false, after:false }; // 三個情況
+var stage = 0;                                   // 0 未撳 ／ 1 第二段 ／ 2 彈窗
+var busy = false;
+
+var WAYS = [
+  ['a','甲：兩段式，第二段先出個數'],
+  ['b','乙：直接出彈窗（同推卡一樣）'],
+  ['c','丙：個數長期喺度'],
+];
+var FLAGS = [
+  ['blind','數唔到'],
+  ['unsent','有 3 張只剩部機'],
+  ['after','P8 步 3 之後'],
+];
+
+function say(t){ document.getElementById('say').innerHTML = t; }
+
+function lossNode(cls){
+  if (F.blind) {
+    var w = document.createElement('p');
+    w.className = 'nb warn';
+    w.textContent = '而家數唔到呢一單有幾多樹同相，⛔ 唔敢刪。請check返個網絡再試；一直都係咁就截圖，用 WhatsApp 搵 Jason。';
+    return w;
+  }
+  var p = document.createElement('p');
+  p.className = cls;
+  p.innerHTML = '連帶消失：<b>' + R.trees + '</b> 棵樹、<b>' + R.photos + '</b> 張相';
+  return p;
+}
+
+function unsentNode(){
+  if (!F.unsent) return null;
+  var p = document.createElement('p');
+  p.className = 'nb warn';
+  p.innerHTML = '⚠️ 呢單仲有 <b>' + R.unsent + '</b> 張相只剩部機呢一份（未傳上雲端）。清咗就真正永遠冇咗。';
+  return p;
+}
+
+/* 最底嗰句。⛔ P8 步 3 之後今日嗰句就係假嘅。 */
+function footNote(){
+  var p = document.createElement('p');
+  p.className = 'note';
+  p.textContent = F.after
+    ? '封存只係喺清單收埋。刪除會保留工程紀錄，但相會清走 —— 相冇咗就攞唔返。'
+    : '封存同刪除都唔會喺資料庫真刪任何嘢：封存只係喺清單收埋，刪除只係記低刪除時間。';
+  return p;
+}
+
+function mk(cls, text, on){
+  var b = document.createElement('button');
+  b.className = 'btn ' + cls; b.textContent = text; b.disabled = busy;
+  if (on) b.onclick = on; else b.disabled = true;
+  return b;
+}
+
+function render(){
+  var z = document.getElementById('zone');
+  z.className = 'zone'; z.innerHTML = '';
+
+  z.appendChild(mk('sec', busy === 'ar' ? '處理中…' : '封存', function(){ flash('ar','封存咗。⛔ 樣板冇真係存嘢。'); }));
+
+  /* 丙：個數**長期**喺度 —— ⭐ 撳前撳後同一個位、同一個樣，⛔ 唔准郁。
+     （郁咗就係 2026-08-11 tree app 嗰個「內容變咗、掣換咗位」嘅細版。） */
+  if (way === 'c') z.appendChild(lossNode('nb loss'));
+
+  if (stage === 1) {
+    var u = unsentNode(); if (u) z.appendChild(u);
+    if (way === 'a') z.appendChild(lossNode('nb loss'));
+
+    var go = mk('dan', busy === 'del' ? '處理中…' : '再撳一次確認刪除',
+      F.blind ? null : function(){ flash('del','刪咗。⛔ 樣板冇真係存嘢。'); stage = 0; });
+    z.appendChild(go);
+    z.appendChild(mk('sec','取消', function(){ stage = 0; render(); say('取消咗。⭐ 乜都冇改。'); }));
+  } else {
+    z.appendChild(mk('dan','刪除', function(){
+      if (way === 'b') { stage = 2; render(); say('出咗彈窗 —— <em>同工程清單推開張卡撳垃圾桶嗰個一模一樣</em>。'); return }
+      stage = 1; render();
+      say(F.blind
+        ? '⛔ 數唔到 ⇒ 粒「再撳一次確認刪除」<em>撳唔落</em>，而且出咗一句中文原因。'
+        : '出咗第二段。<em>而家先見到會冇幾多嘢。</em>');
+    }));
+  }
+
+  z.appendChild(footNote());
+
+  if (stage === 2) z.appendChild(dialog());
+  paintChips();
+}
+
+/* 乙：同真 app 一模一樣嘅彈窗 */
+function dialog(){
+  var scrim = document.createElement('div'); scrim.className = 'scrim';
+  var d = document.createElement('div'); d.className = 'dlg';
+
+  var h = document.createElement('div'); h.className = 'head';
+  h.innerHTML = '<span>🗑</span>' + (F.after ? '永久刪除？' : '刪除工程？');
+  d.appendChild(h);
+
+  var b = document.createElement('div'); b.className = 'body';
+  var nm = document.createElement('div'); nm.className='nm'; nm.textContent = R.nm; b.appendChild(nm);
+  var dt = document.createElement('div'); dt.className='dt'; dt.textContent = R.dt; b.appendChild(dt);
+  b.appendChild(lossNode('lossline'));
+  var t = document.createElement('div'); t.className='truth';
+  t.innerHTML = F.after ? '此操作<b>無法還原</b>。' : '刪除係收埋，⛔ 唔係真刪 —— 後台<b>仲攞得返</b>。';
+  b.appendChild(t);
+  var u = unsentNode(); if (u) { u.style.marginTop = '8px'; b.appendChild(u); }
+  d.appendChild(b);
+
+  var acts = document.createElement('div'); acts.className = 'acts';
+  var go = document.createElement('button'); go.className='go';
+  go.textContent = busy === 'del' ? '處理中…' : (F.after ? '永久刪除' : '刪除');
+  go.disabled = busy || F.blind;
+  go.onclick = function(){ flash('del','刪咗。⛔ 樣板冇真係存嘢。'); stage = 0; };
+  var no = document.createElement('button'); no.className='keep'; no.textContent='取消';
+  no.disabled = !!busy;
+  no.onclick = function(){ stage = 0; render(); say('取消咗。⭐ 乜都冇改。'); };
+  acts.appendChild(go); acts.appendChild(no);
+  d.appendChild(acts);
+
+  scrim.appendChild(d);
+  return scrim;
+}
+
+/* ⭐ 連代價一齊擺出嚟：真係等一等，⛔ 唔會即刻變綠。 */
+function flash(which, done){
+  busy = which; render(); say('等緊伺服器⋯');
+  setTimeout(function(){ busy = false; render(); say(done); }, 900);
+}
+
+function paintChips(){
+  var w = document.getElementById('ways'); w.innerHTML = '';
+  WAYS.forEach(function(x){
+    var b = document.createElement('button');
+    b.className = 'chip'; b.textContent = x[1];
+    b.setAttribute('aria-pressed', way === x[0] ? 'true' : 'false');
+    b.onclick = function(){ way = x[0]; stage = 0; render(); say('換咗做「' + x[1] + '」。撳「刪除」試吓。'); };
+    w.appendChild(b);
+  });
+  var f = document.getElementById('flags'); f.innerHTML = '';
+  FLAGS.forEach(function(x){
+    var b = document.createElement('button');
+    b.className = 'chip'; b.textContent = x[1];
+    b.setAttribute('aria-pressed', F[x[0]] ? 'true' : 'false');
+    b.onclick = function(){ F[x[0]] = !F[x[0]]; render();
+      say(x[0] === 'blind'
+        ? (F.blind ? '扮咗攞唔到樹／相。⛔ 粒刪除應該撳唔落。' : '攞返到數。')
+        : x[0] === 'after'
+          ? (F.after ? 'P8 步 3 之後：相真係清走 ⇒ 最底嗰句同彈窗嗰句都換咗。' : '返返今日：相仲喺度，淨係寫 deleted_at。')
+          : (F.unsent ? '呢單有 3 張相只剩部機一份。' : '冇未傳嘅相。'));
+    };
+    f.appendChild(b);
+  });
+}
+
+render();
+</script>
+</body>
+</html>
