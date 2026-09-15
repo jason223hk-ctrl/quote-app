@@ -16,6 +16,57 @@
   box-sizing: border-box;
 }
 
+/* ══════════════════════════════════════════════════════════════════
+   撳掣⛔ 唔要藍色底
+
+   ⭐⭐ **呢個決定 2026-08-29 已經拍咗板，但一直冇入過真 code。**
+   原型 `docs/原型-stage57-autoupload.html` 第 1839 行逐字寫住：
+
+     ══ 2026-08-29：撳掣唔要藍色底（Jason）══
+     ⚠️ 嗰浸藍色唔係我哋畫嘅，係手機瀏覽器嘅 tap highlight ——
+        Android Chrome／WebView 預設會喺你手指掂到嘅元素上面鋪一浸藍。
+        電腦版睇唔到，所以之前一直冇發現。
+     ⭐ -webkit-tap-highlight-color:transparent 就熄咗佢。
+     ⛔ 寫喺 * 而唔係淨係 button —— 卡、行、chip、標籤好多都係撳得嘅 div，
+        淨係處理 button 會漏一大堆。
+     ⛔ 冇郁 :focus 嘅外框 —— 用鍵盤／輔助工具嗰陣仲要見到自己撳緊邊個。
+
+   ⚠️⚠️ Jason 2026-09-15 要再講一次：「撳完任何制唔要有藍色底色。
+      做之前既原型已經講過。」⇒ 呢個係**第二次**。
+      同「封存 2026-08-24 拍咗板、留咗成個月」係一模一樣嘅病 ——
+      見 `docs/開發紀錄.md` 附錄 B「原型拍咗板 ≠ 入咗真 code」。
+
+   ⛔⛔ **「唔要藍底」≠「唔要 focus 指示」** —— 上面原型自己都寫住嗰句。
+      ⚠️ 一劍 `outline: none` 殺晒，`deleteDialog.ts` 嗰三道保險之一
+      （「一開就 focus 咗取消」）就靜靜雞冇咗，⭐ 而 2026-08-11 tree app
+      嗰次真實誤刪，成因就係「佢以為自己撳緊另一粒」。
+      ⇒ 下面：**手指撳 ⛔ 冇任何嘢；鍵盤 Tab 仲係見到，但用返我哋個綠。**
+   ══════════════════════════════════════════════════════════════════ */
+*,
+*::before,
+*::after {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* 選中文字嗰浸都係瀏覽器預設嘅藍 —— ⚠️ 現場長撳一個工程名就會見到。
+   ⭐ 換成我哋個橄欖綠系，⛔ 唔係另揀一隻色。 */
+::selection {
+  background: rgba(152, 165, 107, 0.38);
+  color: var(--q-text-primary);
+}
+
+/* ⛔⛔ **⛔ 全個 repo 唔准寫 `outline: none`。**
+   ⭐ 鍵盤（`:focus-visible`）仲係要見到 —— 淨係換走瀏覽器嗰個預設環
+   （實測：Chromium 出 `rgb(16, 16, 16) auto 1px`，⚠️ 第啲平台會係藍）。
+   ⚠️ `:focus-visible` ⛔ 唔會喺手指撳／滑鼠撳嗰陣中（實測過：撳完粒掣
+   `:focus` true 但 `:focus-visible` false）—— 所以呢條規矩⛔ 唔會令現場見到框。
+   ⚠️ 輸入格（`.field__input:focus`）特登係連手指撳都出綠框，
+   嗰個係 2026-08-30 拍咗板嘅嘢（剩返邊框做提示只差 1.28:1），⛔ 唔准拆。 */
+:focus-visible {
+  outline: 2px solid var(--q-accent);
+  outline-offset: 2px;
+}
+
 html,
 body,
 #root {
