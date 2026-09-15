@@ -141,9 +141,11 @@ export default function RecordCard({
         : {})}
     >
       <div className="proj-top">
-        <div className="proj-title">{record.name}</div>
+        <div className="proj-title" data-testid="proj-title">
+          {record.name}
+        </div>
 
-        <div className="proj-side">
+        <div className="proj-side" data-testid="proj-side">
           <span className={`status status--${record.status}`}>
             <span className="status__dot" aria-hidden="true" />
             {statusLabel(record.status)}
