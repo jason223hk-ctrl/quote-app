@@ -2351,6 +2351,33 @@ h3 {
   height: 20px;
 }
 
+/* ⭐⭐ 工程詳情頁右上角粒垃圾桶（Jason 2026-09-15）。
+   ⛔⛔ **44×44 —— 撳得到嘅面積，⛔ 唔准縮細。**
+   ⚠️ 旁邊粒返回掣係 34×34（`.bheader--compact .chip-btn`）——
+      嗰個係舊嘢，⛔ 呢個 PR 冇郁：郁佢會推歪每一版嘅 header，
+      而 `ui:check` 嗰 90 項對數就係量緊嗰啲位。已知，⛔ 唔係手民之誤。
+   ⚠️ `flex: none` ＋ 固定闊度 ⇒ 左邊嗰個長工程名**縮得到但推唔郁佢**，
+      連埋 `.head-name` 本身嘅 `text-overflow: ellipsis`，兩件嘢就唔會疊埋。
+      ⭐ 呢一點由 `ui:check` 個 `hubname` 畫面量住，⛔ 唔靠人記得。 */
+.head-trash {
+  width: 44px;
+  height: 44px;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--q-danger-bg);
+  border: 1px solid var(--q-danger);
+  color: var(--q-danger);
+  cursor: pointer;
+}
+
+.head-trash .ico {
+  width: 20px;
+  height: 20px;
+}
+
 /* 冇波浪就唔使留波浪嗰段位。
    ⚠️ 要夠 specificity 蓋過 `.float-cards-scroll.scroll-body`（兩個 class），
       唔係嘅話個 184px 波浪內距會照計。

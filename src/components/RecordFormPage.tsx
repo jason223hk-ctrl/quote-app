@@ -9,8 +9,6 @@ import {
   reverseGeocode,
   type ReverseResult,
 } from '../lib/geo'
-import { deleteUnsyncedWarning, unsyncedInRecord } from '../lib/orphanPhotos'
-import { localStorageAvailable, photoStore, subscribePhotoStore } from '../lib/photoStore'
 import ErrorNotice from '../ui/ErrorNotice'
 import { BackChip, BotanicalHeader, HeaderTitle, ScrollBody } from '../ui/shell'
 import SiteFormFields from './SiteFormFields'
@@ -39,12 +37,11 @@ type Props = {
   /** 現場嗰堆格由呢個 API 讀寫。⛔ 同工程本身係兩張表。 */
   siteFormApi: SiteFormApi
   onSave: (input: RecordInput) => Promise<void>
-  onArchiveToggle: () => Promise<void>
-  onDelete: () => Promise<void>
   onBack: () => void
 }
 
-type Busy = 'save' | 'archive' | 'delete' | null
+/** ⛔ 以前仲有 `'archive' | 'delete'` —— 連埋 danger zone 一齊拆咗。 */
+type Busy = 'save' | null
 
 /**
  * 工程資料。版面照原型 stage57 `#screenSite`：
@@ -59,13 +56,14 @@ type Busy = 'save' | 'archive' | 'delete' | null
  *    建立咗之後入返嚟就見到。⛔ 唔係漏咗。
  *
  * ⛔ 客戶／聯絡人／電話搬咗去「客戶資料」（原型分開兩版），呢度冇咗。
+ *
+ * ⛔⛔ **⛔ 呢版冇封存、亦都冇刪除**（2026-09-15 拆走）。
+ *    刪除喺工程清單推張卡、或者工程詳情頁右上角粒垃圾桶。見下面最底嗰段註解。
  */
 export default function RecordFormPage({
   record,
   siteFormApi,
   onSave,
-  onArchiveToggle,
-  onDelete,
   onBack,
 }: Props) {
   const [input, setInput] = useState<RecordInput>(() =>
@@ -74,41 +72,7 @@ export default function RecordFormPage({
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({})
   const [busy, setBusy] = useState<Busy>(null)
   const [error, setError] = useState<string | null>(null)
-  const [confirmingDelete, setConfirmingDelete] = useState(false)
 
-  /**
-   * 呢一單仲有幾多張相未傳上雲端。**用嚟喺刪除確認嗰陣多講一行。**
-   *
-   * ⭐⭐ Jason 2026-09-14：「呢個比清理重要」。⚠️ 而佢係啱嘅 ——
-   *    當日嗰個死結（3 張相永遠傳唔到）成因唔係「冇得清」，
-   *    係**刪嘅時候冇人講過**。有咗呢行，佢當時就會停一停。
-   *
-   * ⛔ 呢行**唔會攔住你刪**，佢淨係講一句。話事嘅仍然係人。
-   * ⛔ 讀唔到部機就當零 ⇒ 唔出 —— ⚠️ 唔准出一個估出嚟嘅數嚇人。
-   */
-  const [unsynced, setUnsynced] = useState(0)
-  useEffect(() => {
-    if (!record || !localStorageAvailable()) return
-    let live = true
-    const recount = () => {
-      void photoStore
-        .listByRecord(record.id)
-        .then((items) => {
-          if (live) setUnsynced(unsyncedInRecord(items, record.id))
-        })
-        .catch((caught: unknown) => {
-          console.error('[quote-app] unsynced photo count failed:', caught)
-          if (live) setUnsynced(0)
-        })
-    }
-    recount()
-    // ⛔ 唔 poll —— 跟返 `usePendingCount` 同一套：有人寫入先重數。
-    const unsubscribe = subscribePhotoStore(recount)
-    return () => {
-      live = false
-      unsubscribe()
-    }
-  }, [record])
 
   const [site, setSite] = useState<SiteFormInput>(EMPTY_SITE_FORM_INPUT)
   const [siteErrors, setSiteErrors] = useState<SiteFormErrors>({})
@@ -400,65 +364,18 @@ export default function RecordFormPage({
         </button>
       </form>
 
-      {record && (
-        <div className="card danger-zone">
-          <button
-            className="button button--secondary"
-            type="button"
-            disabled={busy !== null}
-            onClick={() => run('archive', onArchiveToggle)}
-          >
-            {busy === 'archive' ? '處理中…' : record.archived ? '取消封存' : '封存'}
-          </button>
+      {/* ⛔⛔ **呢度以前有一張 `.card danger-zone`（封存掣 ＋ 兩段式刪除 ＋ 一句註解）。
+          2026-09-15 整張拆走，⛔ 唔准加返。**
 
-          {/* 兩段式確認做喺畫面入面，唔用瀏覽器彈窗（手機易撳錯，亦驗唔到）。 */}
-          {confirmingDelete ? (
-            <>
-              {/* ⭐ 母單一刪，未傳上雲端嗰啲相就**永遠冇出路** —— 一定要喺
-                  撳落去之前講。⛔ N 係零就唔出。 */}
-              {deleteUnsyncedWarning(unsynced) !== null && (
-                <p className="note-box note-box--warn" data-testid="delete-unsynced-warning">
-                  {deleteUnsyncedWarning(unsynced)}
-                </p>
-              )}
-              <button
-                className="button button--danger"
-                type="button"
-                disabled={busy !== null}
-                onClick={() =>
-                  run('delete', async () => {
-                    await onDelete()
-                    setConfirmingDelete(false)
-                  })
-                }
-              >
-                {busy === 'delete' ? '處理中…' : '再撳一次確認刪除'}
-              </button>
-              <button
-                className="button button--secondary"
-                type="button"
-                disabled={busy !== null}
-                onClick={() => setConfirmingDelete(false)}
-              >
-                取消
-              </button>
-            </>
-          ) : (
-            <button
-              className="button button--danger"
-              type="button"
-              disabled={busy !== null}
-              onClick={() => setConfirmingDelete(true)}
-            >
-              刪除
-            </button>
-          )}
-
-          <p className="danger-zone__note">
-            封存同刪除都唔會喺資料庫真刪任何嘢：封存只係喺清單收埋，刪除只係記低刪除時間。
-          </p>
-        </div>
-      )}
+          · **封存**：Jason 2026-08-24 已經拍板「無左封存呢樣野」
+            （`docs/P3f-全app版面-實作計劃.md` §7 第 2 項），三個報價狀態做到同樣效果。
+            ⚠️ 當時**得個講字，粒掣一直留咗喺度** —— 今次先至真係做完。
+          · **刪除**：搬咗去兩個入口 —— 工程清單**向左推張卡**，同埋
+            工程詳情頁**右上角粒垃圾桶**。⛔ 兩個都行同一個 `DeleteRecordDialog`
+            （同一套字、同一個「連帶消失：N 棵樹、N 張相」、同一條「數唔到就撳唔落」）。
+            ⛔ 唔准喺呢度再寫一套。
+          · **嗰句註解**（「封存同刪除都唔會喺資料庫真刪任何嘢」）跟住拆走 ——
+            ⚠️ 佢今日都已經開始唔啱（P8 步 3 之後相係真清走嘅）。 */}
       </ScrollBody>
     </>
   )

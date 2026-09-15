@@ -55,7 +55,7 @@ export default function RecordListPage({
   }
 
   const filtersTouched =
-    filters.query !== '' || filters.dateFrom !== '' || filters.dateTo !== '' || filters.showArchived
+    filters.query !== '' || filters.dateFrom !== '' || filters.dateTo !== ''
 
   return (
     <>
@@ -175,16 +175,8 @@ export default function RecordListPage({
               />
             </div>
 
-            <label>封存</label>
-            <label className="checkbox">
-              <input
-                type="checkbox"
-                data-testid="show-archived"
-                checked={filters.showArchived}
-                onChange={(event) => patchFilters({ showArchived: event.target.checked })}
-              />
-              <span>顯示封存</span>
-            </label>
+            {/* ⛔ 呢度以前有個「顯示封存」勾。2026-09-15 拆走，⛔ 唔准加返 ——
+                見 `src/lib/filters.ts` 檔頭（Jason 2026-08-24 已拍板拆走封存）。 */}
 
             <div className="popover-actions">
               <button className="ghost" onClick={() => setFilters(EMPTY_FILTERS)}>

@@ -101,7 +101,16 @@ export type RecordsApi = {
   list: () => Promise<QuoteRecord[]>
   create: (input: RecordInput) => Promise<QuoteRecord>
   update: (id: string, input: RecordInput) => Promise<QuoteRecord>
-  setArchived: (id: string, archived: boolean) => Promise<QuoteRecord>
+  /**
+   * ⛔⛔ **呢度以前有個 `setArchived`。2026-09-15 拆走咗 —— ⛔ 唔准加返。**
+   *
+   * **Jason 2026-08-24 拍板「無左封存呢樣野」**
+   * （`docs/P3f-全app版面-實作計劃.md` §7 第 2 項）：⛔ `archived` 欄唔再有任何入口、
+   * ⛔ 唔准再喺畫面提，⚠️ 而 DB 個欄**原封不動**（零真刪，⛔ 冇 migration）。
+   *
+   * ⭐ 拆咗呢個 method，前端就**寫唔出**一句改 `archived` 嘅 code ——
+   *    ⛔ 靠「記得唔好用」係守唔住嘅（呢粒掣拍咗板之後仲留咗成個月）。
+   */
   /** 加成％。⛔ 只有辦公室改得（RLS 把關），畫面嗰層淨係決定畀唔畀你㩒。 */
   setMarkup: (id: string, pct: number | null) => Promise<QuoteRecord>
   /**
@@ -280,7 +289,9 @@ export type RefusalFacts = {
  */
 export function refusalReason(facts: RefusalFacts, userId: string): string {
   if (facts.locked) {
-    return '呢一單已經鎖定咗。鎖定咗就改唔到、封存唔到、亦都刪唔到。要解鎖，請截圖，用 WhatsApp 搵 Jason。'
+    // ⛔ 呢句以前寫住「改唔到、封存唔到、亦都刪唔到」。2026-09-15 拆走「封存」——
+    //    ⚠️ 封存已經冇咗，⛔ 唔准喺畫面再提（P3f §7 第 2 項）。
+    return '呢一單已經鎖定咗。鎖定咗就改唔到、亦都刪唔到。要解鎖，請截圖，用 WhatsApp 搵 Jason。'
   }
   if (facts.created_by !== userId) {
     return '呢一單唔係你開嘅，你只可以改同刪自己開嗰啲單。要處理呢一單，請截圖，用 WhatsApp 搵 Jason。'
@@ -399,10 +410,6 @@ export function createRecordsApi(client: SupabaseClient, userId: string): Record
 
     update(id, input) {
       return writeBack(patch(id, inputToRow(input)))
-    },
-
-    setArchived(id, archived) {
-      return writeBack(patch(id, { archived }))
     },
 
     setMarkup(id, pct) {

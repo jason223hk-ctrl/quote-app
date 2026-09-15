@@ -262,6 +262,8 @@ export function RecordsScreen({
               await reload()
             }}
             canSetWon={office}
+            // ⭐ 同工程清單推開張卡**同一個 object** —— 同一套確認、同一個數。
+            swipeDelete={swipeDelete}
             onStatusChange={async (to, snapshot) => {
               // ⛔⛔ 要影快照而攞唔到單價表 ⇒ **唔准照轉**。
               //    照轉嘅話 `price_snapshot_at` 永遠係 null：
@@ -292,39 +294,6 @@ export function RecordsScreen({
               afterWrite(
                 () => (record ? api.records.update(record.id, input) : api.records.create(input)),
                 (saved) => ({ name: 'record', recordId: saved.id }),
-              )
-            }
-            /**
-             * ⭐ 封存同刪除都經 `withRefusalReason`：伺服器回「0 行」嗰陣，
-             *    用部機本身已經有嘅 `locked` / `created_by` 講返**邊個原因**，
-             *    ⛔ 唔再推一句「可能 A，或者 B」俾現場同事自己估。
-             *
-             * ⛔⛔ 呢度**淨係解釋，⛔ 唔係判斷**：粒掣照撳得、請求照發出去。
-             *    ⚠️ admin 改得到人哋嘅單，而部機根本唔知邊個係 admin ——
-             *    部機自己攔 ⇒ 會鎖死一個本來做得到嘅動作。話事嘅永遠係 server。
-             */
-            onArchiveToggle={() =>
-              afterWrite(
-                () => {
-                  if (!record) throw new Error('搵唔到呢一單，請返清單再試。')
-                  return withRefusalReason(
-                    api.records.setArchived(record.id, !record.archived),
-                    () => refusalReason(record, userId),
-                  )
-                },
-                () => ({ name: 'records' }),
-              )
-            }
-            onDelete={() =>
-              afterWrite(
-                () => {
-                  if (!record) throw new Error('搵唔到呢一單，請返清單再試。')
-                  return withRefusalReason(
-                    api.records.softDelete(record.id),
-                    () => refusalReason(record, userId),
-                  )
-                },
-                () => ({ name: 'records' }),
               )
             }
             onBack={() =>

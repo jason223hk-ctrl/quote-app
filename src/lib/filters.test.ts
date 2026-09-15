@@ -50,17 +50,21 @@ const archived = makeRecord({ id: 'archived', name: '舊單', archived: true })
 const deleted = makeRecord({ id: 'deleted', name: '已刪單', deleted_at: '2026-08-11T00:00:00Z' })
 
 describe('filterRecords', () => {
-  it('預設隱藏 archived 同已軟刪除嘅單', () => {
+  /**
+   * ⛔⛔ **2026-09-15 反轉咗：封存嘅單而家會出返。**
+   * ⚠️ 以前呢條係「預設隱藏 archived」。Jason 2026-08-24 拍板拆走封存，
+   *    ⭐ 拆個勾就一定要連「隱埋」一齊拆 —— 唔係啲舊單就永遠消失而且冇出口
+   *    （附錄 B「一條規矩啱、但冇出口」）。見 `src/lib/filters.ts` 檔頭。
+   */
+  it('⭐ 封存過嘅單照出，⛔ 淨係軟刪除嘅永遠唔出', () => {
     const result = filterRecords([active, archived, deleted], EMPTY_FILTERS)
-    expect(result.map((r) => r.id)).toEqual(['active'])
+    expect(result.map((r) => r.id)).toEqual(['active', 'archived'])
   })
 
-  it('showArchived 開得返封存嘅單，但軟刪除嘅永遠唔出', () => {
-    const result = filterRecords([active, archived, deleted], {
-      ...EMPTY_FILTERS,
-      showArchived: true,
-    })
-    expect(result.map((r) => r.id)).toEqual(['active', 'archived'])
+  it('⛔ `RecordFilters` 入面⛔ 冇 `showArchived` —— 拆走咗，⛔ 唔准加返', () => {
+    // ⚠️ 呢條守住嘅唔係行為，係「呢個係一個決定」。有人日後加返，
+    //    一定要改埋呢度，⇒ 佢就會睇到 `filters.ts` 檔頭嗰段解釋。
+    expect(Object.keys(EMPTY_FILTERS).sort()).toEqual(['dateFrom', 'dateTo', 'query'])
   })
 
   it('搜尋覆蓋工程名稱、客戶、地址、聯絡人、電話', () => {
@@ -82,10 +86,10 @@ describe('filterRecords', () => {
     expect(result.map((r) => r.id)).toEqual(['en'])
   })
 
-  it('搜尋唔會撈返封存單（兩個條件要同時成立）', () => {
+  it('⭐ 搜尋而家撈得返以前封存嗰啲單', () => {
     const archivedMatch = makeRecord({ id: 'archived-match', name: '荃灣舊單', archived: true })
     const result = filterRecords([active, archivedMatch], { ...EMPTY_FILTERS, query: '荃灣' })
-    expect(result.map((r) => r.id)).toEqual(['active'])
+    expect(result.map((r) => r.id)).toEqual(['active', 'archived-match'])
   })
 
   it('日期篩選包含頭尾兩日', () => {

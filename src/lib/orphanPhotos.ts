@@ -240,26 +240,15 @@ export function strandedConfirm(count: number): string {
 }
 
 /**
- * 呢一單仲有幾多張未傳上雲端。**刪工程之前要講嘅嗰個 N。**
+ * ⛔⛔ **呢度以前有 `unsyncedInRecord()` 同 `deleteUnsyncedWarning()`。
+ *    2026-09-15 拆走咗 —— ⛔ 唔准加返。**
  *
- * ⚠️ 呢度⛔ 唔理母單刪咗未 —— 問呢句嗰陣，母單**仲喺度**（就快刪）。
+ * ⚠️ 佢哋係「刪工程之前講一句」嗰兩個，而嗰句嘢**冇取消，反而更重要咗**：
+ *    ⭐ 而家由 `src/lib/purgeCounts.ts` 嘅 `onlyOnPhoneCount()` /
+ *    `onlyOnPhoneWarning()` 做，措辭亦跟返 P8（「只剩部機呢一份⋯清咗就真正永遠冇咗」）。
+ *
+ * ⛔ 點解要拆：danger zone 拆走之後，呢兩個**一個叫佢嘅人都冇**，
+ *    但佢哋同 `onlyOnPhone*` 講緊**同一件事**。
+ *    ⚠️ 留住 ＝ 兩份文案，而其中一份冇人睇住 —— ⭐ `stuckAdvice()` 中過呢個病。
  */
-export function unsyncedInRecord(items: PendingPhoto[], recordId: string): number {
-  return items.filter((item) => item.recordId === recordId && !pendingHasCloudCopy(item)).length
-}
 
-/**
- * 刪工程確認嗰陣多出嗰行字。**N 係零就回 `null`（⛔ 唔出）。**
- *
- * ⭐⭐ **呢行係四項入面最重要嗰一項**（Jason 2026-09-14：「呢個比清理重要」）。
- *
- * ⚠️ 2026-09-14 嗰個死結，成因唔係「冇得清」，係**刪嘅時候冇人講過**：
- *    Jason 刪工程嗰陣，完全唔知嗰單仲有相未傳上雲端。
- *    ⭐ 有咗呢行，佢當時就會停一停 —— 而個死結**根本唔會出現**。
- *
- * ⛔ 呢行**唔會攔住你刪** —— 佢淨係講一句。話事嘅仍然係人。
- */
-export function deleteUnsyncedWarning(count: number): string | null {
-  if (count <= 0) return null
-  return `⚠️ 呢單仲有 ${count} 張相未傳上雲端，刪咗佢哋就冇出路。`
-}

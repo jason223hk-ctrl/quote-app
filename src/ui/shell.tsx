@@ -138,7 +138,10 @@ export function HeaderTitle({
     <div className="head-row">
       {back}
       <div className="head-title">
-        <div className="head-name">{name}</div>
+        {/* ⭐ `data-testid` 係俾 `ui:check` 量「有冇同右上角粒掣疊埋」用，⛔ 唔改樣式。 */}
+        <div className="head-name" data-testid="head-name">
+          {name}
+        </div>
         {sub && <div className="head-sub">{sub}</div>}
       </div>
     </div>
