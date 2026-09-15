@@ -14,6 +14,8 @@ type Props = {
   nav: Nav
   /** 向下拉刷新。⛔ 唔傳就冇下拉（同 `ScrollBody` 同一套規矩）。 */
   onRefresh?: () => Promise<unknown>
+  /** 向左推刪除。⛔ 唔傳就冇推（見 `RecordCard`）。 */
+  onDeleteRecord?: (record: QuoteRecord) => Promise<void>
 }
 
 /**
@@ -26,7 +28,7 @@ type Props = {
  * ⚠️ 原型嗰句「你好，Jason」同「今日有 N 個工程待報價」喺 stage57 度係
  *    `display:none` —— 即係最後決定咗唔出。⛔ 所以呢度都唔做，唔係漏咗。
  */
-export default function HomeScreen({ records, loading, nav, onRefresh }: Props) {
+export default function HomeScreen({ records, loading, nav, onRefresh, onDeleteRecord }: Props) {
   /**
    * ⚠️⚠️ 首頁**唔用 `ScrollBody`**，⛔ 唔係懶。
    *
@@ -108,6 +110,7 @@ export default function HomeScreen({ records, loading, nav, onRefresh }: Props) 
               <RecordCard
                 record={record}
                 onOpen={() => nav.go({ name: 'record', recordId: record.id })}
+                onDelete={onDeleteRecord}
               />
             </li>
           ))}

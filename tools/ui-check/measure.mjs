@@ -35,7 +35,12 @@ const PROTO_CANDIDATES = [
 
 const args = process.argv.slice(2)
 const PROTO = args.find((a) => a.endsWith('.html')) ?? PROTO_CANDIDATES.find((f) => fs.existsSync(f))
-const ONLY = args.find((a) => !a.endsWith('.html')) ?? null
+const ONLY = args.find((a) => !a.endsWith('.html') && !a.startsWith('--')) ?? null
+/**
+ * ⛔⛔ 驗返把尺本身。⭐ 一個「加咗但捉唔到」嘅檢查，比冇檢查更差 ——
+ *    ⚠️ 佢會令下次有人見到綠燈就真係信。
+ */
+const SELF_TEST = args.includes('--self-test')
 if (!PROTO || !fs.existsSync(PROTO)) {
   console.error('揾唔到原型檔。試過：')
   for (const f of PROTO_CANDIDATES) console.error('  ' + f)
@@ -244,7 +249,174 @@ const SCREENS = {
       ['錢號', '.price-dollar', '#screenPrice .prow .dollar', 'font'],
     ],
   },
+
+  /* ⭐⭐ 刪工程確認彈窗 —— **兩個極端**。⛔ 原型入面冇呢件嘢，所以冇 `pairs`：
+     ⚠️ 唔係跳過咗，係根本冇尺可以對（stage57 早過呢個決定）。
+     呢兩個畫面量嘅係**絕對要求**：兩粒掣撳唔撳得到、兩邊座標一唔一樣。 */
+  /* ⭐⭐ 工程卡向左推 —— **用真滑鼠拖真嗰張 `RecordCard`（一個 `<button>`）**。
+     ⛔ 原型 stage57 冇呢件嘢，所以冇 `pairs`：量嘅係**絕對要求**，⛔ 唔係對數。
+
+     ⛔⛔ **點解一定要係真滑鼠 —— ⛔ 唔准淨係記住結論**
+     2026-09-14 上一版嘅驗證係自己 `dispatchEvent` 整個 `TouchEvent` 出嚟，
+     **綠燈**；Jason 真機推，**張卡一 px 都唔郁**。⚠️ 自己發嘅事件繞過晒瀏覽器
+     嘅手勢仲裁，所以壞咗嘅 code 一樣過。⭐ Playwright 個 `page.mouse` 係經 CDP
+     打真嘅輸入 —— **佢當日就係量到 `0px`**（實測，commit `3738140`）。
+
+     ⭐ 呢一下拖同時量緊兩樣嘢：
+       ① Pointer Events ＋ `touch-action` 有冇接返到（唔係就停喺 0px）
+       ② 放手之後**尾隨嗰下 click 有冇順手收返張卡**（係就彈返 0px）
+     ⚠️ 而且**特登喺 `hits` 之前拖** —— 推開咗之後個垃圾桶掣先至露出嚟，
+        跟住個「撳得到」掃描就會順手驗埋「露咗出嚟真係撳得到」。 */
+  swipe: {
+    query: '',
+    drag: { testid: 'record-row', by: -90, expect: -76 },
+  },
+
+  dialog: {
+    query: '',
+    remember: ['delete-cancel', 'delete-confirm'],
+  },
+  dialoglong: {
+    // ⚠️ 同上面用同一個畫面，⛔ 唔係另一個 component —— 一模一樣嘅 code，
+    //    淨係內容唔同。咁對出嚟嘅先算數。
+    screen: 'dialog',
+    query: '&long=1',
+    // 撳一下「刪除」令佢出埋錯誤 —— ⭐ 咁先係真正嘅「內容最長」。
+    before: async (page) => { await page.click('[data-testid="delete-confirm"]') },
+    remember: ['delete-cancel', 'delete-confirm'],
+    /* ⭐⭐ **錯誤訊息一定要真係睇得到，⛔ 唔係「有出喺 DOM」。**
+       ⚠️ 2026-09-14 影相驗返先發現：彈窗中間嗰段係一個**寫死高度嘅捲動框**
+       （186px，為咗釘死兩粒掣嘅位）。工程名一長，錯誤訊息就出咗喺**框底之外**——
+       ⭐ 同「錯誤訊息渲染喺手指上面 2037px」係**同一個病**，淨係細部咗個框咁解。
+       ⇒ 呢度量返佢喺唔喺框入面。醫法係 `ErrorNotice` 自己捲返入嚟。 */
+    inView: [{ what: 'delete-error', inside: 'delete-dialog-body' }],
+  },
 }
+
+/**
+ * 「撳得到」檢查。**⛔ 呢個唔係同原型對數，係一個絕對要求。**
+ *
+ * ⭐⭐ **點解要有 —— ⛔ 唔准淨係記住結論**
+ *
+ * 2026-09-14 試過將首頁個 `<main className="hmain">` 換成共用嘅 `ScrollBody`。
+ * **對數出「量咗 90 項，對唔上 0 項」—— 全綠。**
+ *
+ * ⚠️ 但實測用 `elementFromPoint` 打過：**「待報價」嗰粒數字卡撳唔到。**
+ * `.float-cards-scroll` 帶住 `position:absolute; inset:0`，成個捲動區
+ * **由頂到底蓋晒**（實測 `top: 0`、`height: 844`、`padding-top: 164px`）。
+ *
+ * ⭐⭐ **對數量嘅係位置，⛔ 佢唔量撳唔撳得到。** 三個數嘅位置冇郁
+ *    （padding 啱好補返），所以 90／0 —— 但佢哋已經死咗。
+ *
+ * ⚠️ 呢個窿喺任何一張截圖上面都睇唔出，而現場同事只會覺得「撳極都冇反應」。
+ *
+ * ⛔⛔ **驗收標準唔係「加咗」，係「捉得到」** —— 所以有 `--self-test`：
+ *    佢會**故意整返 2026-09-14 嗰個壞法**，然後要求呢個檢查**真係紅**。
+ */
+const HIT_SELECTOR = 'button, a[href], input, select, textarea, [role=button]'
+/**
+ * 每個元素撒 5×5 點，**有一個撳得到就算數**。
+ * ⭐ ⛔ 唔要求全部點都通：一粒掣俾第二樣嘢遮咗一半仍然撳得到，
+ *    ⚠️ 而要求全通就會出一大堆假紅，跟住冇人再理佢。
+ */
+const HIT_GRID = 5
+const HIT_INSET = 2
+
+/**
+ * 喺瀏覽器入面行：逐個可撳元素試吓撳唔撳得到。
+ *
+ * ⭐⭐ **每個元素先 `scrollIntoView` 再試** —— ⛔ 唔係為咗方便。
+ *    ⚠️ 一張卡喺捲動區最底俾底 nav 壓住半橛，**唔算 bug**（碌一碌就撳到）。
+ *    真 bug 係「**點碌都撳唔到**」—— 而嗰種正正就係唔喺捲動區入面嘅嘢
+ *    （首頁三個數就係）。先碌後試，就啱啱好分開咗呢兩種。
+ */
+const HIT_SCAN = ([selector, grid, inset]) => {
+  const out = []
+  /**
+   * ⭐ 有彈窗開住嗰陣，**只掃彈窗入面**。
+   * ⚠️ 後面嗰啲掣俾遮住係**應該嘅** —— 一個 modal 就係要擋住後面。
+   *    ⛔ 唔分開嘅話，每個有彈窗嘅畫面都會出四粒假紅（底 nav），
+   *    而假紅係最快令人唔再理呢把尺嘅嘢。
+   */
+  const modal = document.querySelector('[role="dialog"][aria-modal="true"]')
+  const scope = modal ?? document
+  for (const el of scope.querySelectorAll(selector)) {
+    if (el.disabled) continue
+    const cs = getComputedStyle(el)
+    if (cs.pointerEvents === 'none' || cs.visibility === 'hidden' || cs.display === 'none') continue
+    const first = el.getBoundingClientRect()
+    if (first.width < 4 || first.height < 4) continue
+
+    el.scrollIntoView({ block: 'center' })
+    const r = el.getBoundingClientRect()
+    const x0 = Math.max(r.left + inset, 0)
+    const x1 = Math.min(r.right - inset, innerWidth - 1)
+    const y0 = Math.max(r.top + inset, 0)
+    const y1 = Math.min(r.bottom - inset, innerHeight - 1)
+    // ⛔ 碌完仲係完全喺畫面外 ⇒ 當「量唔到」，⚠️ 唔當「撳唔到」——
+    //    ⭐ 報一個假紅比唔報更差。
+    if (x1 < x0 || y1 < y0) continue
+
+    let reachable = false
+    let blocker = '—'
+    for (let i = 0; i < grid && !reachable; i += 1) {
+      for (let j = 0; j < grid && !reachable; j += 1) {
+        const x = x0 + ((x1 - x0) * i) / (grid - 1)
+        const y = y0 + ((y1 - y0) * j) / (grid - 1)
+        const hit = document.elementFromPoint(x, y)
+        if (hit && (el === hit || el.contains(hit))) reachable = true
+        else if (hit && blocker === '—') {
+          blocker =
+            typeof hit.className === 'string' && hit.className !== ''
+              ? hit.className
+              : hit.tagName.toLowerCase()
+        }
+      }
+    }
+    out.push({
+      reachable,
+      blocker,
+      tag: el.tagName.toLowerCase(),
+      testid: el.dataset?.testid ?? '',
+      text: (el.textContent ?? '').trim().slice(0, 16),
+      cls: typeof el.className === 'string' ? el.className.slice(0, 40) : '',
+    })
+  }
+  return out
+}
+
+/** 一粒掣而家喺邊（用嚟對「內容最短 vs 最長」）。 */
+const BUTTON_BOX = (testid) => {
+  const el = document.querySelector(`[data-testid="${testid}"]`)
+  if (!el) return null
+  const r = el.getBoundingClientRect()
+  return {
+    left: Math.round(r.left * 10) / 10,
+    top: Math.round(r.top * 10) / 10,
+    width: Math.round(r.width * 10) / 10,
+    height: Math.round(r.height * 10) / 10,
+  }
+}
+
+/**
+ * ⛔⛔ 2026-09-14 嗰個壞法，逐字整返出嚟。**淨係喺 `--self-test` 用。**
+ *
+ * 當日係將 `<main className="hmain">` 換成 `ScrollBody`（`.float-cards-scroll`）。
+ * 呢段 CSS 就係嗰個換法帶嚟嘅幾何後果，數字係當日實測：
+ * `top: 0`、`height: 844`、`padding-top: 164.15px`
+ * （`min(38.5vw, 184px) + 14px`，390px 闊之下 ＝ 150.15 + 14）。
+ *
+ * ⭐ 用返實測數字，⛔ 唔係求其寫一個蓋住成版嘅 div ——
+ *    ⚠️ 一個「求其嘅遮擋」證明唔到呢把尺捉得返**當日嗰件事**。
+ */
+const SELF_TEST_CSS = `
+  [data-testid="home-scroll"] {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    padding-top: calc(min(38.5vw, 184px) + 14px);
+  }
+`
 
 /** 量咩。位置只量闊高同左右邊距 —— 上下位隨內容變，⛔ 唔可以當差異。 */
 const BOX = ['width', 'height']
@@ -354,6 +526,33 @@ function localChromiums() {
  *    結果 `npm run ui:check` 要人手加 `CHROMIUM_PATH` 先行到 ——
  *    ⚠️ 一個要靠人記得嘅步驟，遲早會漏，而漏咗就等於「對數」嗰關靜靜跳咗。
  */
+/**
+ * **用真滑鼠拖一嘢**，然後讀返張卡最尾停咗喺邊。
+ *
+ * ⛔⛔ 呢度⛔ 唔准改成自己 `dispatchEvent` —— 見上面 `swipe` 個註解。
+ * ⭐ 讀嘅係 `getComputedStyle().transform` 個 `m41`（＝ translateX），
+ *    ⚠️ ⛔ 唔係讀 React state：state 啱而畫面唔郁，正正就係要捉嗰種病。
+ * ⭐ 拖完等 400ms 先量：⛔ 要等埋 `.2s` 嗰個 transition，
+ *    **亦都要等埋放手之後瀏覽器補嗰一下 `click`** —— 嗰下就係會令佢彈返 0 嗰個。
+ */
+async function realMouseDrag(page, { testid, by, steps = 12 }) {
+  const box = await page.locator(`[data-testid="${testid}"]`).first().boundingBox()
+  if (!box) return null
+  const y = box.y + box.height / 2
+  const x = box.x + box.width * 0.7
+  await page.mouse.move(x, y)
+  await page.mouse.down()
+  for (let i = 1; i <= steps; i += 1) await page.mouse.move(x + (by * i) / steps, y)
+  await page.mouse.up()
+  await page.waitForTimeout(400)
+  return await page.evaluate((id) => {
+    const el = document.querySelector(`[data-testid="${id}"]`)
+    if (!el) return null
+    const m = new DOMMatrixReadOnly(getComputedStyle(el).transform)
+    return Math.round(m.m41 * 10) / 10
+  }, testid)
+}
+
 async function openBrowser() {
   const tries = [
     process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : null,
@@ -377,8 +576,20 @@ async function openBrowser() {
 
 const browser = await openBrowser()
 
+/** 記低咗嘅掣位（`畫面·testid` → box），用嚟做「內容最短 vs 最長」嗰個對比。 */
+const remembered = {}
+
 let bad = 0
 let checked = 0
+/** 「撳得到」嗰組：⛔ 同上面 90 項分開數，唔想令一個熟悉嘅數字突然變樣。 */
+let hitChecked = 0
+let hitBad = 0
+/** 「真滑鼠拖得郁」嗰組：⛔ 一樣分開數。 */
+let dragChecked = 0
+let dragBad = 0
+/** 「訊息睇得到」嗰組（⛔ 唔係「有冇喺 DOM」）。 */
+let seenChecked = 0
+let seenBad = 0
 
 for (const [name, spec] of Object.entries(SCREENS)) {
   if (ONLY && ONLY !== name) continue
@@ -387,18 +598,57 @@ for (const [name, spec] of Object.entries(SCREENS)) {
   // ⛔ 頁面行唔起就一定要嘈出嚟 —— 否則會靜靜咁量到零項然後報「全對」。
   real.on('pageerror', (e) => console.log('  ⚠️ 真 app 出錯：', e.message))
   real.on('console', (m) => { if (m.type() === 'error') console.log('  ⚠️ 真 app console：', m.text()) })
-  await real.goto(`http://localhost:${PORT}/?screen=${name}`)
+  await real.goto(`http://localhost:${PORT}/?screen=${spec.screen ?? name}${spec.query ?? ''}`)
   await real.evaluate(() => document.fonts.ready)
   await real.waitForTimeout(700)
-
-  const proto = await browser.newPage({ viewport: { width: W, height: H } })
-  await proto.goto('file://' + path.resolve(PROTO))
-  await proto.evaluate(() => document.fonts.ready)
-  await proto.evaluate((fn) => window[fn](), spec.proto)
-  await proto.waitForTimeout(700)
+  // ⛔ 自我測試：喺量之前先整返 2026-09-14 嗰個壞法。
+  if (SELF_TEST && name === 'home') await real.addStyleTag({ content: SELF_TEST_CSS })
+  // 有啲畫面要先撳一下先至去到最長嗰個狀態（例如彈窗出埋錯誤）。
+  if (spec.before) { await spec.before(real); await real.waitForTimeout(500) }
 
   console.log(`\n══ ${name} ══`)
-  for (const [label, a, b, mode, except] of spec.pairs) {
+
+  // ── 真滑鼠拖（⛔ 一定要喺「撳得到」掃描之前 —— 推開咗個垃圾桶掣先露出嚟）──
+  if (spec.drag) {
+    const got = await realMouseDrag(real, spec.drag)
+    dragChecked += 1
+    if (got === null || Math.abs(got - spec.drag.expect) > TOL) {
+      dragBad += 1
+      console.log(
+        `  ✗ 真滑鼠向左拖 ${-spec.drag.by}px —— 張卡停咗喺 ${got}px，應該係 ${spec.drag.expect}px`,
+      )
+      console.log(
+        got === 0
+          ? '      ⛔ 0px ＝ 完全冇郁過。Pointer Events 甩咗，或者尾隨嗰下 click 收返咗佢。'
+          : '      ⛔ 見 src/lib/swipeDelete.ts 檔頭。',
+      )
+    } else {
+      console.log(`  ✓ 真滑鼠向左拖 ${-spec.drag.by}px ⇒ 停喺 ${got}px（露出個刪除掣）`)
+    }
+  }
+
+  // ── 有啲畫面要記低粒掣喺邊，事後對（⛔ 唔同原型比，係兩個畫面互相比）──
+  //    ⚠️ 一定要喺任何捲動之前攞 —— 下面個 hit 掃描會逐粒掣 scrollIntoView。
+  if (spec.remember) {
+    for (const testid of spec.remember) {
+      remembered[`${name}·${testid}`] = await real.evaluate(BUTTON_BOX, testid)
+    }
+  }
+
+  // ── 同原型對數 ────────────────────────────────────────────────
+  // ⛔⛔ **一定要行喺「撳得到」掃描之前。**
+  //    ⚠️ 2026-09-14 寫呢個檢查嗰陣中過：hit 掃描會逐粒掣 `scrollIntoView`，
+  //    跟住成版嘢企咗喺另一個捲動位置 —— 而 `anchor` 模式量嘅 `top` 就全部走晒。
+  //    實測係「量咗 90 項，對唔上 7 項」，⭐ 而七項全部係我把尺自己整出嚟嘅，
+  //    ⛔ 唔係真 app 有嘢壞。**次序本身就係規格。**
+  if (spec.pairs) {
+    const proto = await browser.newPage({ viewport: { width: W, height: H } })
+    await proto.goto('file://' + path.resolve(PROTO))
+    await proto.evaluate(() => document.fonts.ready)
+    await proto.evaluate((fn) => window[fn](), spec.proto)
+    await proto.waitForTimeout(700)
+
+    for (const [label, a, b, mode, except] of spec.pairs) {
     const ra = await real.evaluate(READ, [a, BOX, CSS])
     const rb = await proto.evaluate(READ, [b, BOX, CSS])
     if (!ra || !rb) {
@@ -442,14 +692,97 @@ for (const [name, spec] of Object.entries(SCREENS)) {
       console.log(`  ✗ ${label}`)
       for (const d of diffs) console.log(`      ${d}`)
       for (const n of notes) console.log(`      ⚠ 已拍板嘅例外：${n}`)
+      }
+    }
+    await proto.close()
+  }
+
+  // ── 睇得到？（⛔ 一定要行喺 hit 掃描之前 —— 嗰個會逐粒掣 scrollIntoView）──
+  for (const one of spec.inView ?? []) {
+    seenChecked += 1
+    const r = await real.evaluate(([a, b]) => {
+      const el = document.querySelector(`[data-testid="${a}"]`)
+      const box = document.querySelector(`[data-testid="${b}"]`)
+      if (!el || !box) return null
+      const e = el.getBoundingClientRect()
+      const g = box.getBoundingClientRect()
+      return { top: Math.round(e.top), bottom: Math.round(e.bottom), gTop: Math.round(g.top), gBottom: Math.round(g.bottom) }
+    }, [one.what, one.inside])
+    if (r === null) {
+      seenBad += 1
+      console.log(`  ✗ [${one.what}] 根本冇出（或者 [${one.inside}] 揾唔到）`)
+    } else if (r.top >= r.gTop - 1 && r.bottom <= r.gBottom + 1) {
+      console.log(`  ✓ [${one.what}] 喺 [${one.inside}] 睇得到（${r.top}–${r.bottom} 喺 ${r.gTop}–${r.gBottom} 入面）`)
+    } else {
+      seenBad += 1
+      console.log(`  ✗ [${one.what}] 出咗喺 [${one.inside}] 睇得到嘅範圍以外`)
+      console.log(`      訊息 ${r.top}–${r.bottom}，個框 ${r.gTop}–${r.gBottom} ⇒ ⛔ 撳完睇唔到，即係「撳咗冇反應」。`)
     }
   }
+
+  // ── 撳得到？（⛔ 唔關原型事，係一個絕對要求。⛔ 一定要行喺對數之後）──
+  const hits = await real.evaluate(HIT_SCAN, [HIT_SELECTOR, HIT_GRID, HIT_INSET])
+  for (const one of hits) {
+    hitChecked += 1
+    if (one.reachable) continue
+    hitBad += 1
+    const who = one.testid !== '' ? `[${one.testid}]` : one.text !== '' ? `「${one.text}」` : one.cls
+    console.log(`  ✗ 撳唔到：${one.tag}${who} —— 撳落去撳到嘅係「${one.blocker}」`)
+  }
+
   await real.close()
-  await proto.close()
 }
 
 await browser.close()
 srv.close()
 
+/* ══════════════════════════════════════════════════════════════════
+   ⛔⛔ 2026-08-11 tree app 真實誤刪嘅解藥，喺呢度釘死。
+       內容最短同內容最長兩個彈窗，兩粒掣**座標一定要一樣**。
+   ══════════════════════════════════════════════════════════════════ */
+let sameSpot = 0
+let sameSpotBad = 0
+if (!ONLY || ONLY === 'dialog' || ONLY === 'dialoglong') {
+  console.log('\n══ 彈窗兩粒掣，內容最短 vs 最長 ══')
+  for (const testid of ['delete-cancel', 'delete-confirm']) {
+    const short = remembered[`dialog·${testid}`]
+    const long = remembered[`dialoglong·${testid}`]
+    sameSpot += 1
+    if (!short || !long) {
+      sameSpotBad += 1
+      console.log(`  ✗ ${testid} —— 量唔到（${!short ? '最短' : '最長'}嗰個揾唔到粒掣）`)
+      continue
+    }
+    const diffs = ['left', 'top', 'width', 'height'].filter(
+      (k) => Math.abs(short[k] - long[k]) > TOL,
+    )
+    if (diffs.length === 0) {
+      console.log(`  ✓ ${testid} —— 兩邊一樣（left ${short.left}, top ${short.top}）`)
+    } else {
+      sameSpotBad += 1
+      console.log(`  ✗ ${testid} —— ⛔ 粒掣郁咗，即係 2026-08-11 嗰個壞法翻兜`)
+      for (const k of diffs) console.log(`      ${k} ${short[k]} ≠ ${long[k]}`)
+    }
+  }
+}
+
 console.log(`\n量咗 ${checked} 項，對唔上 ${bad} 項。`)
-process.exit(bad === 0 ? 0 : 1)
+console.log(`撳得到嘅檢查：量咗 ${hitChecked} 粒掣，撳唔到 ${hitBad} 粒。`)
+console.log(`彈窗掣位：對咗 ${sameSpot} 粒，郁咗 ${sameSpotBad} 粒。`)
+console.log(`真滑鼠拖：試咗 ${dragChecked} 下，推唔郁 ${dragBad} 下。`)
+console.log(`訊息睇得到：量咗 ${seenChecked} 句，睇唔到 ${seenBad} 句。`)
+
+if (SELF_TEST) {
+  console.log('\n──── 自我測試 ────')
+  console.log('整返咗 2026-09-14 嗰個壞法（首頁容器換成 .float-cards-scroll 嘅幾何）。')
+  if (hitBad > 0) {
+    console.log(`✓ 捉到 —— 撳唔到 ${hitBad} 粒。⭐ 呢把尺係有用嘅。`)
+    process.exit(0)
+  }
+  console.log('✗ ⛔⛔ 捉唔到。呢把尺量唔到佢應該量嘅嘢，即係一個假嘅安全感。')
+  process.exit(3)
+}
+
+process.exit(
+  bad === 0 && hitBad === 0 && sameSpotBad === 0 && dragBad === 0 && seenBad === 0 ? 0 : 1,
+)

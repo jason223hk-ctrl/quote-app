@@ -22,6 +22,8 @@ type Props = {
   onOpen: (record: QuoteRecord) => void
   onCreate: () => void
   onRetry: () => void
+  /** 向左推刪除。⛔ 唔傳就冇推（見 `RecordCard`）。 */
+  onDeleteRecord?: (record: QuoteRecord) => Promise<void>
 }
 
 /**
@@ -36,6 +38,7 @@ export default function RecordListPage({
   onOpen,
   onCreate,
   onRetry,
+  onDeleteRecord,
 }: Props) {
   const [filters, setFilters] = useState<RecordFilters>(EMPTY_FILTERS)
   const [popover, setPopover] = useState(false)
@@ -115,7 +118,11 @@ export default function RecordListPage({
         <ul className="list" data-testid="record-list">
           {visible.map((record) => (
             <li key={record.id}>
-              <RecordCard record={record} onOpen={() => onOpen(record)} />
+              <RecordCard
+                record={record}
+                onOpen={() => onOpen(record)}
+                onDelete={onDeleteRecord}
+              />
             </li>
           ))}
         </ul>

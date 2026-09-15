@@ -34,8 +34,24 @@ import { useEffect, useRef } from 'react'
  *
  * ⚠️ **代價要講白**：畫面會彈返上去，離開你隻手指嗰個位，一下係有啲突兀。
  *    ⭐ 但「突兀」好過「乜都冇發生」—— 後者令人一路撳落去。
+ *
+ * ⭐⭐ **⛔ 唔止用喺成版嘢度 —— 刪工程個彈窗一樣要用。**
+ *    ⚠️ 2026-09-14 影相驗返先發現：彈窗中間嗰段係一個**寫死高度嘅捲動框**
+ *    （186px，為咗釘死兩粒掣嘅位）。工程名長嗰陣，錯誤訊息就出咗喺**框底之外** ——
+ *    ⭐ 同「喺手指上面 2037px」係**同一個病**，淨係細部咗個框咁解。
+ *    `scrollIntoView` 會捲最近嗰個捲動祖先，所以擺喺框入面一樣有效。
  */
-export default function ErrorNotice({ message }: { message: string | null }) {
+export default function ErrorNotice({
+  message,
+  testId,
+}: {
+  message: string | null
+  /**
+   * ⚠️ 淨係俾對數個殼／測試認人用，⛔ 唔改任何樣式。
+   * ⭐ 加咗佢，個彈窗換走自己嗰行紅字改用呢個組件嗰陣，把尺唔使跟住改。
+   */
+  testId?: string
+}) {
   const ref = useRef<HTMLParagraphElement | null>(null)
   /**
    * 上次已經拉過嗰句。⛔ 同一句嘢唔准拉兩次 ——
@@ -67,7 +83,7 @@ export default function ErrorNotice({ message }: { message: string | null }) {
   return (
     // ⛔ class 一個字都冇改過 —— 呢個係已批准嗰行紅字，⛔ 唔係一個新設計。
     //    `tabIndex={-1}` 淨係令佢 focus 得到，⛔ 唔會入 tab 次序、⛔ 唔改任何樣式。
-    <p className="notice notice--error" role="alert" tabIndex={-1} ref={ref}>
+    <p className="notice notice--error" role="alert" tabIndex={-1} ref={ref} data-testid={testId}>
       {message}
     </p>
   )
