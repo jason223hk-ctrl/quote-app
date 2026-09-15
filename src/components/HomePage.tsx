@@ -175,6 +175,22 @@ export function RecordsScreen({
     [api, userId, reload],
   )
 
+  /**
+   * 向左推刪除嗰一組嘢。**⛔ 三樣綁埋一齊傳落去。**
+   *
+   * ⭐ `apis` 淨係俾彈窗數「連帶消失：N 棵樹、N 張相」用 ——
+   *    ⛔ 唔會拎嚟做刪除，刪除仍然係上面 `deleteRecord` 嗰一條路。
+   * ⚠️ 兩個 list 失敗一定要 throw（`createTreesApi` / `createPhotosApi` 本身就係咁）——
+   *    ⛔ 回 `[]` 就會變成「冇嘢會消失」，而嗰句可能係假嘅。
+   */
+  const swipeDelete = useMemo(
+    () => ({
+      run: deleteRecord,
+      apis: { listTrees: api.trees.list, listRows: api.photos.listByRecord },
+    }),
+    [deleteRecord, api],
+  )
+
   async function afterWrite(write: () => Promise<QuoteRecord>, next: (saved: QuoteRecord) => Route) {
     const saved = await write()
     await reload()
@@ -212,7 +228,7 @@ export function RecordsScreen({
             loading={loading}
             nav={nav}
             onRefresh={reload}
-            onDeleteRecord={deleteRecord}
+            swipeDelete={swipeDelete}
           />
         )
 
@@ -226,7 +242,7 @@ export function RecordsScreen({
             onOpen={(record) => nav.go({ name: 'record', recordId: record.id })}
             onCreate={() => nav.go({ name: 'record-form', recordId: null })}
             onRetry={() => void reload()}
-            onDeleteRecord={deleteRecord}
+            swipeDelete={swipeDelete}
           />
         )
 

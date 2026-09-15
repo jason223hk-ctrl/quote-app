@@ -3245,6 +3245,26 @@ h3 {
   color: var(--q-text-primary);
 }
 
+/* 「連帶消失：N 棵樹、N 張相」。⭐ 兩個 N 紅色粗體 —— 照截圖。 */
+.sheet__loss {
+  margin: 8px 0 0;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.5;
+  color: var(--q-text-primary);
+}
+
+.sheet__loss b {
+  font-weight: 800;
+  color: var(--q-danger);
+}
+
+/* 數緊嗰陣。⛔ 唔准留空行 —— 空白會令人以為冇嘢會消失。 */
+.sheet__loss--wait {
+  font-weight: 500;
+  color: var(--q-text-secondary);
+}
+
 /* ⚠️ 只剩部機一份嗰行。⛔ 截圖冇呢行，但佢係另一個真相 —— ⛔ 唔准拆。 */
 .sheet__warn {
   margin: 8px 0 0;

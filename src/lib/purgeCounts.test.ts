@@ -4,7 +4,12 @@ import type { PendingPhoto } from './photoUpload'
 import type { QuoteTree } from './trees'
 import {
   CANNOT_COUNT_MESSAGE,
+  COUNTING_MESSAGE,
+  LOSS_PHOTOS,
+  LOSS_PREFIX,
+  LOSS_TREES,
   canPurge,
+  countsPhase,
   onlyOnPhoneCount,
   onlyOnPhoneWarning,
   purgeCounts,
@@ -176,5 +181,42 @@ describe('⚠️ 「只剩部機呢一份」—— ⛔ 同上面兩個 N 係兩�
 
   it('⭐ 兩句唔准撈埋：呢行⛔ 唔提「無法還原」，嗰句由彈窗自己出', () => {
     expect(onlyOnPhoneWarning(1)).not.toContain('無法還原')
+  })
+})
+
+describe('⛔⛔ 「數緊」同「數唔到」要分得開', () => {
+  it('未數完 ⇒ counting（⛔ 唔准出「請check返個網絡」）', () => {
+    expect(countsPhase(false, null)).toBe('counting')
+    // ⚠️ 就算已經有個數喺度（上一單留低嘅），未 done 都係「數緊」。
+    expect(countsPhase(false, { trees: 2, photos: 4 })).toBe('counting')
+  })
+
+  it('數完、有數 ⇒ ready', () => {
+    expect(countsPhase(true, { trees: 0, photos: 0 })).toBe('ready')
+  })
+
+  it('數完、冇數 ⇒ cannot', () => {
+    expect(countsPhase(true, null)).toBe('cannot')
+  })
+
+  it('⛔ 三種入面淨係 ready 撳得落', () => {
+    // ⭐ 「數緊」同「數唔到」一樣撳唔落 —— 分嘅淨係嗰句字。
+    expect(canPurge(null)).toBe(false)
+    expect(canPurge({ trees: 0, photos: 0 })).toBe(true)
+  })
+
+  it('⛔ 數緊嗰行字唔准空', () => {
+    expect(COUNTING_MESSAGE.length).toBeGreaterThan(0)
+    expect(COUNTING_MESSAGE).not.toContain('請check')
+  })
+})
+
+describe('⛔ 「連帶消失」嗰句字只可以有一份', () => {
+  it('⭐ 純字串版同三橛版砌返出嚟一模一樣', () => {
+    // ⚠️ 彈窗要兩個 N 紅色粗體，所以佢用三橛砌；測試同 log 用純字串版。
+    //    ⛔ 兩邊都一定要由同三個常數出 —— 唔係嘅話改文案就會改漏一邊。
+    const counts = { trees: 2, photos: 4 }
+    expect(purgeCountsLabel(counts)).toBe(`${LOSS_PREFIX}2${LOSS_TREES}4${LOSS_PHOTOS}`)
+    expect(purgeCountsLabel(counts)).toBe('連帶消失：2 棵樹、4 張相')
   })
 })

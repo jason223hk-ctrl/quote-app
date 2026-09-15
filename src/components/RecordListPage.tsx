@@ -4,7 +4,7 @@ import { EMPTY_FILTERS, filterRecords, type RecordFilters } from '../lib/filters
 import type { QuoteRecord } from '../lib/records'
 import { BotanicalHeader, ChipButton, ScrollBody, UserPill, type UserInfo } from '../ui/shell'
 import { Icon, ICONS } from '../ui/Icon'
-import RecordCard from './RecordCard'
+import RecordCard, { type SwipeDeleteProps } from './RecordCard'
 
 /** 四個狀態 chip。⭐ 同原型 `QTABS` 一模一樣，⛔ 唔加唔減。 */
 const QTABS: [QuoteStatus | 'all', string][] = [
@@ -22,8 +22,8 @@ type Props = {
   onOpen: (record: QuoteRecord) => void
   onCreate: () => void
   onRetry: () => void
-  /** 向左推刪除。⛔ 唔傳就冇推（見 `RecordCard`）。 */
-  onDeleteRecord?: (record: QuoteRecord) => Promise<void>
+  /** 向左推刪除。⛔ 唔傳就冇推；⛔ 要就 `run` 同 `apis` 一齊（見 `RecordCard`）。 */
+  swipeDelete?: SwipeDeleteProps
 }
 
 /**
@@ -38,7 +38,7 @@ export default function RecordListPage({
   onOpen,
   onCreate,
   onRetry,
-  onDeleteRecord,
+  swipeDelete,
 }: Props) {
   const [filters, setFilters] = useState<RecordFilters>(EMPTY_FILTERS)
   const [popover, setPopover] = useState(false)
@@ -121,7 +121,7 @@ export default function RecordListPage({
               <RecordCard
                 record={record}
                 onOpen={() => onOpen(record)}
-                onDelete={onDeleteRecord}
+                swipeDelete={swipeDelete}
               />
             </li>
           ))}

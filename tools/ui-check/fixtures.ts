@@ -64,6 +64,32 @@ export const TREES = [
 
 export const trees = { list: async () => TREES, listAll: async () => TREES } as unknown as TreesApi
 
+/**
+ * 彈窗數「連帶消失：N 棵樹、N 張相」用。
+ *
+ * ⛔⛔ **特登另開一批，⛔ 唔改上面個 `TREES`** —— 嗰批係樹木清單畫面量闊度用嘅，
+ *    改咗（就算淨係加兩個欄）都唔值得去冒「量出嚟嘅數字郁咗」嗰個險。
+ * ⭐ 兩棵樹、四張相 —— 照 Jason 2026-09-14 張截圖嗰個例。
+ */
+export const purgeApis = {
+  listTrees: async () =>
+    ['pa', 'pb'].map(
+      (id) =>
+        ({ id, record_id: RECORD.id, deleted_at: null }) as unknown as
+          import('../../src/lib/trees').QuoteTree,
+    ),
+  listRows: async () =>
+    ['pr1', 'pr2', 'pr3', 'pr4'].map(
+      (operation_id) =>
+        ({
+          id: 'row-' + operation_id,
+          record_id: RECORD.id,
+          operation_id,
+          deleted_at: null,
+        }) as unknown as import('../../src/lib/photos').QuotePhoto,
+    ),
+}
+
 export const photosApi = {
   listByRecord: async () => [],
   findByOperationId: async () => null,

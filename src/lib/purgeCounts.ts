@@ -77,14 +77,25 @@ export function purgeCounts(
 }
 
 /**
- * 彈窗嗰行字。⛔ `null`（數唔到）就⛔ 唔准出一句有數字嘅嘢。
+ * 彈窗嗰行字，**拆開三橛**。措辭照 Jason 2026-09-14 最終截圖逐字。
  *
- * ⚠️ 兩個 N 喺畫面上面係**紅色粗體**，嗰個由 component 做；
- *    呢度淨係負責**數字本身同措辭**（Jason 2026-09-14 最終截圖逐字）。
+ * ⭐⭐ **點解要拆橛 —— ⛔ 唔准淨係記住結論**
+ *
+ * 兩個 N 喺畫面上面係**紅色粗體**，所以 component 冇得就咁出一條字串。
+ * ⚠️ 但如果 component 自己喺 JSX 度打多次「連帶消失：」，就會出現
+ *    **兩份文案**：一份喺呢度（有測試睇住），一份喺畫面（冇人睇住）——
+ *    ⭐ 改一份、另一份靜靜咁留喺度，就係 `stuckAdvice()` 中過嗰個病
+ *    （對住一段自己抄落嚟嘅字串，文案一改就認唔返）。
+ * ⇒ 所以**字喺呢度，component 淨係擺數字入去**。
  */
+export const LOSS_PREFIX = '連帶消失：'
+export const LOSS_TREES = ' 棵樹、'
+export const LOSS_PHOTOS = ' 張相'
+
+/** 同一句嘢嘅純字串版（測試、對數、log 用）。⛔ `null` ＝ 數唔到 ⇒ 唔出。 */
 export function purgeCountsLabel(counts: PurgeCounts | null): string | null {
   if (counts === null) return null
-  return `連帶消失：${counts.trees} 棵樹、${counts.photos} 張相`
+  return `${LOSS_PREFIX}${counts.trees}${LOSS_TREES}${counts.photos}${LOSS_PHOTOS}`
 }
 
 /**
@@ -137,3 +148,43 @@ export function onlyOnPhoneWarning(count: number | null): string | null {
   if (count === null || count <= 0) return null
   return `⚠️ 呢單仲有 ${count} 張相只剩部機呢一份（未傳上雲端）。清咗就真正永遠冇咗。`
 }
+
+/**
+ * 彈窗要嗰兩條讀取路。**⛔ 兩條缺一不可 —— 所以綁埋做一個 type。**
+ *
+ * ⭐⭐ **點解要綁埋，⛔ 唔准拆開兩個 optional prop**
+ *
+ * ⚠️ 拆開就有得「一半駁咗、一半冇駁」。而呢度嘅失敗樣係**靜靜哋**嘅：
+ *    數唔到 ⇒ `canPurge()` false ⇒ **粒「刪除」永遠撳唔落**，
+ *    而畫面淨係寫「請check返個網絡」—— ⭐ 冇人會諗到係 props 漏咗駁。
+ * ⛔ 綁埋一齊，TypeScript 就令「一半」呢個狀態**根本寫唔出嚟**。
+ *
+ * ⚠️ 同一個病喺呢個 repo 中過：`quote_admins` 建咗但空咗一個月冇人知
+ *    （`docs/開發紀錄.md` 附錄 B）。⭐ 揀「寫唔出嚟」好過揀「記得檢查」。
+ */
+export type PurgeCountApis = {
+  /** 呢一單嘅樹。⛔ 失敗要 throw，⛔ 唔准回 `[]`。 */
+  listTrees: (recordId: string) => Promise<QuoteTree[]>
+  /** 呢一單喺雲端嘅相。⛔ 失敗要 throw，⛔ 唔准回 `[]`。 */
+  listRows: (recordId: string) => Promise<QuotePhoto[]>
+}
+
+/**
+ * 數數嗰下而家去到邊。
+ *
+ * ⭐⭐ **「數緊」同「數唔到」⛔ 一定要分得開。**
+ *    ⚠️ 兩個喺 `purgeCounts()` 度都係 `null`（都係「唔知」），但**對住人嗰陣
+ *    唔可以當同一件事**：彈窗一開嗰半秒就彈一句「請check返個網絡再試」——
+ *    ⭐ 係一個**假警報**，而假警報講多幾次，真嗰句就冇人信。
+ *
+ * ⛔ 兩種都一樣**撳唔落**（`canPurge()` 兩種都係 false）—— ⚠️ 分嘅淨係嗰句字。
+ */
+export type CountsPhase = 'counting' | 'ready' | 'cannot'
+
+export function countsPhase(done: boolean, counts: PurgeCounts | null): CountsPhase {
+  if (!done) return 'counting'
+  return counts === null ? 'cannot' : 'ready'
+}
+
+/** 數緊嗰陣嗰行字。⛔ 唔准留空 —— 空白會令人以為冇嘢會消失。 */
+export const COUNTING_MESSAGE = '數緊呢一單有幾多樹同相⋯'

@@ -8,9 +8,22 @@ import {
   deleteDialogTitle,
   deleteDialogTruth,
 } from '../lib/deleteDialog'
-import { deleteUnsyncedWarning, unsyncedInRecord } from '../lib/orphanPhotos'
 import { localStorageAvailable, photoStore } from '../lib/photoStore'
 import type { PendingPhoto } from '../lib/photoUpload'
+import {
+  CANNOT_COUNT_MESSAGE,
+  COUNTING_MESSAGE,
+  LOSS_PHOTOS,
+  LOSS_PREFIX,
+  LOSS_TREES,
+  canPurge,
+  countsPhase,
+  onlyOnPhoneCount,
+  onlyOnPhoneWarning,
+  purgeCounts,
+  type PurgeCountApis,
+  type PurgeCounts,
+} from '../lib/purgeCounts'
 import type { QuoteRecord } from '../lib/records'
 import ErrorNotice from '../ui/ErrorNotice'
 import { Icon, ICONS } from '../ui/Icon'
@@ -23,7 +36,7 @@ import { Icon, ICONS } from '../ui/Icon'
  *   ① 垃圾桶圖示 ＋ 標題
  *   ② 工程名（大、粗）
  *   ③ 日期（大、粗、另一行）
- *   ④ 【P8 步 2 補】「連帶消失：N 棵樹、N 張相」
+ *   ④ 「連帶消失：N 棵樹、N 張相」（兩個 N 紅色粗體）
  *   ⑤ 「此操作無法還原。」／今日仲係「後台仲攞得返」—— 見 `deleteDialog.ts`
  *   ⑥ ⚠️ 只剩部機一份嗰行（⛔ 截圖冇，但呢行係另一個真相，⛔ 唔准拆）
  *   ⑦ 左紅底實心、右描邊，⭐ 一樣闊
@@ -45,11 +58,17 @@ import { Icon, ICONS } from '../ui/Icon'
  */
 export default function DeleteRecordDialog({
   record,
+  apis,
   onCancel,
   onConfirm,
   listLocal = photoStore.listByRecord,
 }: {
   record: QuoteRecord
+  /**
+   * 數「連帶消失」嗰兩個 N 要嘅兩條讀取路。**⛔ 兩條綁埋，冇得淨係駁一條。**
+   * 見 `src/lib/purgeCounts.ts` 個 `PurgeCountApis`。
+   */
+  apis: PurgeCountApis
   onCancel: () => void
   /** ⛔ 失敗要 throw —— 個訊息會原封不動出喺彈窗入面。 */
   onConfirm: () => Promise<void>
@@ -62,29 +81,65 @@ export default function DeleteRecordDialog({
 }) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [unsynced, setUnsynced] = useState(0)
   const cancelRef = useRef<HTMLButtonElement | null>(null)
 
+  /** 數完未。⛔ 未數完 ≠ 數唔到 —— 見 `countsPhase()`。 */
+  const [counted, setCounted] = useState(false)
+  const [counts, setCounts] = useState<PurgeCounts | null>(null)
+  /** 只剩部機一份嗰個 N。⛔ `null` ＝ 讀唔到部機，⛔ 唔係零。 */
+  const [onlyOnPhone, setOnlyOnPhone] = useState<number | null>(null)
+
+  const { listTrees, listRows } = apis
+
   /**
-   * 呢一單仲有幾多張相未傳上雲端。
-   * ⭐ 換咗個入口（由「工程基本資料」變成推開張卡）**⛔ 唔准少咗呢句**。
-   * ⛔ 讀唔到就當零 ⇒ 唔出，⚠️ 唔准出一個估出嚟嘅數嚇人。
+   * 數「連帶消失：N 棵樹、N 張相」。
+   *
+   * ⛔⛔ **三條路一齊攞，任何一條撲咗街就成個數當 `null`。**
+   *    ⚠️ 呢度**⛔ 唔准**「攞到幾多就數幾多」：一個數少咗嘅 N，
+   *    講出嚟就係「冇咁多嘢會消失」—— ⭐ 而佢會喺一個冇得反悔嘅掣上面講。
+   *
+   * ⭐ 用 `allSettled`，⛔ 唔用 `all`：三條都要行到尾，
+   *    ⚠️ 咁 `console.error` 先至報得晒邊條衰咗（`all` 會喺第一個 reject 就停）。
+   *
+   * ⭐ 部機讀唔到（`localStorageAvailable()` false）⇒ 傳 `[]`，⛔ 唔係 `null` ——
+   *    嗰個情況係「呢部機根本冇本地相」，⚠️ 唔係「讀失敗」。兩者要分得開。
    */
   useEffect(() => {
-    if (!localStorageAvailable()) return
     let live = true
-    void listLocal(record.id)
-      .then((items) => {
-        if (live) setUnsynced(unsyncedInRecord(items, record.id))
-      })
-      .catch((caught: unknown) => {
-        console.error('[quote-app] unsynced photo count failed:', caught)
-        if (live) setUnsynced(0)
-      })
+    setCounted(false)
+
+    const localPromise = localStorageAvailable()
+      ? listLocal(record.id)
+      : Promise.resolve<PendingPhoto[]>([])
+
+    void Promise.allSettled([listTrees(record.id), listRows(record.id), localPromise]).then(
+      ([treesResult, rowsResult, localResult]) => {
+        if (!live) return
+        if (treesResult.status === 'rejected')
+          console.error('[quote-app] purge counts: cannot read trees:', treesResult.reason)
+        if (rowsResult.status === 'rejected')
+          console.error('[quote-app] purge counts: cannot read cloud photos:', rowsResult.reason)
+        if (localResult.status === 'rejected')
+          console.error('[quote-app] purge counts: cannot read local photos:', localResult.reason)
+
+        const local = localResult.status === 'fulfilled' ? localResult.value : null
+        setCounts(
+          purgeCounts(
+            record.id,
+            treesResult.status === 'fulfilled' ? treesResult.value : null,
+            rowsResult.status === 'fulfilled' ? rowsResult.value : null,
+            local,
+          ),
+        )
+        setOnlyOnPhone(onlyOnPhoneCount(record.id, local))
+        setCounted(true)
+      },
+    )
+
     return () => {
       live = false
     }
-  }, [record.id, listLocal])
+  }, [record.id, listTrees, listRows, listLocal])
 
   // ⭐ 一開就 focus「取消」—— ⛔ 唔係 focus 危險嗰粒。
   //    ⚠️ 手機外接鍵盤／輔助操作撳一下 Enter 就唔會刪咗嘢。
@@ -114,8 +169,15 @@ export default function DeleteRecordDialog({
     }
   }
 
-  const warning = deleteUnsyncedWarning(unsynced)
+  const phase = countsPhase(counted, counts)
+  const warning = onlyOnPhoneWarning(onlyOnPhone)
   const truth = deleteDialogTruth()
+  /**
+   * ⛔⛔ **數唔到就撳唔落。** ⚠️ 呢個⛔ 唔係「部機自己判斷邊個刪得」
+   *    （PR #17 嗰條：權限由 server 話事，唔係你開嗰單照樣撳得落）——
+   *    ⭐ 呢度攔嘅係**我哋自己數唔到會冇幾多嘢**，同權限完全冇關。
+   */
+  const blocked = !canPurge(counts)
 
   const cancel = (
     <button
@@ -134,7 +196,7 @@ export default function DeleteRecordDialog({
       className="button sheet__go"
       type="button"
       data-testid="delete-confirm"
-      disabled={busy}
+      disabled={busy || blocked}
       onClick={() => void run()}
     >
       {busy ? DELETE_DIALOG_BUSY : DELETE_DIALOG_CONFIRM}
@@ -179,10 +241,28 @@ export default function DeleteRecordDialog({
           </div>
           <div className="sheet__date">{record.record_date}</div>
 
-          {/* ⚠️⚠️ 【P8 步 2】「連帶消失：N 棵樹、N 張相」擺喺呢度。
-              ⛔ 而家未擺 —— 數數嗰個 `purgeCounts()` 仲喺另一個 PR（P8 步 1），
-              ⛔ 而 CLAUDE.md 嗰邊唔准疊 PR。⭐ 個框高度已經留咗位俾佢，
-              所以到時加落嚟**兩粒掣一 px 都唔會郁**。 */}
+          {/* ⭐ 「連帶消失：N 棵樹、N 張相」。**⛔ 三種狀態，三句唔同嘅嘢。**
+              ⚠️ ⛔ 唔准三合一 —— 見 `countsPhase()`：「數緊」唔係「數唔到」。 */}
+          {phase === 'counting' && (
+            <p className="sheet__loss sheet__loss--wait" data-testid="delete-counting">
+              {COUNTING_MESSAGE}
+            </p>
+          )}
+          {phase === 'ready' && counts !== null && (
+            <p className="sheet__loss" data-testid="delete-loss">
+              {/* ⛔ 字一律由 `purgeCounts.ts` 出 —— ⛔ 唔准喺呢度打多次。 */}
+              {LOSS_PREFIX}
+              <b>{counts.trees}</b>
+              {LOSS_TREES}
+              <b>{counts.photos}</b>
+              {LOSS_PHOTOS}
+            </p>
+          )}
+          {phase === 'cannot' && (
+            <p className="sheet__warn" role="alert" data-testid="delete-cannot-count">
+              {CANNOT_COUNT_MESSAGE}
+            </p>
+          )}
 
           <p className="sheet__truth">
             {truth.before}
