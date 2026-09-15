@@ -47,6 +47,22 @@ export const RECORDS: QuoteRecord[] = [
 
 export const RECORD = RECORDS[0]
 
+/**
+ * 工程名長到爆嗰張卡。
+ *
+ * ⛔⛔ **個名係 Jason 2026-09-15 部機上面嗰單真嘢，⛔ 唔准改短、⛔ 唔准改做中文。**
+ * ⚠️ 佢嘅要害係「**一串冇空格嘅英數字**」—— `overflow-wrap: normal` 之下
+ *    **一個「字」唔會斷**，於是啲字畫出盒外、壓住右邊粒狀態標籤。
+ * ⭐ 中文名逐個字都斷得開 ⇒ **用中文樣本係試唔出呢個窿嘅**。
+ *
+ * ⚠️ 狀態揀 `site`（「現場中」）—— 照 Jason 張截圖嗰單。
+ */
+export const LONG_NAME_RECORD = {
+  ...RECORDS[0],
+  name: 'Test123456897536654267898758',
+  status: 'site',
+} as unknown as QuoteRecord
+
 /** 樹木清單用。數字同工序照原型嗰五棵，⛔ 唔好亂改 —— 改咗量出嚟嘅闊度就唔同。 */
 const tree = (id: string, no: string, species: string, mitigations: string[], note = '') =>
   ({

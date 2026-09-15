@@ -114,6 +114,13 @@ const body =
         />
       </div>
     </div>
+  ) : screen === 'longname' ? (
+    /* ⭐⭐ **工程名長到爆嗰張卡。**
+       ⛔ 個名係 **Jason 2026-09-15 部機上面嗰單真嘢**，⛔ 唔係我作一個啱啱好嘅樣本。
+       ⚠️ 佢嘅要害係「**一串冇空格嘅英數字**」—— 中文名斷得開，⛔ 試唔出呢個窿。 */
+    <div className="float-cards-scroll scroll-body scroll-body--compact">
+      <RecordCard record={fx.LONG_NAME_RECORD} onOpen={() => {}} />
+    </div>
   ) : screen === 'dialogfail' ? (
     /* ⭐⭐ **數唔到嗰個樣。** ⛔ 呢個唔係一個「順手加埋」嘅畫面 ——
        佢係整個 P8 步 2 最緊要嗰條性質：**我哋自己都唔知會冇幾多嘢嗰陣，

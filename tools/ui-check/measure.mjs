@@ -276,6 +276,25 @@ const SCREENS = {
     query: '',
     remember: ['delete-cancel', 'delete-confirm'],
   },
+  /* ⭐⭐ 工程名長到爆嗰張卡 —— 量嘅係**兩件嘢有冇疊埋**。
+
+     ⛔⛔ **點解要有呢把尺 —— ⛔ 唔准淨係記住結論**
+
+     2026-09-15：`ui:check` 出「量咗 90 項，對唔上 0 項」、「179 粒掣，撳唔到 0 粒」
+     ——**全綠**。但 Jason 部機張截圖入面，工程名 `Test123456897536654267898758`
+     **直接壓咗喺「現場中」嗰粒標籤上面，兩樣字疊埋，兩樣都讀唔到**。
+
+     ⭐ 點解舊尺捉唔到：
+       · 對數量嘅係**每件嘢自己喺邊個位**，⛔ 佢唔會問「你兩件撞唔撞」
+       · 「撳得到」量嘅係**撳唔撳得落**，⚠️ 而張卡係一整粒掣 ——
+         字疊埋咗，佢一樣撳得落，⛔ 一樣綠
+     ⇒ **又一次：一把尺量唔到嘅嘢，佢綠燈證明唔到佢冇事。**
+        （附錄 B「`ui:check` 綠燈 ≠ 個掣仲用得」係同一個病。） */
+  longname: {
+    query: '',
+    overlap: [{ a: 'proj-title', b: 'proj-side', why: '工程名壓住右邊粒狀態標籤' }],
+  },
+
   /* ⭐⭐ 數唔到嗰個樣 —— 量嘅係**一條安全性質**，⛔ 唔係一個版面。 */
   dialogfail: {
     screen: 'dialogfail',
@@ -600,6 +619,9 @@ let seenBad = 0
 /** 「數唔到就鎖住」嗰組 —— P8 步 2 最緊要嗰條性質。 */
 let lockChecked = 0
 let lockBad = 0
+/** 「兩件嘢冇疊埋」嗰組。 */
+let overlapChecked = 0
+let overlapBad = 0
 
 for (const [name, spec] of Object.entries(SCREENS)) {
   if (ONLY && ONLY !== name) continue
@@ -707,6 +729,48 @@ for (const [name, spec] of Object.entries(SCREENS)) {
     await proto.close()
   }
 
+  /* ── 兩件嘢有冇疊埋？（⛔ 一定要喺 hit 掃描之前 —— 嗰個會 scrollIntoView）──
+     ⭐ 量嘅係**畫出嚟嗰個框**（`getBoundingClientRect`），⛔ 唔係 CSS 寫咗乜。
+     ⚠️ 長工程名個窿正正就係「盒縮到 0，但啲字照樣畫出盒外」——
+        ⛔ 睇 CSS 睇唔出，一定要量真嘅框。 */
+  for (const one of spec.overlap ?? []) {
+    overlapChecked += 1
+    const r = await real.evaluate(([a, b]) => {
+      const ea = document.querySelector(`[data-testid="${a}"]`)
+      const eb = document.querySelector(`[data-testid="${b}"]`)
+      if (!ea || !eb) return null
+      const ra = ea.getBoundingClientRect()
+      const rb = eb.getBoundingClientRect()
+      /* ⭐ 用 `range` 量**啲字真正畫到去邊**，⛔ 唔係量個盒 ——
+         個盒俾 `min-width: 0` 縮咗，但啲字可以照樣爆出去。 */
+      const range = document.createRange()
+      range.selectNodeContents(ea)
+      const ink = range.getBoundingClientRect()
+      range.detach?.()
+      const right = Math.max(ra.right, ink.right)
+      const overlapPx = Math.round(right - rb.left)
+      return {
+        overlapPx,
+        boxRight: Math.round(ra.right),
+        inkRight: Math.round(ink.right),
+        otherLeft: Math.round(rb.left),
+      }
+    }, [one.a, one.b])
+    if (r === null) {
+      overlapBad += 1
+      console.log(`  ✗ [${one.a}] 或者 [${one.b}] 揾唔到 —— 量唔到`)
+    } else if (r.overlapPx <= 0) {
+      console.log(`  ✓ [${one.a}] 冇壓住 [${one.b}]（差 ${-r.overlapPx}px）`)
+    } else {
+      overlapBad += 1
+      console.log(`  ✗ ⛔⛔ ${one.why} —— 疊埋咗 ${r.overlapPx}px`)
+      console.log(
+        `      啲字畫到 ${r.inkRight}（個盒淨係去到 ${r.boxRight}），而 [${one.b}] 由 ${r.otherLeft} 開始`,
+      )
+      console.log('      ⛔ 兩樣字疊埋 ＝ 兩樣都讀唔到。')
+    }
+  }
+
   /* ── 數唔到就鎖住？ ────────────────────────────────────────────
      ⛔⛔ 兩樣一齊要，⛔ 唔可以淨係一樣：
        ① 粒危險掣真係 `disabled`（⛔ 唔係「睇落灰灰哋」）
@@ -808,6 +872,7 @@ console.log(`彈窗掣位：對咗 ${sameSpot} 粒，郁咗 ${sameSpotBad} 粒�
 console.log(`真滑鼠拖：試咗 ${dragChecked} 下，推唔郁 ${dragBad} 下。`)
 console.log(`訊息睇得到：量咗 ${seenChecked} 句，睇唔到 ${seenBad} 句。`)
 console.log(`數唔到就鎖住：量咗 ${lockChecked} 粒掣，冇鎖 ${lockBad} 粒。`)
+console.log(`兩件嘢冇疊埋：量咗 ${overlapChecked} 對，疊咗 ${overlapBad} 對。`)
 
 if (SELF_TEST) {
   console.log('\n──── 自我測試 ────')
@@ -821,7 +886,13 @@ if (SELF_TEST) {
 }
 
 process.exit(
-  bad === 0 && hitBad === 0 && sameSpotBad === 0 && dragBad === 0 && seenBad === 0 && lockBad === 0
+  bad === 0 &&
+    hitBad === 0 &&
+    sameSpotBad === 0 &&
+    dragBad === 0 &&
+    seenBad === 0 &&
+    lockBad === 0 &&
+    overlapBad === 0
     ? 0
     : 1,
 )
