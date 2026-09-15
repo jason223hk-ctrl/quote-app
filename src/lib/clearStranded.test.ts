@@ -1,13 +1,12 @@
 import { describe, expect, it, vi } from 'vitest'
 import { clearStranded } from './clearStranded'
 import {
-  deleteUnsyncedWarning,
   strandedConfirm,
   strandedCount,
   strandedNote,
   strandedPending,
-  unsyncedInRecord,
 } from './orphanPhotos'
+import { onlyOnPhoneCount, onlyOnPhoneWarning } from './purgeCounts'
 import type { QuotePhoto } from './photos'
 import type { PendingPhoto } from './photoUpload'
 
@@ -129,29 +128,39 @@ describe('⛔⛔ 確認嗰句：唔准縮成「確定嗎」', () => {
 })
 
 describe('⭐ 釘死五：刪工程嗰陣 N > 0 一定要出多一行', () => {
+  /* ⚠️ 2026-09-15：呢組本來釘住 `deleteUnsyncedWarning` / `unsyncedInRecord`。
+     嗰兩個拆咗（danger zone 一拆就冇人叫佢哋），⭐ **但呢條要求冇取消** ——
+     ⛔ 所以呢組改為釘住而家真係用緊嗰兩個（`purgeCounts.ts`），
+     ⚠️ 唔係就變成「測試仲喺度，但佢守緊一段死 code」。 */
   it('呢一單有未傳嘅相 ⇒ 出，而且寫出實數', () => {
-    const text = deleteUnsyncedWarning(2)
-    expect(text).toBe('⚠️ 呢單仲有 2 張相未傳上雲端，刪咗佢哋就冇出路。')
+    expect(onlyOnPhoneWarning(2)).toBe(
+      '⚠️ 呢單仲有 2 張相只剩部機呢一份（未傳上雲端）。清咗就真正永遠冇咗。',
+    )
   })
 
   it('⛔ 零就唔出', () => {
-    expect(deleteUnsyncedWarning(0)).toBe(null)
+    expect(onlyOnPhoneWarning(0)).toBe(null)
   })
 
-  it('unsyncedInRecord 只數呢一單、只數未傳嗰啲', () => {
+  it('⛔⛔ 讀唔到部機（null）⇒ 都唔出，⛔ 唔准當零', () => {
+    expect(onlyOnPhoneWarning(null)).toBe(null)
+    expect(onlyOnPhoneCount('r1', null)).toBe(null)
+  })
+
+  it('onlyOnPhoneCount 只數呢一單、只數未傳嗰啲', () => {
     const items = [
       photo({ operationId: 'a', recordId: 'r1', status: 'error' }),
       photo({ operationId: 'b', recordId: 'r1', status: 'local' }),
       photo({ operationId: 'c', recordId: 'r1', status: 'uploaded' }),
       photo({ operationId: 'd', recordId: 'r2', status: 'error' }),
     ]
-    expect(unsyncedInRecord(items, 'r1')).toBe(2)
-    expect(unsyncedInRecord(items, 'r2')).toBe(1)
-    expect(unsyncedInRecord(items, '冇呢單')).toBe(0)
+    expect(onlyOnPhoneCount('r1', items)).toBe(2)
+    expect(onlyOnPhoneCount('r2', items)).toBe(1)
+    expect(onlyOnPhoneCount('冇呢單', items)).toBe(0)
   })
 
   it('⭐ 呢個數⛔ 唔理母單刪咗未 —— 問嗰陣母單仲喺度', () => {
-    expect(unsyncedInRecord([photo({ recordId: '仲喺度嗰單' })], '仲喺度嗰單')).toBe(1)
+    expect(onlyOnPhoneCount('仲喺度嗰單', [photo({ recordId: '仲喺度嗰單' })])).toBe(1)
   })
 })
 

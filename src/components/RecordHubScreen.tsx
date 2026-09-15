@@ -10,7 +10,9 @@ import type { Nav } from '../ui/routes'
 import { BackChip, BotanicalHeader, FloatBody, HeaderTitle } from '../ui/shell'
 import { Icon, ICONS } from '../ui/Icon'
 import CostCard from './CostCard'
+import DeleteRecordDialog from './DeleteRecordDialog'
 import StatusCard from './StatusCard'
+import type { SwipeDeleteProps } from './RecordCard'
 
 type Props = {
   api: TreesApi
@@ -25,6 +27,14 @@ type Props = {
   canSetWon: boolean
   /** `snapshot` ＝ true 就要順手影低而家嗰份單價表先寫落去。 */
   onStatusChange: (to: QuoteStatus, snapshot: boolean) => Promise<unknown>
+  /**
+   * 右上角粒垃圾桶。**⛔ 唔傳就冇粒掣**（對數個殼、桌面嗰啲情況）。
+   *
+   * ⭐⭐ **⛔ 同工程清單推開張卡嗰粒係同一個 object、同一個 `DeleteRecordDialog`。**
+   *    ⚠️ ⛔ 唔准喺呢度另外寫一套確認：同一套字、同一個「連帶消失：N 棵樹、N 張相」、
+   *    同一條「數唔到就撳唔落」。兩套文案就等於有一套冇人睇住。
+   */
+  swipeDelete?: SwipeDeleteProps
   nav: Nav
 }
 
@@ -47,6 +57,7 @@ export default function RecordHubScreen({
   onMarkupSave,
   canSetWon,
   onStatusChange,
+  swipeDelete,
   nav,
 }: Props) {
   const [treeCount, setTreeCount] = useState<number | null>(null)
@@ -55,6 +66,8 @@ export default function RecordHubScreen({
   const [quote, setQuote] = useState<Quote>(EMPTY_QUOTE)
   const [costLoading, setCostLoading] = useState(true)
   const [statusBusy, setStatusBusy] = useState(false)
+  /** 撳咗右上角粒垃圾桶，等緊確認。 */
+  const [asking, setAsking] = useState(false)
   const [markupInput, setMarkupInput] = useState<string>(
     record.markup_pct === null ? '' : String(record.markup_pct),
   )
@@ -153,7 +166,46 @@ export default function RecordHubScreen({
             }
           />
         }
+        right={
+          /**
+           * ⭐⭐ **工程詳情頁嘅刪除入口**（Jason 2026-09-15：「加多個垃圾桶係呢頁既右上角」）。
+           *
+           * ⭐ 佢同時解決咗一個實際問題：**桌面冇得推卡**，拆咗 danger zone 之後
+           *    冇咗呢粒掣就桌面刪唔到嘢。
+           *
+           * ⛔⛔ **44×44**（`.head-trash`）—— ⚠️ 旁邊粒返回掣係 34×34，
+           *    嗰個係舊嘢、⛔ 呢個 PR 唔郁（郁佢會推歪每一版嘅 header，
+           *    而 `ui:check` 嗰 90 項對數就係量緊呢啲位）。已知，寫咗落 PR。
+           * ⛔ 一定要有中文 `aria-label`，⛔ 唔可以淨係一個圖。
+           */
+          swipeDelete === undefined ? undefined : (
+            <button
+              className="head-trash"
+              type="button"
+              aria-label={`刪除 ${record.name}`}
+              data-testid="hub-delete"
+              onClick={() => setAsking(true)}
+            >
+              <Icon name={ICONS.del} />
+            </button>
+          )
+        }
       />
+
+      {asking && swipeDelete !== undefined && (
+        <DeleteRecordDialog
+          record={record}
+          apis={swipeDelete.apis}
+          onCancel={() => setAsking(false)}
+          onConfirm={async () => {
+            await swipeDelete.run(record)
+            // ⛔ 刪完一定要離開呢版 —— ⚠️ 單嘢已經冇咗，留喺度就係望住一版
+            //    再撳落去乜都唔會 work 嘅嘢。（推卡嗰邊啱啱相反：人本來就喺清單。）
+            setAsking(false)
+            nav.go({ name: 'records' })
+          }}
+        />
+      )}
 
       <FloatBody
         compact
@@ -184,8 +236,6 @@ export default function RecordHubScreen({
           </div>
         }
       >
-        {record.archived && <p className="notice notice--warning">呢單已經封存。</p>}
-
         <button
           className="hub-row"
           data-testid="hub-client"

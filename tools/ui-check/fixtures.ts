@@ -106,6 +106,9 @@ export const purgeApis = {
     ),
 }
 
+/** 推卡刪除／右上角垃圾桶嗰一組。⛔ 兩個入口共用同一個 object，同真 app 一樣。 */
+export const swipeDelete = { run: async () => {}, apis: purgeApis }
+
 export const photosApi = {
   listByRecord: async () => [],
   findByOperationId: async () => null,

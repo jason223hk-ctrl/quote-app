@@ -295,6 +295,16 @@ const SCREENS = {
     overlap: [{ a: 'proj-title', b: 'proj-side', why: '工程名壓住右邊粒狀態標籤' }],
   },
 
+  /* ⭐⭐ 工程詳情頁頂部：大字工程名 ＋ 右上角粒垃圾桶。
+     ⚠️ **同上面張卡一模一樣嘅病**，所以一加咗粒垃圾桶就要即刻量返。
+     ⛔ 用返 Jason 部機嗰個真名，⛔ 唔准用短名量完就算。
+     ⭐ 順手量埋粒垃圾桶撳唔撳得到（`hits`）同埋佢有幾大（`minSize`）。 */
+  hubname: {
+    query: '',
+    overlap: [{ a: 'head-name', b: 'hub-delete', why: '頂部工程名壓住粒垃圾桶' }],
+    minSize: [{ testid: 'hub-delete', w: 44, h: 44 }],
+  },
+
   /* ⭐⭐ 數唔到嗰個樣 —— 量嘅係**一條安全性質**，⛔ 唔係一個版面。 */
   dialogfail: {
     screen: 'dialogfail',
@@ -622,6 +632,9 @@ let lockBad = 0
 /** 「兩件嘢冇疊埋」嗰組。 */
 let overlapChecked = 0
 let overlapBad = 0
+/** 「粒掣夠唔夠大撳」嗰組。 */
+let sizeChecked = 0
+let sizeBad = 0
 
 for (const [name, spec] of Object.entries(SCREENS)) {
   if (ONLY && ONLY !== name) continue
@@ -747,12 +760,31 @@ for (const [name, spec] of Object.entries(SCREENS)) {
       range.selectNodeContents(ea)
       const ink = range.getBoundingClientRect()
       range.detach?.()
-      const right = Math.max(ra.right, ink.right)
+
+      /* ⛔⛔ **但 `range` 報嘅係「未剪之前」嗰個闊度 —— 一定要自己剪返。**
+         ⚠️ 2026-09-15 呢把尺第一版就係漏咗呢段，喺工程詳情頁出咗一個**假紅**：
+         報「疊埋咗 122px」，但個名其實有 `overflow: hidden` ＋ `…`，
+         真機睇落**完全冇疊**（名剪到 318，粒垃圾桶由 328 開始，
+         `elementFromPoint` 打粒垃圾桶中心撳到嘅就係佢本人）。
+         ⭐ 所以要由佢自己行上去，凡係 `overflow-x` 唔係 `visible` 嘅祖先
+         都會剪住佢 —— **瀏覽器點剪，尺就要點剪**。
+         ⚠️ 假紅係最快令人唔再理一把尺嘅嘢（附錄 B 自己寫低過），
+         ⛔ 所以呢段唔准拆。 */
+      let clipRight = Infinity
+      for (let e = ea; e && e !== document.documentElement; e = e.parentElement) {
+        if (getComputedStyle(e).overflowX !== 'visible') {
+          clipRight = Math.min(clipRight, e.getBoundingClientRect().right)
+        }
+      }
+      const inkRight = Math.min(ink.right, clipRight)
+      const right = Math.max(ra.right, inkRight)
       const overlapPx = Math.round(right - rb.left)
       return {
         overlapPx,
         boxRight: Math.round(ra.right),
-        inkRight: Math.round(ink.right),
+        inkRight: Math.round(inkRight),
+        rawInkRight: Math.round(ink.right),
+        clipped: clipRight !== Infinity && ink.right > clipRight,
         otherLeft: Math.round(rb.left),
       }
     }, [one.a, one.b])
@@ -760,7 +792,8 @@ for (const [name, spec] of Object.entries(SCREENS)) {
       overlapBad += 1
       console.log(`  ✗ [${one.a}] 或者 [${one.b}] 揾唔到 —— 量唔到`)
     } else if (r.overlapPx <= 0) {
-      console.log(`  ✓ [${one.a}] 冇壓住 [${one.b}]（差 ${-r.overlapPx}px）`)
+      const how = r.clipped ? `，啲字剪到 ${r.inkRight}（本身想去到 ${r.rawInkRight}）` : ''
+      console.log(`  ✓ [${one.a}] 冇壓住 [${one.b}]（差 ${-r.overlapPx}px${how}）`)
     } else {
       overlapBad += 1
       console.log(`  ✗ ⛔⛔ ${one.why} —— 疊埋咗 ${r.overlapPx}px`)
@@ -768,6 +801,32 @@ for (const [name, spec] of Object.entries(SCREENS)) {
         `      啲字畫到 ${r.inkRight}（個盒淨係去到 ${r.boxRight}），而 [${one.b}] 由 ${r.otherLeft} 開始`,
       )
       console.log('      ⛔ 兩樣字疊埋 ＝ 兩樣都讀唔到。')
+    }
+  }
+
+  /* ── 粒掣夠唔夠大撳？ ──────────────────────────────────────────
+     ⭐ 44×44 係戴住手套撳得穩嘅底線。⛔ 一粒撳得到但撳唔準嘅掣，
+        喺一個**冇得反悔**嘅動作上面特別衰。 */
+  for (const one of spec.minSize ?? []) {
+    sizeChecked += 1
+    const r = await real.evaluate((id) => {
+      const el = document.querySelector(`[data-testid="${id}"]`)
+      if (!el) return null
+      const b = el.getBoundingClientRect()
+      return { w: Math.round(b.width), h: Math.round(b.height), label: el.getAttribute('aria-label') }
+    }, one.testid)
+    if (r === null) {
+      sizeBad += 1
+      console.log(`  ✗ [${one.testid}] 揾唔到`)
+    } else if (r.w < one.w || r.h < one.h) {
+      sizeBad += 1
+      console.log(`  ✗ [${one.testid}] 得 ${r.w}×${r.h}，要 ${one.w}×${one.h}`)
+    } else if (r.label === null || r.label.trim() === '') {
+      // ⛔ 一粒得個圖嘅掣，冇中文 label 就係讀屏嗰邊完全講唔出佢係乜。
+      sizeBad += 1
+      console.log(`  ✗ [${one.testid}] 冇 aria-label —— ⛔ 一粒淨係得個圖嘅掣唔可以冇名`)
+    } else {
+      console.log(`  ✓ [${one.testid}] ${r.w}×${r.h}，label「${r.label}」`)
     }
   }
 
@@ -873,6 +932,7 @@ console.log(`真滑鼠拖：試咗 ${dragChecked} 下，推唔郁 ${dragBad} 下
 console.log(`訊息睇得到：量咗 ${seenChecked} 句，睇唔到 ${seenBad} 句。`)
 console.log(`數唔到就鎖住：量咗 ${lockChecked} 粒掣，冇鎖 ${lockBad} 粒。`)
 console.log(`兩件嘢冇疊埋：量咗 ${overlapChecked} 對，疊咗 ${overlapBad} 對。`)
+console.log(`粒掣夠大撳：量咗 ${sizeChecked} 粒，唔夠 ${sizeBad} 粒。`)
 
 if (SELF_TEST) {
   console.log('\n──── 自我測試 ────')
@@ -892,7 +952,8 @@ process.exit(
     dragBad === 0 &&
     seenBad === 0 &&
     lockBad === 0 &&
-    overlapBad === 0
+    overlapBad === 0 &&
+    sizeBad === 0
     ? 0
     : 1,
 )

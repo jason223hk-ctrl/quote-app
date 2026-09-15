@@ -150,7 +150,6 @@ export default function RecordCard({
             <span className="status__dot" aria-hidden="true" />
             {statusLabel(record.status)}
           </span>
-          {record.archived && <span className="badge grey">已封存</span>}
         </div>
       </div>
 

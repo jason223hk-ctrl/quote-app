@@ -89,8 +89,6 @@ const body =
       record={fx.RECORD}
       siteFormApi={fx.siteFormApi}
       onSave={noop}
-      onArchiveToggle={noop}
-      onDelete={noop}
       onBack={() => {}}
     />
   ) : screen === 'dialog' ? (
@@ -216,6 +214,22 @@ const body =
       record={fx.RECORD}
       canEditMarkup
       onMarkupSave={async () => {}}
+      swipeDelete={fx.swipeDelete}
+      nav={fx.nav}
+    />
+  ) : screen === 'hubname' ? (
+    /* ⭐⭐ **工程詳情頁，工程名長到爆。**
+       ⚠️ 頂部大字工程名 ＋ 右上角粒垃圾桶 —— **同工程卡壓狀態標籤一模一樣嘅病**。
+       ⛔ 個名係 Jason 部機嗰單真嘢，⛔ 唔准用短名量完就算。 */
+    <RecordHubScreen
+      api={fx.trees}
+      siteFormApi={fx.siteFormApi}
+      priceApi={fx.priceApi}
+      photosApi={fx.photosApi}
+      record={fx.LONG_NAME_RECORD}
+      canEditMarkup
+      onMarkupSave={async () => {}}
+      swipeDelete={fx.swipeDelete}
       nav={fx.nav}
     />
   ) : (
