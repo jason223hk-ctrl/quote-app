@@ -14,6 +14,7 @@ import DeleteRecordDialog from '../../src/components/DeleteRecordDialog'
 import SettingsScreen from '../../src/components/SettingsScreen'
 import SyncScreen from '../../src/components/SyncScreen'
 import ExportPdfScreen from '../../src/components/ExportPdfScreen'
+import PendingBar from '../../src/components/PendingBar'
 import { IconSprite } from '../../src/ui/Icon'
 import { BottomNav } from '../../src/ui/shell'
 import * as fx from './fixtures'
@@ -232,6 +233,10 @@ const body =
       swipeDelete={fx.swipeDelete}
       nav={fx.nav}
     />
+  ) : screen.startsWith('pending') ? (
+    /* ⭐ 條 bar 疊喺內容上面，所以要有真內容先量得到「有冇遮住最後一張卡」。
+       ⛔ 用返真嘅首頁，⛔ 唔係一個空殼。 */
+    <HomeScreen records={fx.RECORDS} loading={false} nav={fx.nav} />
   ) : (
     <HomeScreen records={fx.RECORDS} loading={false} nav={fx.nav} />
   )
@@ -241,6 +246,17 @@ createRoot(document.getElementById('root')!).render(
     <IconSprite />
     <div className="app app--float">
       {body}
+      {/* ⭐⭐ 「未上載 N 張」條 bar。**⛔ 照返真 app 嘅位置：`.app--float` 入面、
+          底 nav 嘅兄弟** —— 佢要度返 nav 實際幾高再擺高自己，
+          ⚠️ 唔擺喺同一個 parent 就度唔到，而把尺就會量緊一條浮咗喺第二度嘅 bar。
+          ⛔ 只喺 `?screen=pending…` 出，⚠️ 唔係就每一版都多咗一條，
+             成個 90 項對數即刻走晒位。 */}
+      {screen.startsWith('pending') && (
+        <PendingBar
+          onOpenSync={() => {}}
+          sample={{ count: 3, celebrating: params.get('done') === '1' }}
+        />
+      )}
       <BottomNav
         active={
           screen === 'price' || screen === 'settings'

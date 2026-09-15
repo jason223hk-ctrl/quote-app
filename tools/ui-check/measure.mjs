@@ -287,6 +287,40 @@ const SCREENS = {
        ⇒ 呢度量兩樣：真係 focus 咗「取消」，而且**個 focus 睇得到**。 */
     focusStart: { testid: 'delete-cancel' },
   },
+  /* ⭐⭐ 「未上載 N 張」條 bar。
+
+     ⛔⛔ **佢對嘅原型⛔ 唔係 stage57，係另一個檔** —— 呢個位要講清楚：
+     stage57 入面有個 `.upbanner`（大大隻數字，擺喺首頁統計同待報價清單之間），
+     ⚠️ 但嗰個係 **2026-09-01 嘅建議稿**，**已經俾人推翻咗**。
+     真正拍板嗰個係 `docs/原型-未上載計數器.html`（Jason 2026-09-06 撳完四個位置
+     揀咗「甲：底部導航上面一條 bar」）。
+     ⇒ 所以呢個畫面用 `protoFile` 指去嗰個檔。
+     ⛔ **唔准改去對 stage57** —— 對一個已經作廢嘅稿，綠燈同紅燈都冇意思。
+
+     ⭐ 除咗對數，仲量埋兩條**上線清單第 1 條嘅硬規矩**（`docs/上線清單.md`）：
+       · N 唔係零就⛔ 唔准收埋
+       · ⛔ 唔准有得撳走（冇 ✕、冇「知道喇」、冇「唔好再提」）
+     ⚠️ 呢兩條**冇任何原型對得到**（原型嗰邊都係「冇」）—— 佢哋係絕對要求。 */
+  pending: {
+    screen: 'pending',
+    query: '',
+    protoFile: path.resolve(HERE, '../../docs/原型-未上載計數器.html'),
+    pairs: [
+      ['成條 bar', '.pending-bar', '#slotBar .cnt', 'nosize', {
+          width:
+            '差 2px，⛔ 唔係版面唔同 —— 係原型嗰個**電話外框自己有 1px 邊**。' +
+            '實測：原型 `.phone` width 390 但 `box-sizing: border-box` ＋ 左右各 1px 邊 ' +
+            '⇒ 入面得 388，減 16×2 padding ＝ 356；真 app 冇呢個框，390 − 16×2 ＝ 358。' +
+            '⭐ 兩邊講嘅係同一件事「畫面闊度減兩邊 16px」。' +
+            '⛔ 唔准靠調大 TOL 嚟做綠 —— 嗰樣會鬆晒成個 90 項對數。',
+        }],
+      ['入面啲字', '.pending-bar__text', '#slotBar .cnt > span', 'font'],
+      ['「睇同步 ›」', '.pending-bar__go', '#slotBar .cnt .go', 'font'],
+    ],
+    noEscape: [{ testid: 'pending-bar' }],
+    minSize: [{ testid: 'pending-bar', w: 200, h: 44, noLabel: true }],
+  },
+
   /* ⭐⭐ 工程名長到爆嗰張卡 —— 量嘅係**兩件嘢有冇疊埋**。
 
      ⛔⛔ **點解要有呢把尺 —— ⛔ 唔准淨係記住結論**
@@ -656,6 +690,9 @@ const RING_VISIBLE = (r) => r.style !== 'none' && parseFloat(r.width) > 0
 /** 「粒掣夠唔夠大撳」嗰組。 */
 let sizeChecked = 0
 let sizeBad = 0
+/** 「⛔ 冇得撳走」嗰組 —— 上線清單第 1 條。 */
+let escapeChecked = 0
+let escapeBad = 0
 
 for (const [name, spec] of Object.entries(SCREENS)) {
   if (ONLY && ONLY !== name) continue
@@ -709,9 +746,11 @@ for (const [name, spec] of Object.entries(SCREENS)) {
   //    ⛔ 唔係真 app 有嘢壞。**次序本身就係規格。**
   if (spec.pairs) {
     const proto = await browser.newPage({ viewport: { width: W, height: H } })
-    await proto.goto('file://' + path.resolve(PROTO))
+    /* ⛔ `protoFile` ＝ 呢個畫面對嘅唔係 stage57，係另一個拍咗板嘅原型檔。
+       ⚠️ 見 `pending` 嗰個 spec：對一個已經作廢嘅稿，綠燈同紅燈都冇意思。 */
+    await proto.goto('file://' + path.resolve(spec.protoFile ?? PROTO))
     await proto.evaluate(() => document.fonts.ready)
-    await proto.evaluate((fn) => window[fn](), spec.proto)
+    if (spec.proto) await proto.evaluate((fn) => window[fn](), spec.proto)
     await proto.waitForTimeout(700)
 
     for (const [label, a, b, mode, except] of spec.pairs) {
@@ -934,6 +973,43 @@ for (const [name, spec] of Object.entries(SCREENS)) {
     }
   }
 
+  /* ── ⛔ 有冇得撳走？ ──────────────────────────────────────────
+     `docs/上線清單.md` 第 1 條原文：**N 唔係零就⛔ 唔准收埋**、
+     **⛔ 唔准有得撳走**（冇 ✕、冇「知道喇」、冇「唔好再提」）。
+
+     ⭐⭐ **點解要一把尺睇住一條「唔准加嘢」嘅規矩**
+     ⚠️ 一條「唔准加」嘅規矩，喺 code review 度**永遠睇落冇事** ——
+        因為佢守嘅係「冇出現過嘅嘢」。加一粒 ✕ 落去，diff 睇落就係
+        「體貼啲，俾人收埋佢」，⛔ 冇人會記得嗰粒 ✕ 正正係規矩禁止嗰樣。
+     ⇒ 所以要量：條 bar 入面除咗佢自己，⛔ 唔准有第二粒掣，
+        亦都⛔ 唔准出現「知道」「唔好再提」「稍後」「✕」呢啲字。 */
+  const ESCAPE_WORDS = ['知道', '唔好再提', '稍後', '遲啲', '關閉', '收起', '✕', '×']
+  for (const one of spec.noEscape ?? []) {
+    escapeChecked += 1
+    const r = await real.evaluate(([id, words]) => {
+      const el = document.querySelector(`[data-testid="${id}"]`)
+      if (!el) return null
+      const inner = [...el.querySelectorAll('button, [role=button], a[href]')]
+      const text = (el.textContent ?? '').trim()
+      return {
+        innerButtons: inner.length,
+        hit: words.filter((w) => text.includes(w)),
+        text: text.slice(0, 24),
+      }
+    }, [one.testid, ESCAPE_WORDS])
+    if (r === null) {
+      escapeBad += 1
+      console.log(`  ✗ [${one.testid}] 揾唔到 —— ⛔ N 唔係零就唔准收埋，但佢根本冇出`)
+    } else if (r.innerButtons > 0 || r.hit.length > 0) {
+      escapeBad += 1
+      console.log(`  ✗ ⛔⛔ [${one.testid}] 有得撳走 —— 上線清單第 1 條講明⛔ 唔准`)
+      if (r.innerButtons > 0) console.log(`      入面有 ${r.innerButtons} 粒自己嘅掣`)
+      if (r.hit.length > 0) console.log(`      出現咗：${r.hit.join('、')}`)
+    } else {
+      console.log(`  ✓ [${one.testid}] 出咗，而且⛔ 冇得撳走（「${r.text}」）`)
+    }
+  }
+
   /* ── 粒掣夠唔夠大撳？ ──────────────────────────────────────────
      ⭐ 44×44 係戴住手套撳得穩嘅底線。⛔ 一粒撳得到但撳唔準嘅掣，
         喺一個**冇得反悔**嘅動作上面特別衰。 */
@@ -951,12 +1027,13 @@ for (const [name, spec] of Object.entries(SCREENS)) {
     } else if (r.w < one.w || r.h < one.h) {
       sizeBad += 1
       console.log(`  ✗ [${one.testid}] 得 ${r.w}×${r.h}，要 ${one.w}×${one.h}`)
-    } else if (r.label === null || r.label.trim() === '') {
+    } else if (!one.noLabel && (r.label === null || r.label.trim() === '')) {
       // ⛔ 一粒得個圖嘅掣，冇中文 label 就係讀屏嗰邊完全講唔出佢係乜。
       sizeBad += 1
       console.log(`  ✗ [${one.testid}] 冇 aria-label —— ⛔ 一粒淨係得個圖嘅掣唔可以冇名`)
     } else {
-      console.log(`  ✓ [${one.testid}] ${r.w}×${r.h}，label「${r.label}」`)
+      const named = one.noLabel ? '（有字，⛔ 唔使 label）' : `，label「${r.label}」`
+      console.log(`  ✓ [${one.testid}] ${r.w}×${r.h}${named}`)
     }
   }
 
@@ -1064,6 +1141,7 @@ console.log(`數唔到就鎖住：量咗 ${lockChecked} 粒掣，冇鎖 ${lockBa
 console.log(`兩件嘢冇疊埋：量咗 ${overlapChecked} 對，疊咗 ${overlapBad} 對。`)
 console.log(`粒掣夠大撳：量咗 ${sizeChecked} 粒，唔夠 ${sizeBad} 粒。`)
 console.log(`撳完⛔ 唔變藍 ＋ 鍵盤仲睇得到：量咗 ${blueChecked} 項，唔啱 ${blueBad} 項。`)
+console.log(`⛔ 冇得撳走：量咗 ${escapeChecked} 件，走得甩 ${escapeBad} 件。`)
 
 if (SELF_TEST) {
   console.log('\n──── 自我測試 ────')
@@ -1085,7 +1163,8 @@ process.exit(
     lockBad === 0 &&
     overlapBad === 0 &&
     sizeBad === 0 &&
-    blueBad === 0
+    blueBad === 0 &&
+    escapeBad === 0
     ? 0
     : 1,
 )

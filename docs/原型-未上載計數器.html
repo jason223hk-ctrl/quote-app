@@ -1,0 +1,476 @@
+<!doctype html>
+<html lang="zh-HK">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>原型：未上載 N 張</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=Noto+Serif+TC:wght@600;700&display=swap">
+<style>
+  /* ══════════════════════════════════════════════════════════════
+     ⛔⛔ 呢個係原型，⛔ 唔會真係存嘢，⛔ 唔駁真資料。
+     ⭐ 色、字體、卡、底部導航全部**抄返** docs/原型-stage57-autoupload.html，
+        ⛔ 冇自己設計一套 —— 要睇嘅係「個計數器擺喺呢個殼入面係咩樣」，
+        ⛔ 唔係睇一套新設計。
+     ⚠️ 抄過嚟嘅嘢：:root 嗰批 --mq-* token、.quote-app-ui alias、
+        .phone 底色、header ＋ .curve、.card / .pcard、nav .bar 深色版。
+     ══════════════════════════════════════════════════════════════ */
+  :root{
+    --mq-bg:#0D120E; --mq-bg-elevated:#111712;
+    --mq-surface-1:#171E18; --mq-surface-2:#1C241D;
+    --mq-olive:#84945D; --mq-olive-strong:#98A56B; --mq-moss:#68794D; --mq-forest:#304332;
+    --mq-text:#F1EBDD; --mq-text-2:#BDB6A6; --mq-text-3:#96978E;
+    --mq-border:rgba(190,178,139,.28); --mq-border-strong:rgba(157,169,105,.44);
+    --mq-success:#8FA25D; --mq-warning:#B68A45; --mq-danger:#B35D4A; --mq-info:#6F8FA0;
+    --mq-serif:"Noto Serif TC","Source Han Serif TC","Songti TC","STSong",serif;
+    --mq-sans:"Noto Sans TC","PingFang TC","Microsoft JhengHei",sans-serif;
+    --mq-shadow:inset 0 1px 0 rgba(236,228,205,.05),
+                0 1px 2px rgba(0,0,0,.42),
+                0 12px 26px -14px rgba(0,0,0,.52);
+    --r:18px;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:#0D120E;font-family:var(--mq-sans);color:var(--mq-text)}
+
+  .quote-app-ui{
+    --ground:var(--mq-bg);      --card:var(--mq-surface-1); --card-2:var(--mq-surface-2);
+    --ink:var(--mq-text);       --muted:var(--mq-text-3);   --line:var(--mq-border);
+    --header:var(--mq-bg-elevated); --header-2:var(--mq-surface-2);
+    --accent:var(--mq-olive-strong); --nav-on:var(--mq-olive-strong);
+    --ok:var(--mq-success);     --warn:var(--mq-warning);   --danger:var(--mq-danger);
+    --shadow:var(--mq-shadow);
+    color:var(--mq-text);font-family:var(--mq-sans);font-size:16px;line-height:1.5;
+    -webkit-font-smoothing:antialiased;
+  }
+  .quote-app-ui h1,.quote-app-ui h2,.quote-app-ui h3{font-family:var(--mq-serif);letter-spacing:.01em}
+
+  /* ── 頂部：講明佢係樣板 ───────────────────────────────── */
+  .banner{background:#FDF6E3;color:#6B5A34;font-size:13.5px;line-height:1.55;
+    padding:12px 16px;text-align:center;border-bottom:1px solid #E8DCC0}
+  .banner b{color:#4A3E1E}
+
+  /* ── 樣板控制台 ─────────────────────────────────────── */
+  .ctl{max-width:430px;margin:0 auto;padding:14px 16px 4px}
+  .ctl .grp{margin-bottom:12px}
+  .ctl .lbl{font-size:12px;color:var(--mq-text-3);margin:0 0 6px;letter-spacing:.03em}
+  .segs{display:flex;gap:6px;flex-wrap:wrap}
+  .segs button{flex:1 1 auto;min-width:60px;padding:9px 8px;border-radius:11px;
+    border:1px solid var(--mq-border);background:rgba(28,36,29,.6);color:var(--mq-text-2);
+    font:inherit;font-size:13.5px;font-weight:600;cursor:pointer}
+  .segs button.on{background:linear-gradient(160deg,#8B9C60,#68794D);color:#0D120E;
+    border-color:var(--mq-border-strong)}
+  .segs button small{display:block;font-weight:400;font-size:11px;opacity:.8}
+
+  /* ── 電話殼（抄返原型）───────────────────────────────── */
+  /* ⭐ 固定高 ＋ 入面自己捲 —— ⛔ 唔可以做成成版一路捲落去。
+     唔係嘅話「頂部嗰個碌走咗就唔見」同「底 bar 永遠喺度」呢個分別
+     喺原型度根本睇唔到，而嗰個正正就係第 ① 條要你揀嘅嘢。 */
+  .phone{max-width:430px;margin:10px auto 0;height:min(78vh,720px);display:flex;flex-direction:column;
+    position:relative;overflow:hidden;border-radius:22px;border:1px solid var(--mq-border);
+    background:radial-gradient(120% 46% at 78% 0%, #17201A 0%, rgba(23,32,26,0) 58%),
+      linear-gradient(180deg,#131A14 0%,#0E130F 44%,#0C110D 100%)}
+  .quote-app-ui header{background:var(--header);color:#F6F1E9;padding:18px 18px 34px}
+  .quote-app-ui header h1{margin:0;font-size:21px;font-weight:650}
+  .quote-app-ui header .sub{margin:4px 0 0;font-size:13px;color:#B9AE9C}
+  .curve{height:22px;background:var(--ground);border-radius:22px 22px 0 0;margin:-22px 0 0}
+  .scroller{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch}
+  .quote-app-ui main{padding:4px 16px 128px;display:flex;flex-direction:column;gap:12px}
+  .card{background:var(--card);border-radius:var(--r);box-shadow:var(--shadow);padding:16px}
+  .pcard{padding:15px 16px;cursor:pointer}
+  .pcard .top{display:flex;align-items:center;gap:10px}
+  .pcard .nm{font-size:16px;font-weight:650}
+  .pcard .st{margin-left:auto;font-size:12px;color:var(--muted);display:flex;align-items:center;gap:6px}
+  .pcard .st i{width:8px;height:8px;border-radius:50%;background:#5B7EA8;display:inline-block}
+  .pcard .ln{font-size:13px;color:var(--muted);margin-top:3px}
+  .sect{display:flex;align-items:baseline;justify-content:space-between;margin:2px 2px 0}
+  .sect h3{margin:0;font-size:15px;font-weight:650}
+
+  /* 底部導航（深色版，抄返原型）*/
+  .quote-app-ui nav{position:absolute;left:0;right:0;bottom:0;display:flex;justify-content:center;
+    padding:0 16px 16px;pointer-events:none}
+  .quote-app-ui nav .bar{max-width:398px;width:100%;
+    background:linear-gradient(180deg,rgba(28,36,29,.96),rgba(19,26,20,.96));
+    border:1px solid var(--mq-border);border-radius:16px;
+    box-shadow:0 12px 30px -12px rgba(0,0,0,.5);padding:11px 0 9px;pointer-events:auto;
+    display:grid;grid-template-columns:repeat(4,1fr);
+    backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+  .quote-app-ui nav .tab{cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:5px;
+    padding:2px 0 0;background:none;border:0;margin:0;font:inherit;text-align:center;line-height:normal}
+  .quote-app-ui nav .ic{display:block;color:var(--mq-text-2);font-size:20px;line-height:1}
+  .quote-app-ui nav b{font-size:13px;font-weight:600;color:var(--mq-text-2);white-space:nowrap;line-height:1}
+  .quote-app-ui nav .tab.on .ic,.quote-app-ui nav .tab.on b{color:var(--mq-olive-strong)}
+
+  /* ══ 計數器本身 ══════════════════════════════════════════
+     ⛔ 三個位置共用同一套字、同一個顏色語言 —— 唔同嘅淨係「擺喺邊」。
+     ⛔ 冇任何一個版本有得撳走（冇 ✕、冇「知道喇」）：
+        上線清單第 1 條原文 ——「N 唔係零就⛔ 唔准收埋」。
+     ═══════════════════════════════════════════════════════ */
+  /* ⭐ 用返 --mq-warning（#B68A45）嗰個色系，⛔ 唔係另揀一隻金。
+     「要人知、但唔係出錯」呢個語氣，全 app 就係呢隻色。 */
+  .cnt{display:flex;align-items:center;gap:10px;font-size:15px;font-weight:650;
+    color:#0D120E;background:linear-gradient(160deg,#C29A4E,#8E6B34);
+    border:1px solid rgba(240,225,180,.5);border-radius:14px;padding:11px 14px;
+    box-shadow:0 10px 24px -12px rgba(0,0,0,.6)}
+  .cnt .n{font-size:20px;font-variant-numeric:tabular-nums;letter-spacing:.01em}
+  .cnt .sub{display:block;font-size:11.5px;font-weight:500;opacity:.85;margin-top:1px}
+  .cnt .go{margin-left:auto;font-size:13px;font-weight:650;white-space:nowrap}
+  .cnt.tap{cursor:pointer}
+  .cnt.tap:active{transform:scale(.99)}
+  .cnt.off{background:linear-gradient(160deg,#8E8577,#6E675C);border-color:rgba(220,212,196,.4)}
+  .cnt.done{background:linear-gradient(160deg,#8FA25D,#68794D);color:#0D120E}
+
+  /* 甲位：底部導航上面一條 bar */
+  .barslot{position:absolute;left:0;right:0;bottom:88px;padding:0 16px;pointer-events:none;z-index:5}
+  .barslot .cnt{pointer-events:auto}
+
+  /* 乙位：頂部（header 入面） */
+  .topslot{margin-top:12px}
+  .topslot .cnt{border-radius:12px}
+
+  /* 丙位：逐張工程卡上面 */
+  .cardslot{margin:-4px 2px 6px}
+  .cardslot .cnt{font-size:13.5px;padding:8px 12px;border-radius:11px}
+  .cardslot .cnt .n{font-size:16px}
+
+  .hide{display:none !important}
+
+  /* 太陽底下：模擬強光洗淡對比（⛔ 唔係真嘅光度計，係一個提醒） */
+  .sun .phone{filter:contrast(.62) brightness(1.5)}
+  .sun .phone::after{content:"";position:absolute;inset:0;background:rgba(255,252,240,.28);
+    pointer-events:none;z-index:9}
+
+  /* ── 下面問題清單 ───────────────────────────────────── */
+  .qa{max-width:430px;margin:18px auto 60px;padding:0 16px}
+  .qa h2{font-family:var(--mq-serif);font-size:17px;margin:22px 0 6px;color:var(--mq-text)}
+  .qa p,.qa li{font-size:14px;line-height:1.72;color:var(--mq-text-2)}
+  .qa li{margin-bottom:5px}
+  .qa .now{color:var(--mq-olive-strong);font-weight:650}
+  .qa .warn{color:#D8A55E}
+  .qa hr{border:0;border-top:1px solid var(--mq-border);margin:18px 0}
+  .qa code{font-size:13px;background:rgba(28,36,29,.8);padding:1px 5px;border-radius:5px}
+</style>
+
+<div class="banner">
+  <b>樣板，唔會真係存嘢。</b><br>
+  撳邊度都唔會寫入任何資料。呢一版淨係俾你揀「未上載 N 張」擺喺邊、點樣出。
+</div>
+
+<div class="ctl">
+  <div class="grp">
+    <p class="lbl">① 擺喺邊</p>
+    <div class="segs" id="segPos">
+      <button data-v="A" class="on">甲<small>底 bar</small></button>
+      <button data-v="B">乙<small>頂部</small></button>
+      <button data-v="C">丙<small>逐張卡</small></button>
+      <button data-v="D">丁<small>底 bar ＋ 卡</small></button>
+    </div>
+  </div>
+
+  <div class="grp">
+    <p class="lbl">② N 數乜</p>
+    <div class="segs" id="segMode">
+      <button data-m="a" class="on">甲<small>只數會冇咗嗰啲</small></button>
+      <button data-m="b">乙<small>連 Drive 未抄都數</small></button>
+    </div>
+  </div>
+
+  <div class="grp">
+    <p class="lbl">③ 幾多張（試埋難睇嘅數）</p>
+    <div class="segs" id="segN">
+      <button data-n="0">0</button>
+      <button data-n="1" class="on">1</button>
+      <button data-n="5">5</button>
+      <button data-n="47">47</button>
+    </div>
+  </div>
+
+  <div class="grp">
+    <p class="lbl">④ 現場情況</p>
+    <div class="segs" id="segEnv">
+      <button data-e="net" class="on">有網</button>
+      <button data-e="off">冇網</button>
+      <button data-e="sun">太陽底下</button>
+    </div>
+  </div>
+
+  <div class="grp">
+    <p class="lbl">⑤ 傳完嗰一刻</p>
+    <div class="segs">
+      <button onclick="finish()">模擬：最後一張上完 →</button>
+    </div>
+  </div>
+</div>
+
+<div class="phone quote-app-ui" id="phone">
+  <div class="scroller">
+  <header>
+    <h1>工程清單</h1>
+    <p class="sub">阿耀 · 3 單進行中</p>
+    <div class="topslot hide" id="slotTop"></div>
+  </header>
+  <div class="curve"></div>
+
+  <main>
+    <div class="sect"><h3>今日</h3></div>
+
+    <div class="cardslot hide" id="slotCard1"></div>
+    <div class="card pcard" onclick="tapRecord('嘉湖山莊 樂湖居 3 座')">
+      <div class="top"><span class="nm">嘉湖山莊 樂湖居</span>
+        <span class="st"><i></i>現場</span></div>
+      <div class="ln">天水圍 · 元朗區 · 12 棵樹</div>
+    </div>
+
+    <div class="cardslot hide" id="slotCard2"></div>
+    <div class="card pcard" onclick="tapRecord('香港大學 黃克競樓')">
+      <div class="top"><span class="nm">香港大學 黃克競樓</span>
+        <span class="st"><i></i>現場</span></div>
+      <div class="ln">薄扶林 · 中西區 · 4 棵樹</div>
+    </div>
+
+    <div class="sect"><h3>前日</h3></div>
+    <div class="card pcard" onclick="tapRecord('愉景灣 蘅峰')">
+      <div class="top"><span class="nm">愉景灣 蘅峰</span>
+        <span class="st"><i></i>已報價</span></div>
+      <div class="ln">大嶼山 · 離島區 · 7 棵樹</div>
+    </div>
+    <div class="card pcard" onclick="tapRecord('馬鞍山 錦豐苑')">
+      <div class="top"><span class="nm">馬鞍山 錦豐苑</span>
+        <span class="st"><i></i>已報價</span></div>
+      <div class="ln">馬鞍山 · 沙田區 · 21 棵樹</div>
+    </div>
+    <div class="card pcard" onclick="tapRecord('青衣 長康邨')">
+      <div class="top"><span class="nm">青衣 長康邨</span>
+        <span class="st"><i></i>中咗標</span></div>
+      <div class="ln">青衣 · 葵青區 · 9 棵樹</div>
+    </div>
+    <div class="card pcard" onclick="tapRecord('赤柱 馬坑邨')">
+      <div class="top"><span class="nm">赤柱 馬坑邨</span>
+        <span class="st"><i></i>已報價</span></div>
+      <div class="ln">赤柱 · 南區 · 3 棵樹</div>
+    </div>
+  </main>
+  </div>
+
+  <div class="barslot hide" id="slotBar"></div>
+
+  <nav><div class="bar">
+    <button type="button" class="tab on"><span class="ic">🌱</span><b>首頁</b></button>
+    <button type="button" class="tab"><span class="ic">📋</span><b>工程</b></button>
+    <button type="button" class="tab"><span class="ic">☁</span><b>同步</b></button>
+    <button type="button" class="tab"><span class="ic">⚙</span><b>設定</b></button>
+  </div></nav>
+</div>
+
+<div class="qa">
+  <h2>要你拍板嘅五條</h2>
+  <p>每一條喺上面撳一撳都睇得到分別。⛔ 唔使一次過答晒，我會逐條問。</p>
+  <p class="warn">⚠️ 揀咗「乙 · 頂部」之後，<b>喺個電話框入面碌落去</b> ——
+    嗰個計數器會跟住碌走。呢個就係第 ① 條最實在嘅分別。</p>
+
+  <hr>
+
+  <h2>① 擺喺邊</h2>
+  <ul>
+    <li><b>甲 · 底部導航上面一條 bar</b> —— 永遠喺同一個位，換版都仲喺度。碌到邊都見到。<br>
+      代價：食咗畫面最底一條，卡少見咗一行。</li>
+    <li><b>乙 · 頂部</b> —— 開 app 第一眼就見到。<br>
+      <span class="warn">代價：碌落去就唔見咗</span> —— 一單有二十棵樹嗰陣，成日都唔喺畫面入面。</li>
+    <li><b>丙 · 逐張工程卡上面</b> —— 直接話你知係<b>邊一單</b>未傳完。<br>
+      代價：<b>唔知總共幾多張</b>。原型入面兩單各有幾張（3 ＋ 2），
+      你要自己加埋先知係 5 —— 戴住手套企喺樹下唔會有人加。</li>
+    <li><b>丁 · 甲 ＋ 丙</b> —— 總數同「邊一單」兩樣都有。<br>
+      代價：同一件事講兩次，畫面最擠。</li>
+  </ul>
+
+  <hr>
+
+  <h2>② N 數乜</h2>
+  <p>撳「乙」，再撳 <code>0</code> —— <span class="warn">睇下個數會唔會變零。</span></p>
+  <ul>
+    <li><b>甲 · 只數「一份雲端副本都未有」嗰啲</b>（＝部機獨有，真係會冇咗）。<br>
+      ⭐ 呢個數<b>正常情況會歸零</b>。歸到零，個計數器先有意思。</li>
+    <li><b>乙 · 連「R2 有咗但 Drive 未抄」都數埋</b>。<br>
+      <span class="warn">⚠️ 嗰啲相唔會冇咗</span>（R2 已經有一份），但佢哋成日都未抄完 ——
+      即係個數<b>長期唔會係零</b>。人見親都係一個橙色數字，好快就當佢唔存在。<br>
+      ⭐ 咁個計數器就死咗 —— 佢淨係喺「唔係零」嗰陣有用。</li>
+  </ul>
+
+  <hr>
+
+  <h2>③ 撳落去會點</h2>
+  <p>而家原型入面：<span class="now">甲／丁條 bar 撳得（去同步頁）</span>、
+    <span class="now">丙個 badge 撳得（入嗰單）</span>、<span class="now">乙撳唔到</span>。</p>
+  <ul>
+    <li><b>撳得</b>：見到之後即刻去到做嘢嗰版。</li>
+    <li><b>撳唔到</b>：純報告。⚠️ 但戴住手套嘅人一定會撳，撳極冇反應會以為壞咗。</li>
+  </ul>
+
+  <hr>
+
+  <h2>④ N 變零嗰陣</h2>
+  <p>撳上面「模擬：最後一張上完」。</p>
+  <ul>
+    <li><b>甲／丁</b>：先變綠色「<b>全部上晒</b>」，兩秒之後先消失 ——
+      ⭐ 阿耀見到「做完咗」，唔係得個嘢無端端唔見咗。</li>
+    <li><b>乙／丙</b>：即刻消失 —— 乾淨，但<span class="warn">冇人見到「成功」呢一下</span>。</li>
+  </ul>
+
+  <hr>
+
+  <h2>⑤ 冇網嗰陣個樣使唔使唔同</h2>
+  <p>撳「冇網」睇下。而家做咗：<span class="now">變灰 ＋ 加一句「冇網 · 有網會自己傳」</span>。</p>
+  <ul>
+    <li><b>要唔同</b>：金色 ＝ 系統做緊嘢；灰色 ＝ 系統等緊網。分得清就唔會撳。</li>
+    <li><b>唔使唔同</b>：一種樣，少一件要學嘅嘢。</li>
+  </ul>
+
+  <hr>
+
+  <h2>⛔ 兩條唔係選項，每個版本都守住咗</h2>
+  <ul>
+    <li>⛔ <b>N 唔係零就唔准收埋</b> —— 四個版本冇一個會自己隱藏。</li>
+    <li>⛔ <b>唔准有得撳走</b> —— 冇 ✕、冇「知道喇」、冇「唔好再提」。</li>
+  </ul>
+  <p style="color:var(--mq-text-3)">（出處：<code>docs/上線清單.md</code> 第 1 條原文。）</p>
+
+  <hr>
+
+  <h2>⚠️ 順便試埋</h2>
+  <ul>
+    <li><b>47</b> —— 兩位數會唔會撐爆條 bar。</li>
+    <li><b>1</b> —— 得一張嗰陣句嘢讀唔讀得順。</li>
+    <li><b>太陽底下</b> —— 洗淡對比之後，個數仲讀唔讀到。
+      ⚠️ 呢個係模擬，⛔ 唔代替你真係行出街試一次。</li>
+  </ul>
+</div>
+
+<script>
+  /* ⛔ 純樣板。冇 localStorage、冇 fetch、冇任何寫入。 */
+  var state = { pos:'A', mode:'a', n:1, env:'net', done:false, showDone:false }
+
+  /** 乙嗰個數法先會計入嘅：R2 有咗、Drive 未抄。⛔ 呢啲相唔會冇咗。 */
+  var DRIVE_ONLY = 12
+
+  function shown() {
+    var base = state.done ? 0 : state.n
+    return state.mode === 'b' ? base + DRIVE_ONLY : base
+  }
+
+  function counterHtml(scope, override) {
+    var n = (override === undefined) ? shown() : override
+    var offline = state.env === 'off'
+    var cls = 'cnt'
+    var tap = (scope === 'bar' || scope === 'card')
+    if (tap) cls += ' tap'
+
+    // ⭐ 傳完：甲／丁 會停兩秒講「全部上晒」；乙／丙 即刻收。
+    if (n === 0) {
+      if (state.showDone && (state.pos === 'A' || state.pos === 'D') && scope === 'bar') {
+        return '<div class="cnt done"><span class="n">✓</span><span>全部上晒<span class="sub">' +
+          '兩秒後自己收起</span></span></div>'
+      }
+      return ''
+    }
+
+    if (offline) cls += ' off'
+
+    var main = scope === 'card'
+      ? '呢單未上載 <span class="n">' + n + '</span> 張'
+      : '未上載 <span class="n">' + n + '</span> 張'
+
+    var sub = ''
+    if (state.mode === 'b') {
+      sub = '<span class="sub">當中 ' + DRIVE_ONLY + ' 張已經有雲端副本，等抄去 Drive</span>'
+    } else if (offline) {
+      sub = '<span class="sub">冇網 · 有網會自己傳，唔使撳</span>'
+    } else {
+      sub = '<span class="sub">背景上緊，唔使撳</span>'
+    }
+
+    var go = ''
+    if (scope === 'bar') go = '<span class="go">睇同步 ›</span>'
+    if (scope === 'card') go = '<span class="go">入去 ›</span>'
+
+    var onclick = tap ? ' onclick="tapCounter(\'' + scope + '\')"' : ''
+    return '<div class="' + cls + '"' + onclick + '><span>' + main + sub + '</span>' + go + '</div>'
+  }
+
+  function render() {
+    var pos = state.pos
+    var bar = document.getElementById('slotBar')
+    var top = document.getElementById('slotTop')
+    var c1 = document.getElementById('slotCard1')
+    var c2 = document.getElementById('slotCard2')
+
+    var wantBar = (pos === 'A' || pos === 'D')
+    var wantTop = (pos === 'B')
+    var wantCard = (pos === 'C' || pos === 'D')
+
+    fill(bar, wantBar ? counterHtml('bar') : '')
+    fill(top, wantTop ? counterHtml('top') : '')
+
+    /* 逐張卡嗰個講嘅係**嗰一單**，⛔ 唔係總數 —— 所以兩單嘅數要唔同。
+       ⚠️ 兩張卡都寫同一個數嘅話，人會以為總共係兩倍，而嗰個誤會
+       正正就係第 ① 條「丙」嘅代價（唔知總共幾多張）。 */
+    var total = shown()
+    var first = total > 1 ? total - 2 : total
+    var second = total > 1 ? 2 : 0
+    // 逐張卡嗰個：⛔ 唔係每張都出 —— 淨係有未上載嘅嗰幾單先出。
+    fill(c1, wantCard ? counterHtml('card') : '')
+    fill(c1, (wantCard && first > 0) ? counterHtml('card', first) : '')
+    fill(c2, (wantCard && second > 0) ? counterHtml('card', second) : '')
+
+    document.body.classList.toggle('sun', state.env === 'sun')
+  }
+
+  function fill(el, html) {
+    el.innerHTML = html
+    el.classList.toggle('hide', html === '')
+  }
+
+  function pick(groupId, attr, key) {
+    var group = document.getElementById(groupId)
+    group.addEventListener('click', function (event) {
+      var button = event.target.closest('button')
+      if (!button || !button.hasAttribute(attr)) return
+      Array.prototype.forEach.call(group.querySelectorAll('button'), function (one) {
+        one.classList.remove('on')
+      })
+      button.classList.add('on')
+      var value = button.getAttribute(attr)
+      state[key] = (key === 'n') ? Number(value) : value
+      state.done = false
+      state.showDone = false
+      render()
+    })
+  }
+
+  pick('segPos', 'data-v', 'pos')
+  pick('segMode', 'data-m', 'mode')
+  pick('segN', 'data-n', 'n')
+  pick('segEnv', 'data-e', 'env')
+
+  function finish() {
+    state.done = true
+    state.showDone = true
+    render()
+    // ⭐ 甲／丁 停兩秒先收；乙／丙 根本冇出過「全部上晒」，所以呢度一樣安全。
+    setTimeout(function () {
+      state.showDone = false
+      render()
+    }, 2000)
+  }
+
+  function tapCounter(scope) {
+    alert(scope === 'bar'
+      ? '（樣板）撳咗會去「同步」版，見到邊幾張未上、點解未上。'
+      : '（樣板）撳咗會入咗嗰一單，直接去嗰單嘅相。')
+  }
+
+  function tapRecord(name) {
+    alert('（樣板）撳咗會入「' + name + '」。⛔ 呢度唔會真係開嗰單。')
+  }
+
+  render()
+</script>
+</html>
