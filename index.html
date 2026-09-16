@@ -5,6 +5,40 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <!-- ⚠️ 手機瀏覽器上下條邊嘅顏色。⛔ 唔跟返深色底就會喺 app 上下各出一條淺色帶。 -->
     <meta name="theme-color" content="#0D120E" />
+
+    <!--
+      ══════════════════════════════════════════════════════════════
+      加到主畫面 ＝ 一隻真 app（⛔ 唔係一個開分頁嘅捷徑）
+
+      ⛔⛔ **點解要有呢幾行 —— ⛔ 唔准淨係記住結論**
+
+      2026-09-16 Jason 報料：「報價 app 加到主畫面之後仲係有網址列，
+      tree app 冇」。喺兩個真網站跑 JS 量過（⛔ 唔係讀 repo 估）：
+
+        sylvan-quote.pages.dev   link[rel=manifest] → null，冇 apple 嗰個 meta
+        tree-app-v7.pages.dev    /manifest.webmanifest → 200，display: standalone
+
+      ⭐ 冇 manifest ⇒ Chrome **裝唔到做 app**，只係整咗個普通捷徑
+        ⇒ 撳開係一個普通分頁 ⇒ **有網址列**。
+        Jason 張圖個 icon 帶住 Chrome 細角標，正正就係捷徑嘅樣。
+
+      ⛔ 三樣缺一不可，⛔ 唔好以為淨係加個 manifest 就得：
+        · `rel="manifest"`        —— Android／Chrome 靠佢
+        · `apple-mobile-web-app-*` —— iOS Safari ⛔ 唔睇 manifest 個 display
+        · icon 192 ＋ 512 ＋ maskable —— 冇 512 Chrome 會當「裝唔到」
+      ══════════════════════════════════════════════════════════════
+    -->
+    <link rel="manifest" href="/manifest.webmanifest" />
+
+    <!-- ⚠️ iOS ⛔ 唔理 manifest 個 `display` —— 佢淨係睇呢兩行。 -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <!-- ⭐ `black-translucent` 會令版面伸到瀏海底下；我哋成個 app 已經有
+         `viewport-fit=cover` ＋ `env(safe-area-inset-*)`，所以接得住。 -->
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="報價" />
+    <!-- ⚠️ iOS ⛔ 唔讀 manifest 入面啲 icon，要明文再寫一次。 -->
+    <link rel="apple-touch-icon" href="/icon-192.png" />
     <title>森伝現場報價記錄</title>
     <!--
       內文無襯線體 ＋ 標題襯線體（同 stage57 一模一樣嗰兩隻）。
