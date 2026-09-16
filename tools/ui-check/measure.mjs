@@ -74,6 +74,12 @@ const SCREENS = {
   },
   hub: {
     proto: 'showProject',
+    /* ⭐⭐ 撳完⛔ 唔准變藍（Jason 2026-08-29 原型拍板，2026-09-15 再講一次）。
+       ⛔ 揀嘅係「撳落去唔會去第二版」嗰幾粒 —— ⚠️ 撳咗粒垃圾桶會開彈窗，
+       之後量乜都唔準。 */
+    noBlue: [{ testid: 'hub-client' }, { testid: 'hub-record-form' }],
+    /* ⭐ 同一版順手驗返另一半：鍵盤 Tab 仲要見到自己停喺邊。 */
+    keyboardRing: true,
     pairs: [
       ['頭部', '.bheader', '#screenProject header', 'anchor'],
       // ⚠️ 呢兩項唔量闊度：`.head-title` 係「有幾闊算幾闊」，量到嘅闊其實係
@@ -275,6 +281,11 @@ const SCREENS = {
   dialog: {
     query: '',
     remember: ['delete-cancel', 'delete-confirm'],
+    /* ⭐⭐ `deleteDialog.ts` 講嘅三道保險之一：**一開就 focus 咗「取消」**。
+       ⛔⛔ 「唔要藍底」⛔ 唔准順手殺埋呢樣 —— ⚠️ 2026-08-11 tree app
+       嗰次真實誤刪，成因就係「佢以為自己撳緊另一粒」。
+       ⇒ 呢度量兩樣：真係 focus 咗「取消」，而且**個 focus 睇得到**。 */
+    focusStart: { testid: 'delete-cancel' },
   },
   /* ⭐⭐ 工程名長到爆嗰張卡 —— 量嘅係**兩件嘢有冇疊埋**。
 
@@ -632,6 +643,16 @@ let lockBad = 0
 /** 「兩件嘢冇疊埋」嗰組。 */
 let overlapChecked = 0
 let overlapBad = 0
+/** 「撳完⛔ 唔變藍」同「鍵盤仲睇得到」嗰組。 */
+let blueChecked = 0
+let blueBad = 0
+
+/** 我哋自己個綠。⛔ focus 框一定要係佢，⛔ 唔准係瀏覽器嗰個預設環。 */
+const ACCENT = 'rgb(152, 165, 107)'
+
+/** 一個 outline 睇唔睇得到。 */
+const RING_VISIBLE = (r) => r.style !== 'none' && parseFloat(r.width) > 0
+
 /** 「粒掣夠唔夠大撳」嗰組。 */
 let sizeChecked = 0
 let sizeBad = 0
@@ -804,6 +825,115 @@ for (const [name, spec] of Object.entries(SCREENS)) {
     }
   }
 
+  /* ── 撳完⛔ 會唔會變藍？ ──────────────────────────────────────
+     ⭐⭐ **⛔ 唔係讀 CSS，係真滑鼠撳落去再量。**
+     ⚠️ `-webkit-tap-highlight-color` 讀 computed 就知；但「撳完粘住個底色／
+        外框」⛔ 一定要真撳過先量得到 —— 佢係一個 `:focus` 狀態，
+        ⭐ 靜態睇 CSS 係睇唔出嘅（同 2026-09-14「真滑鼠拖」同一個道理）。
+
+     ⚠️⚠️ **一樣我證明唔到、⛔ 唔准扮證明到嘅嘢**：
+        Jason 見到嗰浸藍係 **Android Chrome** 嘅 tap highlight。
+        呢度（Linux headless Chromium）個預設值係 `rgba(0, 0, 0, 0.18)`（黑，唔係藍）。
+        ⇒ 我量到嘅係「**佢有冇熄咗**」（要變成 `rgba(0, 0, 0, 0)`），
+        ⛔ **唔係**「Android 嗰浸藍冇咗」。嗰半要 Jason 真機睇。 */
+  for (const one of spec.noBlue ?? []) {
+    blueChecked += 1
+    const read = () =>
+      real.evaluate((id) => {
+        const e = document.querySelector(`[data-testid="${id}"]`)
+        const c = getComputedStyle(e)
+        return {
+          tap: c.webkitTapHighlightColor,
+          bg: c.backgroundColor,
+          ring: `${c.outlineStyle} ${c.outlineWidth} ${c.outlineColor}`,
+        }
+      }, one.testid)
+
+    const before = await read()
+    const box = await real.locator(`[data-testid="${one.testid}"]`).first().boundingBox()
+    await real.mouse.click(box.x + box.width / 2, box.y + box.height / 2)
+    await real.waitForTimeout(220)
+    const after = await read()
+
+    const problems = []
+    // ⭐ `transparent` 喺 computed 度係 `rgba(0, 0, 0, 0)`。
+    if (before.tap !== 'rgba(0, 0, 0, 0)') problems.push(`tap highlight 仲係 ${before.tap}`)
+    if (after.bg !== before.bg) problems.push(`撳完個底色由 ${before.bg} 變咗 ${after.bg}`)
+    if (after.ring !== before.ring) problems.push(`撳完個框由「${before.ring}」變咗「${after.ring}」`)
+
+    if (problems.length === 0) {
+      console.log(`  ✓ [${one.testid}] 撳完⛔ 冇變樣，tap highlight 熄咗`)
+    } else {
+      blueBad += 1
+      console.log(`  ✗ ⛔⛔ [${one.testid}] 撳完有嘢變 —— Jason 2026-08-29 已經拍板⛔ 唔要`)
+      for (const x of problems) console.log(`      ${x}`)
+    }
+  }
+
+  /* ── 鍵盤 Tab：⛔ 唔准睇唔到，而且⛔ 唔准係瀏覽器嗰個預設環 ────── */
+  if (spec.keyboardRing) {
+    blueChecked += 1
+    await real.evaluate(() => document.activeElement?.blur())
+    await real.keyboard.press('Tab')
+    await real.waitForTimeout(200)
+    const r = await real.evaluate(() => {
+      const e = document.activeElement
+      if (!e || e === document.body) return null
+      const c = getComputedStyle(e)
+      return {
+        who: e.dataset?.testid || String(e.className).slice(0, 24) || e.tagName,
+        style: c.outlineStyle,
+        width: c.outlineWidth,
+        color: c.outlineColor,
+      }
+    })
+    if (r === null) {
+      blueBad += 1
+      console.log('  ✗ Tab 一下之後冇嘢 focus —— 量唔到')
+    } else if (!RING_VISIBLE(r)) {
+      blueBad += 1
+      console.log(`  ✗ ⛔⛔ 鍵盤 Tab 去到 [${r.who}]，但個 focus **睇唔到**`)
+      console.log('      ⚠️ 「唔要藍底」⛔ 唔等於「唔要 focus 指示」—— 見 app.css 檔頭。')
+    } else if (r.color !== ACCENT) {
+      blueBad += 1
+      console.log(`  ✗ ⛔ 鍵盤 Tab 個框係 ${r.color}，⛔ 唔係我哋個綠 ${ACCENT}`)
+      console.log('      ⚠️ 嗰個係瀏覽器預設環（有啲平台係藍色）。')
+    } else {
+      console.log(`  ✓ 鍵盤 Tab 去到 [${r.who}]，框係我哋個綠（${r.style} ${r.width} ${r.color}）`)
+    }
+  }
+
+  /* ── 彈窗一開，focus 咗邊個、睇唔睇得到 ──────────────────────── */
+  if (spec.focusStart) {
+    blueChecked += 1
+    const r = await real.evaluate((id) => {
+      const e = document.querySelector(`[data-testid="${id}"]`)
+      if (!e) return null
+      const c = getComputedStyle(e)
+      return {
+        isActive: document.activeElement === e,
+        active: document.activeElement?.dataset?.testid ?? '(唔知邊個)',
+        style: c.outlineStyle,
+        width: c.outlineWidth,
+        color: c.outlineColor,
+      }
+    }, spec.focusStart.testid)
+    if (r === null || !r.isActive) {
+      blueBad += 1
+      console.log(
+        `  ✗ ⛔⛔ 彈窗一開冇 focus [${spec.focusStart.testid}]（focus 咗「${r?.active ?? '冇'}」）`,
+      )
+      console.log('      ⚠️ 呢個係 2026-08-11 誤刪嗰三道保險之一。')
+    } else if (!RING_VISIBLE(r) || r.color !== ACCENT) {
+      blueBad += 1
+      const how = RING_VISIBLE(r) ? `唔係我哋個綠（${r.color}）` : '睇唔到'
+      console.log(`  ✗ ⛔⛔ 彈窗 focus 咗 [${spec.focusStart.testid}]，但個框${how}`)
+      console.log('      ⚠️ focus 咗但睇唔到 ＝ 保險有等於冇：人唔知自己停喺邊粒掣。')
+    } else {
+      console.log(`  ✓ 彈窗一開 focus 咗 [${spec.focusStart.testid}]，而且個綠框睇得到`)
+    }
+  }
+
   /* ── 粒掣夠唔夠大撳？ ──────────────────────────────────────────
      ⭐ 44×44 係戴住手套撳得穩嘅底線。⛔ 一粒撳得到但撳唔準嘅掣，
         喺一個**冇得反悔**嘅動作上面特別衰。 */
@@ -933,6 +1063,7 @@ console.log(`訊息睇得到：量咗 ${seenChecked} 句，睇唔到 ${seenBad} 
 console.log(`數唔到就鎖住：量咗 ${lockChecked} 粒掣，冇鎖 ${lockBad} 粒。`)
 console.log(`兩件嘢冇疊埋：量咗 ${overlapChecked} 對，疊咗 ${overlapBad} 對。`)
 console.log(`粒掣夠大撳：量咗 ${sizeChecked} 粒，唔夠 ${sizeBad} 粒。`)
+console.log(`撳完⛔ 唔變藍 ＋ 鍵盤仲睇得到：量咗 ${blueChecked} 項，唔啱 ${blueBad} 項。`)
 
 if (SELF_TEST) {
   console.log('\n──── 自我測試 ────')
@@ -953,7 +1084,8 @@ process.exit(
     seenBad === 0 &&
     lockBad === 0 &&
     overlapBad === 0 &&
-    sizeBad === 0
+    sizeBad === 0 &&
+    blueBad === 0
     ? 0
     : 1,
 )
