@@ -1,0 +1,110 @@
+<div class="pt">
+  <p class="pt1"><b>樣板，⛔ 唔會真係存嘢。</b>三個做法自己撳，⛔ 唔係睇字。</p>
+  <p class="pt2">要試嘅係：<b>撳個「狀態」格</b>，同埋<b>轉狀態嗰張卡好唔好搵</b>。</p>
+  <div class="segs" id="segs">
+    <button data-v="A" class="on">甲<small>撳咗捲落去</small></button>
+    <button data-v="B">乙<small>唔似掣</small></button>
+    <button data-v="C">丙<small>搬咗上嚟</small></button>
+    <button data-v="N" class="bad">今日<small>⛔ 壞咗嗰個</small></button>
+  </div>
+</div>
+
+<div class="app app--float" id="app">
+  <header class="bheader bheader--compact bheader--project">
+    <div class="bheader-row">
+      <div class="bheader-left">
+        <div class="head-row">
+          <button class="chip-btn" aria-label="返回"><svg class="ico" aria-hidden="true"><use href="#02_global_actions__back"></use></svg></button>
+          <div class="head-title">
+            <div class="head-name">彩</div>
+            <div class="head-sub">
+              <div class="head-sub-line">2026-08-22 · 九龍 · 日更</div>
+              <div class="head-sub-line">彩霞邨，彩月樓</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="bheader-right">
+        <button class="head-trash" type="button" aria-label="刪除 彩"><svg class="ico" aria-hidden="true"><use href="#02_global_actions__delete_bin"></use></svg></button>
+      </div>
+    </div>
+  </header>
+
+  <div class="float-cards-scroll scroll-body scroll-body--compact" id="scroll">
+    <div class="stats stats--project" id="pills">
+      <div class="stat" id="statStatus">
+        <span class="sic"><svg class="ico" aria-hidden="true"><use href="#03_project_detail__status_quote"></use></svg></span>
+        <span class="k">狀態</span>
+        <span class="v v--sm" id="statStatusV">待報價</span>
+      </div>
+      <div class="stat">
+        <span class="sic"><svg class="ico" aria-hidden="true"><use href="#03_project_detail__tree_count"></use></svg></span>
+        <span class="k">樹木</span><span class="v">5</span>
+      </div>
+      <div class="stat">
+        <span class="sic"><svg class="ico" aria-hidden="true"><use href="#03_project_detail__district_pin"></use></svg></span>
+        <span class="k">地區</span><span class="v v--sm">九龍</span>
+      </div>
+    </div>
+
+    <section class="card" id="statusCard">
+      <h2 class="card__title">狀態 <span class="card__title-note" id="cardNote">（待報價）</span></h2>
+      <div class="chips chips--in-card" id="chips">
+        <button class="chip2 on" type="button" data-s="待報價">待報價</button>
+        <button class="chip2" type="button" data-s="已報價">已報價</button>
+        <button class="chip2" type="button" data-s="中標">中標</button>
+      </div>
+    </section>
+
+    <button class="hub-row">
+      <span class="hub-ic"><svg class="ico" aria-hidden="true"><use href="#03_project_detail__customer"></use></svg></span>
+      <span class="hub-main"><span class="hub-title">客戶資料</span><span class="hub-sub">客戶、聯絡人、電話</span></span>
+      <span class="hub-chev"><svg class="ico" aria-hidden="true"><use href="#02_global_actions__chevron_right"></use></svg></span>
+    </button>
+    <button class="hub-row">
+      <span class="hub-ic"><svg class="ico" aria-hidden="true"><use href="#03_project_detail__project_info"></use></svg></span>
+      <span class="hub-main"><span class="hub-title">工程資料</span><span class="hub-sub">日期、日／夜、地址、地區、人手、垃圾、機械、起樹頭</span></span>
+      <span class="hub-chev"><svg class="ico" aria-hidden="true"><use href="#02_global_actions__chevron_right"></use></svg></span>
+    </button>
+    <button class="hub-row">
+      <span class="hub-ic"><svg class="ico" aria-hidden="true"><use href="#03_project_detail__tree_list"></use></svg></span>
+      <span class="hub-main"><span class="hub-title">樹木清單</span><span class="hub-sub">共 5 棵</span></span>
+      <span class="hub-chev"><svg class="ico" aria-hidden="true"><use href="#02_global_actions__chevron_right"></use></svg></span>
+    </button>
+    <button class="hub-row">
+      <span class="hub-ic"><svg class="ico" aria-hidden="true"><use href="#03_project_detail__environment_camera"></use></svg></span>
+      <span class="hub-main"><span class="hub-title">環境相</span><span class="hub-sub">尚未拍攝</span></span>
+      <span class="hub-chev"><svg class="ico" aria-hidden="true"><use href="#02_global_actions__chevron_right"></use></svg></span>
+    </button>
+    <button class="hub-row">
+      <span class="hub-ic"><svg class="ico" aria-hidden="true"><use href="#03_project_detail__export_pdf"></use></svg></span>
+      <span class="hub-main"><span class="hub-title">匯出 PDF</span><span class="hub-sub">相片報告。⛔ 環境相唔會入</span></span>
+      <span class="hub-chev"><svg class="ico" aria-hidden="true"><use href="#02_global_actions__chevron_right"></use></svg></span>
+    </button>
+
+    <section class="cost-card">
+      <h2 class="cost-title">成本</h2>
+      <p class="cost-note">只供內部參考</p>
+      <div class="cost-rows">
+        <div class="cost-row"><span class="cost-label">攀樹師 2 人 × 3 日</span><span class="cost-value">$21,000</span></div>
+        <div class="cost-row"><span class="cost-label">地面工人 3 人 × 3 日</span><span class="cost-value">$13,500</span></div>
+        <div class="cost-row"><span class="cost-label">Overhead 3 日</span><span class="cost-value">$4,500</span></div>
+        <div class="cost-row"><span class="cost-label">24噸夾車 2 架</span><span class="cost-value">$4,400</span></div>
+      </div>
+      <div class="cost-row cost-row--total"><span class="cost-label">總成本</span><span class="cost-value">$43,400</span></div>
+      <div class="cost-foot">
+        <label class="cost-field"><span class="cost-field-label">加成</span>
+          <span class="cost-input"><input inputmode="numeric" type="text" value="50"><span class="cost-unit" aria-hidden="true">%</span></span>
+        </label>
+        <div class="cost-field"><span class="cost-field-label">報價價錢</span><div class="cost-asking">$65,100</div></div>
+      </div>
+    </section>
+  </div>
+
+  <nav class="bottom-nav">
+    <button class="nav-item"><span class="nav-ic"><svg class="ico" aria-hidden="true"><use href="#01_bottom_nav__home_seedling"></use></svg></span><span>首頁</span></button>
+    <button class="nav-item active"><span class="nav-ic"><svg class="ico" aria-hidden="true"><use href="#01_bottom_nav__projects_clipboard"></use></svg></span><span>工程</span><span class="nav-dot"></span></button>
+    <button class="nav-item"><span class="nav-ic"><svg class="ico" aria-hidden="true"><use href="#01_bottom_nav__sync_cloud_upload"></use></svg></span><span>同步</span></button>
+    <button class="nav-item"><span class="nav-ic"><svg class="ico" aria-hidden="true"><use href="#01_bottom_nav__settings_gear"></use></svg></span><span>設定</span></button>
+  </nav>
+</div>

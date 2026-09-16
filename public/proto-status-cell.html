@@ -1,0 +1,3972 @@
+<!doctype html>
+<html lang="zh-HK">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0D120E">
+<title>原型：狀態格三個做法</title>
+<!--
+  ══════════════════════════════════════════════════════════════════
+  ⛔⛔ 呢個係原型。⛔ 唔駁 Supabase、⛔ 唔上載、⛔ 一個字都唔會存。
+
+  ⭐ 入面嘅 CSS ＋ icon ＋ class 名係**由真 app 原封不動抄過嚟**
+     （src/styles/tokens.css、src/styles/app.css、src/ui/sprite.ts），
+     ⛔ 唔係另外畫一套 —— 因為今次要驗嘅嘢**本身就係幾何**：
+     底 nav 遮唔遮住轉狀態卡、要碌幾多先搵到佢。殼差 20px，答案就係錯。
+
+  重砌：node tools/proto/build-status-cell.mjs
+  ══════════════════════════════════════════════════════════════════
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;600;700&family=Noto+Serif+TC:wght@600;700&display=swap">
+<style>
+/* ───── 以下由 src/styles/tokens.css 抄過嚟，⛔ 一個字都冇改 ───── */
+/*
+ * Design tokens —— 深色（Premium Forest）
+ *
+ * 色值全部由已批准嘅原型 `stage57-autoupload.html` 嘅 `--mq-*` 抄過嚟，
+ * ⛔ 冇一個係我自己調出嚟。變數名維持 `--q-*` 唔改 ——
+ * app.css 有 219 處用緊呢批名，改名等於改成個檔。
+ *
+ *   --q-header          ← --mq-bg-elevated
+ *   --q-page-bg         ← --mq-bg
+ *   --q-card-bg         ← --mq-surface-1
+ *   --q-card-alt        ← --mq-surface-2
+ *   --q-text-primary    ← --mq-text
+ *   --q-text-secondary  ← --mq-text-3      （原型 legacy alias --muted 就係佢）
+ *   --q-complete        ← --mq-success
+ *   --q-incomplete      ← --mq-warning
+ *   --q-danger          ← --mq-danger
+ *   --q-border          ← --mq-border
+ *   --q-shadow-card     ← --mq-shadow
+ *
+ * ⚠️ 原型張成本卡有兩處色**冇**跟深色改（Stage 10B 審計 D1 只執咗 .note2／.pv2／input）：
+ *      .gain.good  #3F6B4E  對比 2.86:1（大字要 3.0）
+ *      .crow.ask   #8A6A24  對比 3.48:1（細字要 4.5）
+ *    ⛔ 所以呢兩個位唔照抄，改用原型自己嗰套深色語意色 --mq-success／--mq-warning
+ *    （6.26:1 同 5.60:1）。呢個係我唯一偏離原型嘅地方，要你拍板。
+ *
+ * ⛔ 圓角、陰影結構、間距、字級、tap target、card-lift 一個數都冇郁 —— 淨係換色。
+ */
+:root {
+  /* 品牌 —— 深林 */
+  --q-header: #16201a;
+  --q-header-deep: #101711;
+
+  /* 底色 —— 原型 --mq-bg，⛔ 唔改：波浪要同佢一色先冇縫。 */
+  --q-page-bg: #0d120e;
+
+  /*
+   * ⭐ 卡面唔係平色，係三段漸變 —— 呢個先係「深綠」嗰種綠嘅來源。
+   * 抄原型 --mq-card：上面淺（#283229）、中間收、下沿最深（#161D17）。
+   * 平色 #171E18 睇落係深灰，唔係深綠 —— 呢個就係頭先錯嘅地方。
+   * ⚠️ 原型嗰條係 rgba .96 疊喺 #141B15 上面，呢度已經幫佢埋咗數變返實色。
+   * ⚠️ app.css 十一處用 --q-card-bg **全部**都係 `background:` 簡寫，
+   *    接受 gradient；⛔ 一處 background-color 都冇，所以放 gradient 入 token 安全。
+   */
+  --q-card-bg: linear-gradient(180deg, #283229 0%, #1f2720 44%, #161d17 100%);
+  /* stage57 --mq-surface-2，⭐ 報價價錢個格就係呢隻色（實測 28,36,29）。 */
+  --q-card-alt: #1c241d;
+
+  /* 文字 */
+  --q-text-primary: #f1ebdd;
+  /* 三層文字：主 → 第二層 → 第三層。⛔ 之前只有兩層，
+     所以第二層嗰啲字（卡入面嘅資料、提示格）一律用咗最暗嗰隻，暗過原型。 */
+  --q-text-2: #bdb6a6;
+  --q-text-secondary: #96978e;
+  --q-on-header: #f1ebdd;
+
+  /* 語意色 —— 深色版 */
+  --q-complete: #8fa25d;
+  --q-incomplete: #b68a45;
+  --q-danger: #b35d4a;
+  --q-danger-bg: rgba(179, 93, 74, 0.16);
+
+  --q-border: rgba(190, 178, 139, 0.28);
+
+  /* 深色新增：撳落去嘅重點色（原型 --mq-olive-strong） */
+  --q-accent: #98a56b;
+
+  --q-radius-sm: 14px;
+  --q-radius-md: 20px;
+  --q-radius-lg: 24px;
+
+  /* 近黑底上面純黑陰影睇唔到 —— 靠內頂高光 ＋ 貼底深影 ＋ 大範圍柔影三段。 */
+  --q-shadow-card:
+    inset 0 1px 0 rgba(236, 228, 205, 0.05),
+    0 1px 2px rgba(0, 0, 0, 0.42),
+    0 12px 26px -14px rgba(0, 0, 0, 0.52);
+
+  --q-space-1: 4px;
+  --q-space-2: 8px;
+  --q-space-3: 12px;
+  --q-space-4: 16px;
+  --q-space-5: 24px;
+  --q-space-6: 32px;
+
+  /* 內文字體。⭐ 同 stage57 `--mq-sans` 一模一樣，⛔ 唔准自己加減。
+     第一次開 app 未載完就用返電話自己嗰隻（display=swap），
+     載完之後存喺電話度，⛔ 唔會每次都要網。 */
+  --q-font-sans: 'Noto Sans TC', 'PingFang TC', 'Microsoft JhengHei', sans-serif;
+
+  /* 標題襯線體（stage57 VFINAL.1 §8）。⛔ 唔可以剷 —— 剷咗全部標題會變返無襯線。 */
+  --q-font-serif: 'Noto Serif TC', 'Source Han Serif TC', 'Songti TC', 'STSong', serif;
+
+  --q-text-sm: 13px;
+  --q-text-base: 15px;
+  --q-text-lg: 18px;
+  --q-text-xl: 22px;
+
+  --q-tap-target: 48px;
+
+  /* 清單底部要留返 FAB 佔嘅位：FAB 距底 102 ＋ 高 58 ＋ 12 呼吸位。
+     ⛔ 唔准喺個別畫面寫死一個數 —— 尾張卡會俾 FAB 遮到。 */
+  --q-fab-clear: calc(102px + 58px + 12px + env(safe-area-inset-bottom, 0px));
+
+  --q-card-lift: clamp(-46px, calc(6px - 9vw), -18px);
+}
+
+/* ───── 以下由 src/styles/app.css 抄過嚟，⛔ 一個字都冇改 ───── */
+/*
+ * 版面機制照抄 tree-app-v7 `src/ui/app.css`：
+ *   --wave-line   波浪頂同米色底嘅交界 Y，隨闊度變
+ *   --nav-clear   底部 nav 距離螢幕底嘅高度（有地台就墊高）
+ *   --pill-h      浮起嗰層（統計卡）嘅實測高度，由 JS 量度寫入
+ * 全頁唔捲，只有 .float-cards-scroll 捲 → header 同底 nav 永遠釘住。
+ *
+ * 波浪係純 CSS 畫（弧邊），冇搬 tree app 任何 PNG asset。
+ */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   撳掣⛔ 唔要藍色底
+
+   ⭐⭐ **呢個決定 2026-08-29 已經拍咗板，但一直冇入過真 code。**
+   原型 `docs/原型-stage57-autoupload.html` 第 1839 行逐字寫住：
+
+     ══ 2026-08-29：撳掣唔要藍色底（Jason）══
+     ⚠️ 嗰浸藍色唔係我哋畫嘅，係手機瀏覽器嘅 tap highlight ——
+        Android Chrome／WebView 預設會喺你手指掂到嘅元素上面鋪一浸藍。
+        電腦版睇唔到，所以之前一直冇發現。
+     ⭐ -webkit-tap-highlight-color:transparent 就熄咗佢。
+     ⛔ 寫喺 * 而唔係淨係 button —— 卡、行、chip、標籤好多都係撳得嘅 div，
+        淨係處理 button 會漏一大堆。
+     ⛔ 冇郁 :focus 嘅外框 —— 用鍵盤／輔助工具嗰陣仲要見到自己撳緊邊個。
+
+   ⚠️⚠️ Jason 2026-09-15 要再講一次：「撳完任何制唔要有藍色底色。
+      做之前既原型已經講過。」⇒ 呢個係**第二次**。
+      同「封存 2026-08-24 拍咗板、留咗成個月」係一模一樣嘅病 ——
+      見 `docs/開發紀錄.md` 附錄 B「原型拍咗板 ≠ 入咗真 code」。
+
+   ⛔⛔ **「唔要藍底」≠「唔要 focus 指示」** —— 上面原型自己都寫住嗰句。
+      ⚠️ 一劍 `outline: none` 殺晒，`deleteDialog.ts` 嗰三道保險之一
+      （「一開就 focus 咗取消」）就靜靜雞冇咗，⭐ 而 2026-08-11 tree app
+      嗰次真實誤刪，成因就係「佢以為自己撳緊另一粒」。
+      ⇒ 下面：**手指撳 ⛔ 冇任何嘢；鍵盤 Tab 仲係見到，但用返我哋個綠。**
+   ══════════════════════════════════════════════════════════════════ */
+*,
+*::before,
+*::after {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* 選中文字嗰浸都係瀏覽器預設嘅藍 —— ⚠️ 現場長撳一個工程名就會見到。
+   ⭐ 換成我哋個橄欖綠系，⛔ 唔係另揀一隻色。 */
+::selection {
+  background: rgba(152, 165, 107, 0.38);
+  color: var(--q-text-primary);
+}
+
+/* ⛔⛔ **⛔ 全個 repo 唔准寫 `outline: none`。**
+   ⭐ 鍵盤（`:focus-visible`）仲係要見到 —— 淨係換走瀏覽器嗰個預設環
+   （實測：Chromium 出 `rgb(16, 16, 16) auto 1px`，⚠️ 第啲平台會係藍）。
+   ⚠️ `:focus-visible` ⛔ 唔會喺手指撳／滑鼠撳嗰陣中（實測過：撳完粒掣
+   `:focus` true 但 `:focus-visible` false）—— 所以呢條規矩⛔ 唔會令現場見到框。
+   ⚠️ 輸入格（`.field__input:focus`）特登係連手指撳都出綠框，
+   嗰個係 2026-08-30 拍咗板嘅嘢（剩返邊框做提示只差 1.28:1），⛔ 唔准拆。 */
+:focus-visible {
+  outline: 2px solid var(--q-accent);
+  outline-offset: 2px;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  height: 100%;
+  height: 100dvh;
+}
+
+/* 鎖住文件，只有頁內捲動層郁 */
+html,
+body {
+  overflow: hidden;
+}
+
+body {
+  background: var(--q-page-bg);
+  color: var(--q-text-primary);
+  font-family: var(--q-font-sans);
+  font-size: var(--q-text-base);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -webkit-text-size-adjust: 100%;
+}
+
+button {
+  font: inherit;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  color: inherit;
+}
+
+.app {
+  max-width: 480px;
+  margin: 0 auto;
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: var(--q-page-bg);
+  color: var(--q-text-primary);
+}
+
+.app--float {
+  position: relative;
+  height: 100dvh;
+  overflow: hidden;
+  --nav-clear: max(26px, calc(12px + env(safe-area-inset-bottom, 0px)));
+  --wave-line: clamp(120px, 30vw, 144px);
+}
+
+/* ---------- 頁頂波浪 header ---------- */
+
+.bheader {
+  position: relative;
+  z-index: 3;
+  flex: 0 0 auto;
+  aspect-ratio: 1916 / 821;
+  padding: calc(26px + env(safe-area-inset-top, 0px)) 16px 0;
+  display: flex;
+  align-items: flex-start;
+}
+
+.bheader-bg {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background: var(--q-header);
+  overflow: hidden;
+}
+
+/* 波浪：喺 header 底部挖一道向上嘅弧，同 tree app 個波浪線位置對齊 */
+.bheader-bg::after {
+  content: '';
+  position: absolute;
+  left: -12%;
+  right: -12%;
+  bottom: -2px;
+  height: 54px;
+  background: var(--q-page-bg);
+  border-radius: 50% 50% 0 0 / 100% 100% 0 0;
+}
+
+.bheader-row {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+}
+
+.bheader-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.bheader-right {
+  flex: 0 0 auto;
+}
+
+.login-header {
+  justify-content: center;
+}
+
+.login-header .bheader-row {
+  justify-content: center;
+}
+
+/* ---------- 品牌 / 使用者 ---------- */
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--q-on-header);
+}
+
+.brand-mark {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.16);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+}
+
+.brand-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.brand-zh {
+  font-size: var(--q-text-lg);
+  font-weight: 700;
+  letter-spacing: 1px;
+}
+
+.brand-en {
+  font-size: 10px;
+  letter-spacing: 1.6px;
+  opacity: 0.82;
+}
+
+.version-pill {
+  margin-top: 3px;
+  align-self: flex-start;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 999px;
+  padding: 2px 8px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10px;
+  opacity: 0.9;
+}
+
+.user-pill {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--q-on-header);
+  background: rgba(0, 0, 0, 0.18);
+  border-radius: 999px;
+  padding: 4px 10px 4px 4px;
+}
+
+.avatar {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.9);
+  color: var(--q-header);
+  font-size: 13px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.user-name {
+  font-size: 12px;
+  font-weight: 600;
+  max-width: 96px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.page-title {
+  color: var(--q-on-header);
+  font-size: var(--q-text-xl);
+  font-weight: 700;
+}
+
+.chip-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.18);
+  color: var(--q-on-header);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  flex: 0 0 auto;
+}
+
+.chip-btn.small {
+  width: 28px;
+  height: 28px;
+  font-size: 13px;
+}
+
+.head-title {
+  color: var(--q-on-header);
+  min-width: 0;
+}
+
+.head-name-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.head-name {
+  font-size: var(--q-text-lg);
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.head-sub {
+  margin-top: 3px;
+  font-size: 12px;
+  opacity: 0.88;
+}
+
+.head-sub-line {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+/* ---------- 浮卡捲動層 ---------- */
+
+.float-cards-scroll {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: calc(var(--wave-line) + var(--pill-h, 56px) + 14px) 16px
+    calc(var(--nav-clear, 26px) + 82px + var(--pending-extra, 0px));
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    transparent calc(var(--wave-line) - 40px),
+    #000 calc(var(--wave-line) - 4px),
+    #000 calc(100% - 96px),
+    transparent calc(100% - 58px)
+  );
+  mask-image: linear-gradient(
+    to bottom,
+    transparent calc(var(--wave-line) - 40px),
+    #000 calc(var(--wave-line) - 4px),
+    #000 calc(100% - 96px),
+    transparent calc(100% - 58px)
+  );
+}
+
+/* 冇浮起嘅統計卡嗰啲頁（設定、表單）：第一張卡就係普通捲動子元素 */
+.float-cards-scroll.scroll-body {
+  padding-top: calc(min(38.5vw, 184px) + 14px);
+}
+
+.float-pills-layer {
+  position: absolute;
+  top: var(--wave-line);
+  left: 0;
+  right: 0;
+  z-index: 4;
+  padding: 0 16px;
+  pointer-events: none;
+}
+
+.float-pills-layer > * {
+  pointer-events: auto;
+}
+
+/* ---------- 底部導航 ---------- */
+
+.bottom-nav {
+  display: flex;
+  margin: auto 14px max(18px, calc(14px + env(safe-area-inset-bottom, 0px))) 14px;
+  background: var(--q-card-bg);
+  border: 1px solid var(--q-border);
+  border-radius: 24px;
+  box-shadow: 0 10px 26px rgba(50, 43, 32, 0.18);
+  padding: 6px;
+}
+
+.app--float .bottom-nav {
+  position: absolute;
+  left: 14px;
+  right: 14px;
+  bottom: var(--nav-clear);
+  margin: 0;
+  z-index: 5;
+}
+
+.nav-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-height: 44px;
+  justify-content: center;
+  font-size: 12px;
+  color: var(--q-text-secondary);
+  padding: 4px;
+}
+
+.nav-item .nav-ic {
+  font-size: 17px;
+  line-height: 1;
+  opacity: 0.6;
+}
+
+.nav-item.active {
+  color: var(--q-header);
+  font-weight: 700;
+}
+
+.nav-item.active .nav-ic {
+  opacity: 1;
+}
+
+.nav-dot {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--q-header);
+}
+
+/* ---------- FAB ---------- */
+
+.fab {
+  min-height: 52px;
+  padding: 0 20px;
+  border-radius: 999px;
+  background: var(--q-header);
+  color: var(--q-on-header);
+  font-size: var(--q-text-base);
+  font-weight: 700;
+  box-shadow: 0 8px 20px rgba(50, 43, 32, 0.28);
+}
+
+.app--float .fab {
+  position: absolute;
+  right: 18px;
+  bottom: calc(var(--nav-clear) + 78px);
+  z-index: 6;
+}
+
+.fab:active {
+  background: var(--q-header-deep);
+}
+
+/* ---------- 統計卡 ---------- */
+
+.stat-row {
+  display: flex;
+  gap: 10px;
+}
+
+.stat-card {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--q-card-bg);
+  border: 1px solid var(--q-border);
+  border-radius: var(--q-radius-md);
+  box-shadow: var(--q-shadow-card);
+  padding: 10px 12px;
+  text-align: left;
+}
+
+.stat-body {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.stat-label {
+  font-size: 11px;
+  color: var(--q-text-secondary);
+  white-space: nowrap;
+}
+
+.stat-value {
+  font-size: var(--q-text-xl);
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.stat-value.amber {
+  color: var(--q-incomplete);
+}
+
+.stat-band {
+  display: flex;
+  align-items: center;
+  background: var(--q-card-bg);
+  border: 1px solid var(--q-border);
+  border-radius: var(--q-radius-md);
+  box-shadow: var(--q-shadow-card);
+  padding: 12px 10px;
+}
+
+.stat-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+}
+
+.stat-col .stat-value {
+  font-size: var(--q-text-lg);
+}
+
+/* ---------- 卡 ---------- */
+
+.card {
+  background: var(--q-card-bg);
+  border: 1px solid var(--q-border);
+  border-radius: var(--q-radius-md);
+  box-shadow: var(--q-shadow-card);
+  padding: 14px;
+}
+
+.card__title {
+  margin: 0 0 12px;
+  font-size: var(--q-text-lg);
+  font-weight: 700;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.proj-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  width: 100%;
+  text-align: left;
+  background: var(--q-card-bg);
+  border: 1px solid var(--q-border);
+  border-radius: var(--q-radius-md);
+  box-shadow: var(--q-shadow-card);
+  padding: 14px;
+}
+
+.proj-card:active {
+  transform: scale(0.995);
+}
+
+.proj-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.proj-title {
+  font-size: var(--q-text-lg);
+  font-weight: 700;
+  line-height: 1.3;
+  /**
+   * ⛔⛔ **呢一行⛔ 唔准拆 —— 冇咗佢，長工程名會壓住右邊嗰粒狀態標籤。**
+   *
+   * ⚠️ 2026-09-15 Jason 部機真機中過。個名叫
+   * `Test123456897536654267898758` —— **一串冇空格嘅英數字**。
+   * `.proj-top .proj-title` 本身已經有 `flex: 1; min-width: 0`，
+   * 所以個**盒**係縮得到嘅；但瀏覽器預設 `overflow-wrap: normal`
+   * ⇒ **一個「字」唔會斷**，於是啲字照樣畫出盒外，
+   * 疊咗喺「現場中」嗰粒標籤上面 —— **兩樣字重疊，兩樣都讀唔到。**
+   *
+   * ⭐ 中文名⛔ 唔會中呢個窿（CJK 本身逐個字都斷得），所以淨係用中文樣本
+   *    去試係**試唔出嘅** —— 對數個殼特登用返 Jason 部機嗰個真名。
+   *
+   * ⛔⛔ **點解揀「斷字」而唔係「截字加 …」**：
+   * ⚠️ 呢啲名嘅分別成日喺**尾嗰幾個字**（`…8758` 同 `…8759`）。
+   *    截咗尾就變成兩單嘢睇落一模一樣 —— ⭐ 現場戴住手套撳錯單，
+   *    比一張高咗兩行嘅卡差好多。
+   */
+  overflow-wrap: anywhere;
+}
+
+.proj-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-size: var(--q-text-sm);
+  color: var(--q-text-secondary);
+}
+
+.meta-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.meta-item.wrap {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.meta-divider {
+  width: 1px;
+  height: 11px;
+  background: var(--q-border);
+}
+
+.proj-side {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 7px;
+}
+
+.badge {
+  border-radius: 999px;
+  padding: 3px 9px;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.badge.amber {
+  background: rgba(213, 138, 24, 0.14);
+  color: var(--q-incomplete);
+}
+
+.badge.green {
+  background: rgba(47, 125, 77, 0.13);
+  color: var(--q-complete);
+}
+
+.badge.grey {
+  background: var(--q-card-alt);
+  color: var(--q-text-secondary);
+}
+
+/* ---------- 狀態色點 ---------- */
+
+.status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--q-text-secondary);
+  font-size: var(--q-text-sm);
+  white-space: nowrap;
+}
+
+.status__dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--status-color, var(--q-text-secondary));
+}
+
+.status--site {
+  --status-color: #3f6f9e;
+}
+.status--pending {
+  --status-color: var(--q-incomplete);
+}
+.status--quoted {
+  --status-color: #2f8f86;
+}
+.status--sent {
+  --status-color: #6a5aa8;
+}
+.status--won {
+  --status-color: var(--q-complete);
+}
+.status--lost {
+  --status-color: #9a8f84;
+}
+
+/* ---------- 區段標題 / 連結 / 空狀態 ---------- */
+
+.section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 2px 2px -2px;
+}
+
+.section-head .row-title {
+  font-size: var(--q-text-base);
+  font-weight: 700;
+}
+
+.link {
+  background: none;
+  color: var(--q-header);
+  font-size: var(--q-text-sm);
+  font-weight: 700;
+}
+
+.muted {
+  color: var(--q-text-secondary);
+}
+
+.empty {
+  padding: 22px 0;
+  text-align: center;
+  font-size: var(--q-text-sm);
+}
+
+.loading {
+  padding: 28px;
+  text-align: center;
+  color: var(--q-text-secondary);
+}
+
+/* ---------- 篩選 chips ---------- */
+
+.filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.filter {
+  border: 1px solid var(--q-border);
+  background: var(--q-card-bg);
+  border-radius: 999px;
+  padding: 7px 14px;
+  font-size: var(--q-text-sm);
+  font-weight: 600;
+  color: var(--q-text-secondary);
+  min-height: 36px;
+}
+
+.filter.active {
+  background: var(--q-header);
+  border-color: var(--q-header);
+  color: var(--q-on-header);
+}
+
+/* ---------- 搜尋 popover ---------- */
+
+.search-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 40;
+  background: rgba(30, 22, 14, 0.34);
+}
+
+.popover {
+  position: absolute;
+  top: calc(min(38.5vw, 184px) + 10px);
+  left: 14px;
+  right: 14px;
+  background: var(--q-card-bg);
+  border-radius: var(--q-radius-md);
+  box-shadow: 0 18px 40px rgba(30, 22, 14, 0.28);
+  padding: 14px;
+}
+
+.popover label {
+  display: block;
+  font-size: 12px;
+  color: var(--q-text-secondary);
+  margin: 8px 0 5px;
+}
+
+.popover-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.popover-actions button {
+  flex: 1;
+  border-radius: var(--q-radius-sm);
+  padding: 12px;
+  font-weight: 700;
+  min-height: var(--q-tap-target);
+}
+
+.ghost {
+  background: var(--q-card-alt);
+  color: var(--q-text-secondary);
+}
+
+.date-range {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.range-sep {
+  font-size: 12px;
+  color: var(--q-text-secondary);
+}
+
+/* ---------- 表單（沿用 P1–P2.5 嘅 class，唔改名） ---------- */
+
+.form-card h2 {
+  margin: 0 0 12px;
+  font-size: var(--q-text-lg);
+}
+
+.field {
+  display: block;
+  margin-bottom: var(--q-space-4);
+}
+
+.field__label {
+  display: block;
+  margin-bottom: var(--q-space-2);
+  font-size: var(--q-text-sm);
+  font-weight: 600;
+  color: var(--q-text-secondary);
+}
+
+.field__input {
+  width: 100%;
+  min-height: var(--q-tap-target);
+  padding: 0 var(--q-space-3);
+  border: 1px solid var(--q-border);
+  border-radius: var(--q-radius-sm);
+  background: #fff;
+  color: var(--q-text-primary);
+  font-family: inherit;
+  /* 16px 以上先唔會令 iOS Safari 自動 zoom */
+  font-size: 16px;
+}
+
+.field__input:focus-visible {
+  outline: 2px solid var(--q-header);
+  outline-offset: 1px;
+}
+
+.field__input:disabled {
+  background: var(--q-card-alt);
+  color: var(--q-text-secondary);
+}
+
+.field__input--area {
+  min-height: 96px;
+  padding: var(--q-space-3);
+  line-height: 1.5;
+  resize: vertical;
+}
+
+select.field__input {
+  appearance: none;
+  background-image: linear-gradient(45deg, transparent 50%, var(--q-text-secondary) 50%),
+    linear-gradient(135deg, var(--q-text-secondary) 50%, transparent 50%);
+  background-position:
+    calc(100% - 18px) calc(50% + 2px),
+    calc(100% - 13px) calc(50% + 2px);
+  background-size: 5px 5px;
+  background-repeat: no-repeat;
+  padding-right: var(--q-space-6);
+}
+
+.field__error {
+  display: block;
+  margin-top: var(--q-space-2);
+  color: var(--q-danger);
+  font-size: var(--q-text-sm);
+  font-weight: 600;
+}
+
+.field__warning {
+  display: block;
+  margin-top: var(--q-space-2);
+  color: var(--q-incomplete);
+  font-size: var(--q-text-sm);
+  font-weight: 600;
+}
+
+.field__hint {
+  display: block;
+  margin-top: var(--q-space-2);
+  color: var(--q-text-secondary);
+  font-size: 12px;
+}
+
+.field__with-action {
+  display: flex;
+  gap: var(--q-space-2);
+  align-items: stretch;
+}
+
+.field__with-action .field__input {
+  flex: 1;
+  min-width: 0;
+}
+
+.field-row {
+  display: flex;
+  gap: var(--q-space-3);
+}
+
+.field-row .field {
+  flex: 1;
+  min-width: 0;
+}
+
+.hint {
+  margin: calc(var(--q-space-3) * -1) 0 var(--q-space-4);
+  color: var(--q-text-secondary);
+  font-size: 12px;
+}
+
+/* ---------- 掣 ---------- */
+
+.button {
+  width: 100%;
+  min-height: var(--q-tap-target);
+  padding: 0 var(--q-space-4);
+  border: 1px solid transparent;
+  border-radius: var(--q-radius-sm);
+  background: var(--q-header);
+  color: var(--q-on-header);
+  font-size: var(--q-text-base);
+  font-weight: 700;
+}
+
+.button:active {
+  background: var(--q-header-deep);
+}
+
+.button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.button--secondary {
+  background: var(--q-card-bg);
+  border-color: var(--q-border);
+  color: var(--q-text-primary);
+}
+
+.button--danger {
+  background: var(--q-card-bg);
+  border-color: var(--q-danger);
+  color: var(--q-danger);
+}
+
+.button--danger:active {
+  background: var(--q-danger-bg);
+}
+
+.button--inline {
+  width: auto;
+  flex: none;
+  white-space: nowrap;
+  padding: 0 var(--q-space-3);
+  font-size: var(--q-text-sm);
+}
+
+.link-button {
+  border: 0;
+  background: none;
+  padding: var(--q-space-2) 0;
+  color: var(--q-header);
+  font-size: var(--q-text-sm);
+  font-weight: 700;
+  text-decoration: underline;
+  white-space: nowrap;
+}
+
+.link-button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.primary {
+  width: 100%;
+  min-height: var(--q-tap-target);
+  border-radius: var(--q-radius-sm);
+  background: var(--q-header);
+  color: var(--q-on-header);
+  font-weight: 700;
+}
+
+/* ---------- 訊息 ---------- */
+
+.notice {
+  border-radius: var(--q-radius-sm);
+  padding: var(--q-space-3);
+  font-size: var(--q-text-sm);
+}
+
+.notice--error {
+  background: rgba(185, 75, 62, 0.12);
+  color: var(--q-danger);
+}
+
+.notice--warning {
+  background: rgba(213, 138, 24, 0.14);
+  color: #8a6d2f;
+}
+
+.notice--ok {
+  background: rgba(47, 125, 77, 0.13);
+  color: var(--q-complete);
+}
+
+.notice__title {
+  margin: 0 0 var(--q-space-2);
+  font-size: var(--q-text-base);
+  font-weight: 700;
+}
+
+.notice__list {
+  margin: var(--q-space-2) 0 0;
+  padding-left: var(--q-space-4);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.config-warning {
+  background: rgba(185, 75, 62, 0.1);
+  border: 1px solid var(--q-danger);
+  color: var(--q-danger);
+  border-radius: var(--q-radius-sm);
+  padding: 12px;
+  font-size: var(--q-text-sm);
+}
+
+/* ---------- 選項組（現場資料表 / 處理方法） ---------- */
+
+.group {
+  margin: 0 0 var(--q-space-4);
+  padding: var(--q-space-4);
+  border: 1px solid var(--q-border);
+  border-radius: var(--q-radius-sm);
+  background: var(--q-card-alt);
+}
+
+.group__legend {
+  padding: 0 var(--q-space-2);
+  font-size: var(--q-text-base);
+  font-weight: 700;
+}
+
+.group__hint {
+  margin: 0 0 var(--q-space-3);
+  color: var(--q-text-secondary);
+  font-size: 12px;
+}
+
+.group__options {
+  display: flex;
+  flex-direction: column;
+  gap: var(--q-space-1);
+}
+
+.option {
+  display: flex;
+  align-items: center;
+  gap: var(--q-space-3);
+  min-height: var(--q-tap-target);
+  cursor: pointer;
+}
+
+.option input {
+  width: 22px;
+  height: 22px;
+  flex: none;
+  accent-color: var(--q-header);
+}
+
+.option__extra {
+  margin: 0 0 var(--q-space-2) 34px;
+  width: calc(100% - 34px);
+}
+
+.option__extra-field {
+  display: block;
+  margin: 0 0 var(--q-space-2) 34px;
+  width: calc(100% - 34px);
+}
+
+.checkbox {
+  display: flex;
+  align-items: center;
+  gap: var(--q-space-2);
+  font-size: var(--q-text-sm);
+  color: var(--q-text-secondary);
+  cursor: pointer;
+}
+
+.checkbox input {
+  width: 20px;
+  height: 20px;
+  accent-color: var(--q-header);
+}
+
+/* ---------- hub 入口列 ---------- */
+
+.hub-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  text-align: left;
+  background: var(--q-card-bg);
+  border: 1px solid var(--q-border);
+  border-radius: var(--q-radius-md);
+  box-shadow: var(--q-shadow-card);
+  padding: 15px 16px;
+  min-height: 62px;
+}
+
+.hub-row:active {
+  transform: scale(0.995);
+}
+
+.hub-main {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.hub-title {
+  font-size: var(--q-text-base);
+  font-weight: 700;
+}
+
+.hub-sub {
+  font-size: 12px;
+  color: var(--q-text-secondary);
+}
+
+.hub-chev {
+  color: var(--q-text-secondary);
+  font-size: 18px;
+  flex: 0 0 auto;
+}
+
+/* ---------- 設定頁 ---------- */
+
+.acct-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 11px 0;
+  border-bottom: 1px solid var(--q-border);
+  font-size: var(--q-text-sm);
+}
+
+.acct-row:last-child {
+  border-bottom: 0;
+}
+
+.acct-label {
+  color: var(--q-text-secondary);
+  flex: 0 0 auto;
+}
+
+.acct-val {
+  font-weight: 600;
+  text-align: right;
+  word-break: break-all;
+}
+
+.acct-val.mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+}
+
+.soon {
+  opacity: 0.55;
+}
+
+/* ---------- 危險區 ---------- */
+
+.danger-zone {
+  display: flex;
+  flex-direction: column;
+  gap: var(--q-space-3);
+  margin-top: var(--q-space-5);
+  padding-top: var(--q-space-4);
+  border-top: 1px solid var(--q-border);
+}
+
+.danger-zone__note {
+  margin: 0;
+  color: var(--q-text-secondary);
+  font-size: 12px;
+}
+
+.tag {
+  align-self: flex-start;
+  padding: 2px var(--q-space-2);
+  border-radius: 999px;
+  background: var(--q-card-alt);
+  border: 1px solid var(--q-border);
+  color: var(--q-text-secondary);
+  font-size: 12px;
+}
+
+.tag--warning {
+  background: rgba(213, 138, 24, 0.14);
+  border-color: var(--q-incomplete);
+  color: #8a6d2f;
+}
+
+/* ---------- 頁尾 Build ID ---------- */
+
+.build-footer {
+  display: flex;
+  justify-content: center;
+  padding: 10px 0 4px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10px;
+  color: var(--q-text-secondary);
+  opacity: 0.75;
+}
+
+.hidden-input {
+  display: none;
+}
+
+/* 未登入嗰幾版（冇 float shell）用嘅內容區 */
+.content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 18px 16px calc(18px + env(safe-area-inset-bottom, 0px));
+}
+
+/* ── P3a 相片（全景格）─────────────────────────────────────────────
+   ⛔ 狀態文字唔准縮到細過內文：現場戴住手套、太陽底下，
+   「上唔到」呢句一定要睇得清楚，否則等於靜靜降級。 */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.photo-slot__title {
+  margin: 0 0 4px;
+  font-size: 16px;
+  color: var(--q-text-primary);
+}
+
+.photo-slot__buttons {
+  display: flex;
+  gap: 10px;
+  margin: 12px 0 4px;
+}
+
+.photo-slot__buttons .button {
+  flex: 1;
+}
+
+.photo-list {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.photo-list__item {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 10px;
+  border-radius: 12px;
+  background: var(--q-card-alt);
+}
+
+.photo-list__thumb {
+  width: 72px;
+  height: 72px;
+  flex: 0 0 72px;
+  object-fit: cover;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.06);
+}
+
+.photo-list__thumb--none {
+  display: block;
+}
+
+.photo-list__text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.photo-list__status {
+  font-size: 15px;
+}
+
+.photo-list__hint,
+.photo-list__error {
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.photo-list__hint {
+  color: var(--q-text-secondary);
+}
+
+.photo-list__error {
+  color: var(--q-danger);
+}
+
+/* 出事嗰張要一眼睇得出，唔可以同其他相一樣咁靜。 */
+.photo-list__item[data-status='error'] {
+  background: var(--q-danger-bg);
+}
+
+.button--small {
+  align-self: flex-start;
+  padding: 8px 14px;
+  font-size: 14px;
+  min-height: 40px;
+}
+
+/* ── 成本卡（2026-09-01）───────────────────────────────────────────
+   工程詳情最底。⛔ 呢度啲數係成本，唔係收客價，⛔ 永遠唔會上 PDF。
+   殼跟 .card，⛔ 冇自己另一套顏色 —— 全部用返 --q-* token。 */
+.cost-card {
+  background: var(--q-card-bg);
+  border: 1px solid var(--q-border);
+  border-radius: var(--q-radius-md);
+  box-shadow: var(--q-shadow-card);
+  padding: 14px 16px 16px;
+}
+
+.cost-title {
+  margin: 0;
+  font-size: var(--q-text-lg);
+  font-weight: 700;
+}
+
+.cost-note {
+  margin: 2px 0 12px;
+  font-size: var(--q-text-sm);
+  color: var(--q-text-secondary);
+}
+
+.cost-rows {
+  display: flex;
+  flex-direction: column;
+}
+
+.cost-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 7px 0;
+  font-size: var(--q-text-base);
+}
+
+.cost-label {
+  min-width: 0;
+}
+
+.cost-value {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 逐次報價（Jason 2026-09-02：⛔ 唔要灰身）——
+   同其他行一樣色，只係右邊出字唔出數、字細啲。 */
+.cost-row--ask .cost-value {
+  font-size: var(--q-text-sm);
+}
+
+.cost-row--total {
+  border-top: 1px solid var(--q-border);
+  margin-top: 4px;
+  padding-top: 11px;
+  font-weight: 700;
+  font-size: var(--q-text-lg);
+}
+
+.cost-foot {
+  display: flex;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.cost-field {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.cost-field-label {
+  font-size: var(--q-text-sm);
+  color: var(--q-text-secondary);
+}
+
+.cost-field input {
+  width: 100%;
+  min-height: var(--q-tap-target);
+  padding: 0 12px;
+  font: inherit;
+  font-size: var(--q-text-lg);
+  font-variant-numeric: tabular-nums;
+  color: var(--q-text-primary);
+  background: #fff;
+  border: 1px solid var(--q-border);
+  border-radius: var(--q-radius-sm);
+}
+
+/* 冇權限：⛔ 唔准收埋，要見到但改唔到 —— 所以係灰底虛線，唔係消失。 */
+.cost-field input.locked {
+  background: var(--q-card-alt);
+  color: var(--q-text-secondary);
+  border-style: dashed;
+}
+
+.cost-asking {
+  min-height: var(--q-tap-target);
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-size: var(--q-text-xl);
+  font-weight: 700;
+  color: var(--q-complete);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 「成本 × 1.5（加成 50%）」。⛔ 唔好靠人心算。 */
+.cost-how {
+  font-size: var(--q-text-sm);
+  color: var(--q-text-secondary);
+  line-height: 1.45;
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   深色修正（2026-09-02）
+   app.css 有 219 處用 --q-* token，換 tokens.css 就跟住變。
+   淨係以下呢啲寫死咗顏色嘅位要另外執——⛔ 全部只係換色，
+   ⛔ 冇郁 layout、圓角、間距、字級、DOM。
+   ⭐ 寫喺檔尾做覆蓋而唔係改原句：diff 細、睇得明、要還原就整段剷。
+   ══════════════════════════════════════════════════════════════════ */
+
+/* 深啡陰影喺近黑底上面睇唔到 —— 換返純黑。 */
+.bottom-nav {
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.5);
+}
+.fab {
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.55);
+}
+.popover {
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.55);
+}
+
+/* header 上面嘅膠囊：黑底 α 喺深色 header 上面等於冇 —— 反轉做白底 α。 */
+.version-pill {
+  background: rgba(255, 255, 255, 0.08);
+}
+.user-pill {
+  background: rgba(255, 255, 255, 0.07);
+}
+
+/* 遮光層要夠深先遮到 —— 淺色時代嗰個 .34 喺深底上面幾乎透明。 */
+.search-overlay {
+  background: rgba(0, 0, 0, 0.58);
+}
+
+/* ⛔ 輸入格唔可以留白底：一格白喺全深色版面度會刺眼過所有嘢。
+   跟原型 Stage 10B 審計 D1 嘅做法 —— 極淡白膜，靠條邊界定個格。 */
+.field__input,
+.cost-field input {
+  background: rgba(255, 255, 255, 0.04);
+}
+.field__input::placeholder {
+  color: var(--q-text-secondary);
+}
+.cost-field input.locked {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+/* 狀態點：四個寫死嘅色喺深底上面偏暗，逐個提亮。
+   ⭐ 色相一個都冇轉 —— 藍仍然係藍，紫仍然係紫，⛔ 唔准同事重新學一次。 */
+.status--site {
+  --status-color: #7fa7c7;
+}
+.status--quoted {
+  --status-color: #6fb5ac;
+}
+.status--sent {
+  --status-color: #9e92d0;
+}
+.status--lost {
+  --status-color: #a9a196;
+}
+
+/* 提示條：底色 α 同深啡字都係淺色時代嘅嘢。 */
+.notice--error {
+  background: rgba(179, 93, 74, 0.18);
+  color: #d78975;
+}
+.notice--warning {
+  background: rgba(182, 138, 69, 0.18);
+  color: var(--q-incomplete);
+}
+.notice--ok {
+  background: rgba(143, 162, 93, 0.16);
+  color: var(--q-complete);
+}
+.config-warning {
+  background: rgba(179, 93, 74, 0.16);
+  color: #d78975;
+}
+.tag--warning {
+  background: rgba(182, 138, 69, 0.18);
+  color: var(--q-incomplete);
+}
+
+/* 相未載入嗰陣個灰底：黑 α 喺深底上面等於冇個框。 */
+.photo-list__thumb {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+/* ⚠️ 最重要嗰個：`--q-header` 喺淺色時代一色兩用 ——
+   佢又係頂部啡帶，又係**所有掣同連結嘅顏色**（.button／.primary／.filter.active／
+   .link／.link-button／nav 亮起／checkbox accent-color 全部用緊佢）。
+   深色之後佢變咗接近黑，⛔ 唔override 嘅話成 app 啲掣同連結會消失。
+   ⭐ 拆返兩個角色：頂帶照用 --q-header，動作一律用 --q-accent（原型嘅橄欖綠）。 */
+.button,
+.primary,
+.filter.active,
+.fab {
+  background: var(--q-accent);
+  border-color: var(--q-accent);
+  color: #0f140f;
+}
+.button:active,
+.primary:active {
+  background: #68794d;
+}
+.link,
+.link-button,
+.nav-item.active {
+  color: var(--q-accent);
+}
+.nav-dot {
+  background: var(--q-accent);
+}
+.option input,
+.checkbox input {
+  accent-color: var(--q-accent);
+}
+
+/* ⭐ 頂帶都要係綠 —— 平色 #16201A 對住 #0D120E 個底幾乎無分別，
+   所以同卡一樣用漸變：上面綠，落到波浪位收埋入個底色。 */
+.bheader-bg {
+  background: linear-gradient(180deg, #1e2a20 0%, #131a14 100%);
+}
+.fab:active {
+  background: #68794d;
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   對返 stage57 個樣（2026-09-02）
+   ⭐ 尺寸、字級、色全部由 stage57 度量返嚟，⛔ 冇一個係我自己揀。
+   ⛔ 只係樣 —— DOM 結構加咗 icon，其餘 JS／邏輯／測試零改動。
+   ══════════════════════════════════════════════════════════════════ */
+
+/* icon 基礎。抄 stage57 `.ico`：24px、線 1.8、跟 currentColor。
+   ⛔ 唔准喺個別 icon 度寫死色 —— 換皮就要逐個揾。 */
+.ico {
+  width: 24px;
+  height: 24px;
+  display: inline-block;
+  vertical-align: middle;
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+/* 襯線標題（stage57 VFINAL.1 §8）。
+   ⛔ 只落喺標題 —— 內文、數字、副標唔可以跟，否則成版似張告示。 */
+h1,
+h2,
+.head-name,
+.hub-title,
+.cost-title,
+.page-title {
+  font-family: var(--q-font-serif);
+  letter-spacing: 0.01em;
+}
+
+/* ── 工程詳情：五個入口 ─────────────────────────────────────────
+   stage57 實測值：卡內距 17/18、icon 30px 橄欖綠、標題襯線 17px、
+   副標 12.5px 第三層色、右邊 chevron 19px。 */
+.hub-row {
+  padding: 17px 18px;
+  gap: 14px;
+}
+
+.hub-ic {
+  flex: none;
+  display: grid;
+  place-items: center;
+  color: var(--q-accent, var(--q-header));
+}
+
+.hub-ic .ico {
+  width: 30px;
+  height: 30px;
+}
+
+.hub-title {
+  font-size: 17px;
+  line-height: 1.3;
+}
+
+.hub-sub {
+  font-size: 12.5px;
+  margin-top: 3px;
+}
+
+.hub-chev {
+  display: grid;
+  place-items: center;
+}
+
+.hub-chev .ico {
+  width: 19px;
+  height: 19px;
+}
+
+/* header 上面圓形嘅返回／刪除掣：入面由文字符號換成真 icon。 */
+.chip-btn .ico {
+  width: 18px;
+  height: 18px;
+}
+
+/* 底部導覽 icon */
+.nav-ic .ico {
+  width: 24px;
+  height: 24px;
+}
+
+/* ⚠️ 三欄（icon｜文字｜箭嘴）＋ space-between 之下，中間欄唔會自己撐開 ——
+   文字就會浮喺卡中間。要 flex:1 迫佢由 icon 右邊一路排到箭嘴。 */
+.hub-main {
+  flex: 1;
+  align-items: flex-start;
+  text-align: left;
+}
+
+/* ── 成本卡對返 stage57 ──────────────────────────────────────────
+   三處由平文字改做「格」：只供內部參考、加成、報價價錢。
+   ⭐ 數值全部由 stage57 度返（.note2／.pv2／.gain），⛔ 冇一個係我自己揀。 */
+
+/* 「只供內部參考」：stage57 係一個淡橄欖底嘅提示格，唔係一行灰字。 */
+.cost-note {
+  margin: 6px 0 14px;
+  padding: 12px 14px;
+  border: 1px solid var(--q-border);
+  border-radius: 14px;
+  background: rgba(152, 165, 107, 0.1);
+  color: var(--q-text-secondary);
+  font-size: 12.5px;
+}
+
+.cost-title {
+  font-size: 18px;
+}
+
+/* 加成：% 由標籤搬入格內（stage57 .pv2 ＋ .dollar）。 */
+.cost-input {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 12px;
+  border: 1px solid var(--q-border);
+  border-radius: 11px;
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.cost-input input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  padding: 12px 0;
+  background: transparent;
+  font: inherit;
+  font-size: var(--q-text-lg);
+  color: var(--q-text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+
+
+/* ⚠️ 個綠光要出喺**外面個格**度 —— 淨係寫 input:focus 嘅話，
+   個光會困喺格入面，睇落似漏色。 */
+.cost-input:focus-within {
+  border-color: rgba(157, 169, 105, 0.44);
+  background: rgba(152, 165, 107, 0.09);
+}
+
+.cost-input .cost-unit {
+  flex: none;
+  color: var(--q-text-secondary);
+  font-size: 14px;
+}
+
+/* 冇權限：見到但改唔到 —— 虛線邊，⛔ 唔准收埋。 */
+.cost-input.locked {
+  border-style: dashed;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.cost-input.locked input {
+  color: var(--q-text-secondary);
+}
+
+/* 報價價錢：stage57 係一個實底格，數字用橄欖綠（實測 #98A56B），
+   ⛔ 唔係 --q-complete 嗰隻偏黃綠。 */
+.cost-asking {
+  min-height: 44px;
+  padding: 11px 12px;
+  border-radius: 11px;
+  background: var(--q-card-alt);
+  color: var(--q-accent);
+  font-size: var(--q-text-xl);
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  display: flex;
+  align-items: center;
+}
+
+/* ── 首頁對返 stage57 ────────────────────────────────────────────
+   ⭐ 尺寸全部由 stage57 `#screenHome` 度返（已計埋佢後面嗰幾層覆寫）。
+   ⛔ 首頁唔再用波浪 header ＋ 浮卡層 —— 原型首頁根本冇波浪。 */
+
+.hhero {
+  flex: none;
+  position: relative;
+  padding: 22px 18px 6px;
+}
+
+/* 右上角一團好淡嘅橄欖光。⛔ 唔可以濃 —— 濃咗就變咗一嚿污糟嘢。 */
+.hhero::after {
+  content: '';
+  position: absolute;
+  right: -60px;
+  top: -70px;
+  width: 260px;
+  height: 260px;
+  pointer-events: none;
+  background: radial-gradient(
+    50% 50% at 50% 50%,
+    rgba(132, 148, 93, 0.16) 0%,
+    rgba(132, 148, 93, 0) 72%
+  );
+}
+
+.hbrand {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+}
+
+.hmark {
+  flex: none;
+  height: 49px;
+  width: auto;
+  max-width: 100%;
+  display: block;
+  object-fit: contain;
+}
+
+/* ── 三個數 ─────────────────────────────────────────────────── */
+.stats.hstats {
+  flex: none;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 11px;
+  margin: 22px 18px 0;
+}
+
+.hstats .stat {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-areas: 'ic k' 'ic v';
+  align-items: center;
+  column-gap: 8px;
+  padding: 9px 10px 10px;
+  text-align: left;
+  background: var(--q-card-bg);
+  border: 1px solid var(--q-border);
+  border-radius: 16px;
+  box-shadow: var(--q-shadow-card);
+}
+
+.hstats .sic {
+  grid-area: ic;
+  align-self: center;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  color: var(--q-accent);
+}
+
+.hstats .sic .ico {
+  width: 28px;
+  height: 28px;
+}
+
+.hstats .k {
+  grid-area: k;
+  align-self: end;
+  min-width: 0;
+  font-size: 13px;
+  line-height: 1.15;
+  white-space: nowrap;
+  letter-spacing: 0.04em;
+  color: var(--q-text-secondary);
+}
+
+/* 數字用襯線，同標題一套。⛔ tabular-nums 唔可以少 —— 0/1 闊度唔同會跳。 */
+.hstats .v {
+  grid-area: v;
+  align-self: start;
+  margin-top: 2px;
+  font-family: var(--q-font-serif);
+  font-size: 26px;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 待報價嗰個先要突出 —— 佢先係要跟進嘅嘢。 */
+.hstats .v.gold {
+  color: var(--q-accent);
+}
+
+/* ── 待報價清單 ─────────────────────────────────────────────── */
+.hmain {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 8px 18px var(--q-fab-clear);
+  /* 上邊界溶開，內容捲上去唔會硬生生俾切一刀。 */
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, rgba(0, 0, 0, 0.55) 3px, #000 6px);
+  mask-image: linear-gradient(to bottom, transparent 0, rgba(0, 0, 0, 0.55) 3px, #000 6px);
+}
+
+.sect {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 0 2px 2px;
+}
+
+.sect h3 {
+  margin: 0;
+  padding-left: 0.5em;
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.sect-more {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 13.5px;
+  color: var(--q-accent);
+}
+
+.sect-more .chev {
+  width: 17px;
+  height: 17px;
+}
+
+/* ── 圓形 FAB ───────────────────────────────────────────────── */
+.fab--round {
+  width: 58px;
+  height: 58px;
+  min-height: 58px;
+  padding: 0;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(160deg, #8b9c60 0%, #68794d 100%);
+  color: #f1ebdd;
+  border: 1px solid rgba(190, 178, 139, 0.22);
+  box-shadow: 0 12px 26px -10px rgba(0, 0, 0, 0.5);
+}
+
+.app--float .fab--round {
+  bottom: calc(102px + env(safe-area-inset-bottom, 0px));
+}
+
+.fab--round .ico {
+  width: 26px;
+  height: 26px;
+  stroke-width: 2;
+}
+
+.fab--round:active {
+  background: linear-gradient(160deg, #7d8d56 0%, #5b6b44 100%);
+}
+
+/* ── 工程卡對返 stage57（.pcard）────────────────────────────────
+   ⭐ 呢張卡首頁同工程列表共用，兩版一齊變。 */
+.proj-card {
+  align-items: center;
+  padding: 18px 20px;
+  min-height: 96px;
+}
+
+.proj-title {
+  font-family: var(--q-font-serif);
+  font-size: 19px;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.proj-meta {
+  font-size: 13px;
+  line-height: 1.5;
+  /* ⚠️ 第一行係第二層資訊（#BDB6A6），⛔ 唔係最暗嗰層。
+     成張卡本來全部用咗最暗嗰隻，暗咗一級。 */
+  color: var(--q-text-2);
+}
+
+/* 第二行（客戶 ／ 地址）先至再暗一級 —— 三層資訊層次。 */
+.proj-meta + .proj-meta {
+  font-size: 12.5px;
+  color: var(--q-text-secondary);
+}
+
+/* 分隔由一條直間改做一點，同原型「2026-08-22 · 九龍 · 日更」對返。 */
+.meta-divider {
+  width: auto;
+  height: auto;
+  background: none;
+}
+
+.meta-divider::before {
+  content: '·';
+  color: var(--q-text-secondary);
+}
+
+/* 狀態由淨字改做膠囊。⛔ 只喺工程卡入面 ——
+   工程詳情頂部嗰三格入面嘅狀態係另一個位，唔可以一齊變。 */
+.proj-side .status {
+  /* ⚠️ 原型 `.pcard .st` 係 6px。我寫過 7px，個膠囊就闊咗 1px（對數捉到）。 */
+  gap: 6px;
+  padding: 6px 13px;
+  border: 1px solid rgba(157, 169, 105, 0.26);
+  border-radius: 999px;
+  background: rgba(120, 138, 86, 0.16);
+  font-size: 12.5px;
+  letter-spacing: 0.02em;
+}
+
+.proj-side .status__dot {
+  width: 6px;
+  height: 6px;
+}
+
+/* 卡由「左內容｜右狀態」兩直行，改成原型嘅「上一行名＋狀態，下面兩行資料」。 */
+.proj-card {
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: center;
+  gap: 0;
+}
+
+.proj-top {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.proj-top .proj-title {
+  flex: 1;
+  min-width: 0;
+}
+
+.proj-side {
+  margin-left: auto;
+  flex: none;
+  flex-direction: row;
+  align-items: center;
+  gap: 7px;
+}
+
+.proj-meta {
+  margin-top: 7px;
+}
+
+.proj-meta + .proj-meta {
+  margin-top: 4px;
+}
+
+/* ── 底部導覽對返 stage57 ────────────────────────────────────── */
+.bottom-nav {
+  border-radius: 16px;
+  padding: 11px 0 9px;
+  background: linear-gradient(180deg, rgba(28, 36, 29, 0.96), rgba(19, 26, 20, 0.96));
+  border: 1px solid var(--q-border);
+  box-shadow: 0 12px 30px -12px rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.nav-item {
+  position: relative;
+  gap: 5px;
+  color: var(--q-text-secondary);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.nav-ic .ico {
+  width: 27px;
+  height: 27px;
+}
+
+.nav-item.active,
+.nav-item.active .nav-ic {
+  color: var(--q-accent);
+}
+
+/* 亮起嘅記號係頂上一條短橫，⛔ 唔係下面一粒點。 */
+.nav-dot {
+  display: none;
+}
+
+.nav-item.active::before {
+  content: '';
+  position: absolute;
+  top: -6px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 26px;
+  height: 3px;
+  border-radius: 3px;
+  background: var(--q-accent);
+}
+
+/* nav 條本身嘅位。實測 stage57：左右各 16px、距底 16px、內距 11／9。
+   ⛔ 真 app 之前係左右 14、距底 26 —— 三個數都對唔正，成條 bar 位置唔同。 */
+.app--float .bottom-nav {
+  left: 16px;
+  right: 16px;
+  bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+}
+
+.bottom-nav {
+  padding: 11px 0 9px;
+}
+
+.nav-item {
+  min-height: 0;
+}
+
+/* ⚠️ 條 nav bar 高咗 11px —— 唔係 FAB 郁咗位，係 bar 頂升高咗，
+   FAB 同 nav 之間條罅由 24.5px 迫到剩 13.5px。
+   原因：個字用緊 line-height 1.5，一行 13px 字佔咗 19.5px。
+   原型 `nav b{line-height:1}`，所以要跟返。 */
+.nav-item {
+  line-height: 1;
+}
+
+.nav-ic {
+  line-height: 0;
+}
+
+/* ⚠️ 仲爭 6px：`.nav-item` 四邊各 4px 內距，上下就多咗 8px。
+   原型係 `padding:2px 0 0` —— 淨係頂 2px。跟返之後條 bar 高 69px，同原型一樣。
+   `.ico` 亦都要 display:block，否則 svg 底下會留返一條字腳位。 */
+.nav-item {
+  padding: 2px 0 0;
+}
+
+.nav-ic .ico {
+  display: block;
+}
+
+/* ══ 對數修正（2026-09-02，tools/ui-check）══════════════════════
+   以下每一條都係量出嚟嘅差異，⛔ 唔係我覺得靚啲。 */
+
+/* 底字級 15 → 16px（原型 `.quote-app-ui{font-size:16px}`）。
+   ⚠️ 呢個影響全 app 所有冇寫死字級嘅嘢同埋 line-height。 */
+body {
+  font-size: 16px;
+}
+
+/* h3 漏咗襯線 —— 首頁「待報價工程」實測 serif=false。 */
+h3 {
+  font-family: var(--q-font-serif);
+  letter-spacing: 0.01em;
+}
+
+/* 版面左右內距 16 → 18px（原型 main padding）。 */
+.float-cards-scroll {
+  padding-left: 18px;
+  padding-right: 18px;
+}
+
+/* 成本卡四邊 18px（原型 #costCard padding:18px）。 */
+.cost-card {
+  padding: 18px;
+}
+
+/* 第二層文字色：卡入面嘅狀態膠囊同提示格。實測原型係 #BDB6A6，
+   真 app 用咗 #96978E（第三層），暗咗一級。 */
+.proj-side .status,
+.cost-note {
+  color: var(--q-text-2);
+}
+
+/* ⚠️⚠️ 真 bug，唔止樣衰：`.float-cards-scroll` 係 flex 直行，
+   子元素預設 `flex-shrink:1`。內容一長過個框，每張卡就會俾壓扁到
+   佢自己嘅 min-height —— 實測工程詳情頭一張入口卡由應有嘅 99.6px
+   壓成 62px，副標第二行直接俾切走。
+   ⭐ `flex:none` 之後每張卡先會保持返自己嘅高度。 */
+.float-cards-scroll > * {
+  flex: none;
+}
+
+/* 入口 icon 要企喺一個 40px 闊嘅位入面（原型 .ric），
+   icon 本身 30px 居中 —— 唔係就成行字左移咗 5px。 */
+.hub-ic {
+  width: 40px;
+}
+
+/* 提示格行高 1.55（原型 .note2）。 */
+.cost-note {
+  line-height: 1.55;
+}
+
+/* 加成格：原型 input 內距 11px、字 16px（唔係 18px）。 */
+.cost-input input {
+  padding: 11px 0;
+  font-size: 16px;
+}
+
+/* 報價價錢：原型 `.gain` 冇特別放大 —— 16px、weight 650、內距 11／12、最矮 44px。
+   ⛔ 我之前用咗 22px + weight 700，大咗成級。 */
+.cost-asking {
+  padding: 11px 12px;
+  font-size: 16px;
+  font-weight: 650;
+}
+
+/* nav 個字：原型 weight 600，亮起嗰個都係 600 —— ⛔ 唔會變粗。 */
+.nav-item,
+.nav-item.active {
+  font-weight: 600;
+}
+
+/* ══ 單價設定（09）════════════════════════════════════════════════
+   版面照原型 stage57 `#screenPrice`。⭐ 尺寸全部由原型度返。 */
+
+/* 說明格。同成本卡「只供內部參考」係同一款（原型 `.note2`）。 */
+.note-box {
+  margin: 0;
+  padding: 12px 14px;
+  border: 1px solid var(--q-border);
+  border-radius: 14px;
+  background: rgba(152, 165, 107, 0.1);
+  color: var(--q-text-2);
+  font-size: 12.5px;
+  line-height: 1.55;
+}
+
+.note-box--warn {
+  border-color: rgba(182, 138, 69, 0.4);
+  background: rgba(182, 138, 69, 0.14);
+  color: var(--q-incomplete);
+}
+
+.price-card {
+  padding: 18px 17px;
+}
+
+.price-group {
+  margin: 0 0 11px;
+  font-family: var(--q-font-serif);
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.prow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--q-border);
+}
+
+/* 一個項目入面最後嗰行，同成張卡最後嗰行，都唔要底線。 */
+.price-item:last-child .prow:last-child {
+  border-bottom: 0;
+}
+
+/* 分地區嗰啲縮入去，一眼睇得出係從屬關係。 */
+.prow--sub {
+  padding-left: 14px;
+}
+
+.prow--sub .price-label {
+  font-size: 14px;
+  color: var(--q-text-2);
+}
+
+.price-label {
+  flex: 1;
+  min-width: 0;
+  font-size: 15px;
+}
+
+.price-unit {
+  margin-top: 1px;
+  font-size: 12.5px;
+  color: var(--q-text-2);
+}
+
+.price-input {
+  position: relative;
+  flex: none;
+  width: 118px;
+}
+
+.price-input input {
+  width: 100%;
+  padding: 11px 12px 11px 28px;
+  font: inherit;
+  font-size: 16px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--q-text-primary);
+  background: rgba(0, 0, 0, 0.22);
+  border: 1px solid var(--q-border);
+  border-radius: 12px;
+}
+
+.price-input input:focus {
+  border-color: rgba(157, 169, 105, 0.44);
+}
+
+.price-dollar {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--q-text-secondary);
+  font-size: 14px;
+  pointer-events: none;
+}
+
+/* 冇權限：⛔ 唔准收埋 —— 見到但改唔到。 */
+.price-input.locked input {
+  border-style: dashed;
+  color: var(--q-text-secondary);
+}
+
+/* ⛔ 打空咗／打錯：一定要睇得出係邊格，唔可以淨係鎖住個掣。 */
+.price-input.invalid input {
+  border-color: var(--q-danger);
+  background: rgba(179, 93, 74, 0.16);
+}
+
+/* 逐次報價 —— ⛔ 唔可以出個 $0 格喺度扮有價。 */
+.price-ask {
+  flex: none;
+  padding: 6px 12px;
+  border: 1px solid var(--q-border);
+  border-radius: 999px;
+  background: rgba(152, 165, 107, 0.13);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--q-text-2);
+}
+
+/* 儲存掣釘喺 nav 上面，⛔ 唔使碌到最底先撳到。
+   未改過就淡色，改咗先着 —— 一眼睇得出有冇嘢未存。 */
+.price-save-bar {
+  position: absolute;
+  left: 18px;
+  right: 18px;
+  bottom: calc(69px + 16px + 12px + env(safe-area-inset-bottom, 0px));
+  z-index: 6;
+}
+
+.price-save-bar .button {
+  padding: 16px;
+  border-radius: 16px;
+  /* ⚠️ 底一定要夠實 —— 佢浮喺內容上面，半透明就會見到下面張卡穿過嚟。
+     用返同 nav 一樣嗰款深底，全 app 只得一種「浮起嘅條」。 */
+  background: linear-gradient(180deg, rgba(28, 36, 29, 0.96), rgba(19, 26, 20, 0.96));
+  border: 1px solid var(--q-border);
+  color: var(--q-text-secondary);
+  box-shadow: 0 12px 30px -12px rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.price-save-bar .button:not(:disabled) {
+  background: #68794d;
+  border-color: rgba(157, 169, 105, 0.55);
+  color: #f1ebdd;
+}
+
+/* ⛔ 唔准寫 outline:none —— 原型 2026-08-30 試過，剩返邊框做提示只差 1.28:1，
+   戶外日光下根本睇唔出邊格 focus 緊。要一條 2px 橄欖外框（5.79:1）。 */
+.price-input input:focus,
+.cost-input input:focus {
+  outline: 2px solid var(--q-accent);
+  outline-offset: 2px;
+}
+
+/* ── 緊湊 header（原型全部畫面都係咁）────────────────────────────
+   ⭐ 原型改版嗰陣已經拆咗波浪：`.curve{display:none}`，
+      header 變成透明底 ＋ 右上角一團淡橄欖光。
+   ⚠️ 而家淨係單價設定用緊，其他版下一輪先搬。 */
+.bheader--compact {
+  aspect-ratio: auto;
+  position: relative;
+  overflow: visible;
+  padding: calc(12px + env(safe-area-inset-top, 0px)) 18px 10px;
+  background: transparent;
+  align-items: center;
+}
+
+.bheader--compact::after {
+  content: '';
+  position: absolute;
+  right: -56px;
+  top: -64px;
+  width: 236px;
+  height: 236px;
+  pointer-events: none;
+  background: radial-gradient(
+    50% 50% at 50% 50%,
+    rgba(132, 148, 93, 0.14) 0%,
+    rgba(132, 148, 93, 0) 72%
+  );
+}
+
+.bheader--compact .head-name {
+  font-size: 27px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.bheader--compact .head-sub {
+  margin-top: 5px;
+  font-size: 13px;
+  opacity: 1;
+  color: var(--q-text-2);
+}
+
+/* 返回掣：橄欖淡底 ＋ 一條邊，⛔ 唔係半透明白（嗰個係波浪底時代嘅嘢）。 */
+.bheader--compact .chip-btn {
+  width: 34px;
+  height: 34px;
+  background: rgba(152, 165, 107, 0.12);
+  border: 1px solid var(--q-border);
+  color: var(--q-text-2);
+}
+
+.bheader--compact .chip-btn .ico {
+  width: 20px;
+  height: 20px;
+}
+
+/* ⭐⭐ 工程詳情頁右上角粒垃圾桶（Jason 2026-09-15）。
+   ⛔⛔ **44×44 —— 撳得到嘅面積，⛔ 唔准縮細。**
+   ⚠️ 旁邊粒返回掣係 34×34（`.bheader--compact .chip-btn`）——
+      嗰個係舊嘢，⛔ 呢個 PR 冇郁：郁佢會推歪每一版嘅 header，
+      而 `ui:check` 嗰 90 項對數就係量緊嗰啲位。已知，⛔ 唔係手民之誤。
+   ⚠️ `flex: none` ＋ 固定闊度 ⇒ 左邊嗰個長工程名**縮得到但推唔郁佢**，
+      連埋 `.head-name` 本身嘅 `text-overflow: ellipsis`，兩件嘢就唔會疊埋。
+      ⭐ 呢一點由 `ui:check` 個 `hubname` 畫面量住，⛔ 唔靠人記得。 */
+.head-trash {
+  width: 44px;
+  height: 44px;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--q-danger-bg);
+  border: 1px solid var(--q-danger);
+  color: var(--q-danger);
+  cursor: pointer;
+}
+
+.head-trash .ico {
+  width: 20px;
+  height: 20px;
+}
+
+/* 冇波浪就唔使留波浪嗰段位。
+   ⚠️ 要夠 specificity 蓋過 `.float-cards-scroll.scroll-body`（兩個 class），
+      唔係嘅話個 184px 波浪內距會照計。
+   ⚠️ 亦都要由「絕對定位蓋住成版」改返做「header 下面嘅正常一格」——
+      原型個 main 就係 header 之後嘅流內元素。 */
+.float-cards-scroll.scroll-body.scroll-body--compact {
+  position: relative;
+  inset: auto;
+  flex: 1;
+  min-height: 0;
+  gap: 12px;
+  /* 底部要讓返 nav（69+16）＋ 儲存掣（58+12）＋ 呼吸位。 */
+  padding: 6px 18px
+    calc(
+      69px + 16px + 12px + 58px + 14px + env(safe-area-inset-bottom, 0px) +
+        var(--pending-extra, 0px)
+    );
+  mask-image: none;
+  -webkit-mask-image: none;
+}
+
+.scroll-body--compact > .note-box {
+  margin-top: 13px;
+}
+
+/* 返回掣 ＋ 文字欄。原型 `header .row`：gap 12px、上下置中。 */
+.head-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+/* 標題同副標喺原型度係暖白 #F6F1E9，⛔ 唔係內文嗰隻 #F1EBDD。 */
+.bheader--compact .head-title,
+.bheader--compact .head-name {
+  color: #f6f1e9;
+}
+
+/* header 自己個 color。⛔ 唔止標題 —— `.bheader` 本身都要，
+   否則對數量嗰陣個 header 元素同原型爭一隻色。 */
+.bheader--compact {
+  color: #f6f1e9;
+}
+
+/* ⚠️ `.button:disabled{opacity:.6}` 令成粒掣半透明，
+   下面張卡就會穿透上嚟（實測「夾車」個標題透咗出嚟）。
+   ⭐ 呢粒掣「未有嘢改」係常態，唔係出事 —— 所以唔用透明度去表示，
+      改用色深淺；⛔ 底一定要實。 */
+.price-save-bar .button:disabled {
+  opacity: 1;
+}
+
+/* 緊湊 header 三個變體。內距同標題大細由原型逐個度返。 */
+.bheader--project {
+  padding: calc(22px + env(safe-area-inset-top, 0px)) 18px 14px;
+}
+
+/* ⚠️ 「大標題」同「大內距」係兩件事：設定係大標題但內距同表單一樣，
+   工程列表先至兩樣都大。⛔ 溝埋一齊嘅話設定條 header 會高咗 9px。 */
+.bheader--list {
+  padding: calc(14px + env(safe-area-inset-top, 0px)) 18px 17px;
+}
+
+.bheader--big .head-name,
+.bheader--big .page-title,
+.bheader--list .head-name,
+.bheader--list .page-title {
+  font-size: 33px;
+  padding-left: 0.5em;
+}
+
+/* 冇返回掣嗰啲（工程列表、設定）個標題都要跟同一套字。 */
+.bheader--compact .page-title {
+  font-family: var(--q-font-serif);
+  font-size: 27px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: #f6f1e9;
+}
+
+/* 副標第二行（客戶／地址）比第一行細一級、暗一級。原型 `.sub .l2`。 */
+.bheader--compact .head-sub-line + .head-sub-line {
+  margin-top: 3px;
+  font-size: 12.5px;
+  color: var(--q-text-secondary);
+}
+
+/* ── 工程詳情頂部三格（原型 `#screenProject .stats`）────────────────
+   ⭐ 由一條長 band 改返三張獨立卡，每張左邊一個 icon。
+   尺寸實測：卡內距 9/9/10、欄距 7、icon 26px、標籤 12.5px、數字 26px 襯線。 */
+.stats--project {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 9px;
+  margin: 4px 0 0;
+}
+
+.stats--project .stat {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-areas: 'ic k' 'ic v';
+  align-items: center;
+  column-gap: 6px;
+  padding: 9px 8px 10px;
+  text-align: left;
+  background: var(--q-card-bg);
+  border: 1px solid var(--q-border);
+  border-radius: 16px;
+  box-shadow: var(--q-shadow-card);
+}
+
+.stats--project .sic {
+  grid-area: ic;
+  align-self: center;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  color: var(--q-accent);
+}
+
+.stats--project .sic .ico {
+  width: 26px;
+  height: 26px;
+}
+
+.stats--project .k {
+  grid-area: k;
+  align-self: end;
+  min-width: 0;
+  font-size: 12.5px;
+  line-height: 1.15;
+  white-space: nowrap;
+  letter-spacing: 0.04em;
+  color: var(--q-text-2);
+}
+
+.stats--project .v {
+  grid-area: v;
+  align-self: start;
+  margin-top: 2px;
+  font-family: var(--q-font-serif);
+  font-size: 26px;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 狀態同地區係文字唔係數字，⛔ 唔可以用 26px —— 「待報價」會迫爆格。 */
+.stats--project .v--sm {
+  font-size: 16px;
+  line-height: 1.15;
+  margin-top: 4px;
+}
+
+/* 樹卡（原型 `.treecard`）：同工程卡同一款，只係矮 8px。 */
+.proj-card--tree {
+  min-height: 88px;
+}
+
+.proj-card--tree .proj-title {
+  letter-spacing: 0.02em;
+}
+
+/* ── 表單（原型 `.mqform`）逐項對數修正 ─────────────────────────
+   一次過影響基本資料、現場資料表、樹木頁、設定 —— 佢哋共用呢幾條。 */
+.card {
+  padding: 18px 17px;
+}
+
+.field__label {
+  margin-bottom: 6px;
+  font-size: 12.5px;
+  /* 原型個標籤唔粗體 —— 佢靠字細同暗色做層次，⛔ 唔靠加粗。 */
+  font-weight: 400;
+  letter-spacing: 0.06em;
+  color: var(--q-text-2);
+}
+
+.field__input {
+  padding: 13px;
+  border-radius: 13px;
+}
+
+/* ⛔ 唔准寫 outline:none —— 同單價格一樣，剩返邊框做提示喺日光下睇唔出。 */
+.field__input:focus {
+  outline: 2px solid var(--q-accent);
+  outline-offset: 2px;
+  border-color: rgba(157, 169, 105, 0.44);
+  background: rgba(152, 165, 107, 0.09);
+}
+
+/* ── 狀態 chip（原型 `#screenAll .chip2`）──────────────────────── */
+.chips {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 0 18px 2px;
+  -webkit-overflow-scrolling: touch;
+}
+
+.chips::-webkit-scrollbar {
+  height: 0;
+}
+
+.chip2 {
+  flex: none;
+  padding: 7px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--q-border);
+  background: rgba(255, 255, 255, 0.03);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--q-text-2);
+  white-space: nowrap;
+}
+
+.chip2.on {
+  background: rgba(152, 165, 107, 0.16);
+  border-color: rgba(157, 169, 105, 0.42);
+  color: var(--q-accent);
+  font-weight: 600;
+}
+
+/* ⚠️ 呢幾條要行喺 `.bheader--compact .page-title` 後面 ——
+   specificity 一樣，後者贏。之前工程列表同設定個標題一直細咗 6px。 */
+.bheader--big .head-name,
+.bheader--big .page-title,
+.bheader--list .head-name,
+.bheader--list .page-title {
+  font-size: 33px;
+  padding-left: 0.5em;
+}
+
+/* 工程列表個內容上內距係 11px（原型 `#screenAll>main{padding-top:11px}`），
+   ⛔ 唔係表單類嗰個 6px —— 佢上面有排 chip，要留多少少罅。 */
+/* ⚠️ 要夠 specificity 蓋過上面嗰條三 class 嘅規則。 */
+.float-cards-scroll.scroll-body.scroll-body--compact.records-scroll {
+  padding-top: 11px;
+}
+
+/* 樹牌號撳得（原型：撳個名本身就開改樹，⛔ 冇鉛筆仔）。
+   ⛔ 唔加底線唔加色 —— 佢仲係個標題，唔係一條連結。 */
+.head-name-btn {
+  font: inherit;
+  color: inherit;
+  padding: 0;
+  text-align: left;
+}
+
+/* ── 同步頁（原型 `#screenSync`）────────────────────────────────── */
+.sync-hero {
+  padding: 0 2px 2px;
+}
+
+/* ⚠️ 呢四行字（狀態句、副題、總覽標題、專案同步狀態）要縮左 14.5px。
+   原型註解寫得好清楚：抬頭個「同步」33px 字有 .5em 縮排（＝16.5px），
+   但 main 本身已經比 header 多咗 2px 起步，所以縮 14.5 先啱，⛔ 唔係 16.5。
+   ⛔ 三格統計同工程卡唔跟 —— 佢哋一縮左邊就同右邊唔對稱。 */
+.sync-hero__title,
+.sync-hero__sub,
+.sync-overview > .card__title,
+.sync-sect {
+  padding-left: 14.5px;
+}
+
+.sync-hero__title {
+  font-size: 17px;
+  font-weight: 650;
+  line-height: 1.3;
+  letter-spacing: 0.01em;
+}
+
+.sync-hero__sub {
+  margin-top: 5px;
+  font-size: 13px;
+  color: var(--q-text-secondary);
+}
+
+/* 總覽外層⛔ 唔做卡 —— 等三格自己做卡，⛔ 唔好卡入面再套卡（原型原話）。 */
+.card--bare {
+  background: none;
+  border: 0;
+  box-shadow: none;
+  padding: 0;
+}
+
+.sync-overview > .card__title {
+  font-family: var(--q-font-serif);
+  font-size: 22px;
+  line-height: 1.5;
+  margin: 0 2px 12px;
+}
+
+/* 區段標題「專案同步狀態」。⛔ 唔用 `.row-title`（嗰個係 15px 無襯線細行標題）。 */
+.sync-sect {
+  font-family: var(--q-font-serif);
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.5;
+  color: var(--q-text);
+  margin: 10px 2px 2px;
+}
+
+/* 工程同步行：原型自己一款緊湊卡，⛔ 唔跟 `.hub-row` 嗰個 17px 內距。 */
+.sync-row.hub-row {
+  padding: 16px 18px;
+  border-radius: 20px;
+}
+
+.sync-name {
+  line-height: 1.5;
+}
+
+.sync-three {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 11px;
+  margin-top: 4px;
+}
+
+.sync-three__cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 16px 12px 17px;
+  border-radius: 21px;
+  background: var(--q-card-alt);
+  border: 1px solid var(--q-border);
+}
+
+.sync-three__n {
+  font-family: var(--q-font-serif);
+  font-size: 32px;
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 待同步橙、失敗紅 —— ⛔ 兩個唔可以同色，睇落就會變成同一件事。 */
+.sync-three__n--wait {
+  color: var(--q-incomplete);
+}
+
+.sync-three__n--fail {
+  color: var(--q-danger);
+}
+
+.sync-three__k {
+  margin-top: 6px;
+  font-size: 11.5px;
+  letter-spacing: 0.04em;
+  color: var(--q-text-2);
+}
+
+.sync-fail {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--q-border);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.sync-fail__where {
+  color: var(--q-text);
+  font-weight: 600;
+}
+
+/* 第二行：使唔使做嘢。原型 `.fail3 .f2` 係紅色 —— 但佢淨係得一種情況。
+   我哋分兩種：要人做嘢先紅，⛔ 唔係逢失敗都紅（成日紅就等於冇紅）。 */
+.sync-fail__advice {
+  margin-top: 4px;
+  color: var(--q-text-2);
+}
+
+.sync-fail__advice--bad {
+  color: var(--q-danger);
+}
+
+/* ⛔ 錯誤原文要照出、要換行 —— 截咗就查唔到係咩事。 */
+.sync-fail__raw {
+  margin-top: 4px;
+  color: var(--q-text-secondary);
+  font-size: 12.5px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.sync-stamp {
+  flex: none;
+  padding: 6px 13px;
+  border: 1px solid var(--q-border);
+  border-radius: 999px;
+  background: rgba(120, 138, 86, 0.16);
+  font-size: 12.5px;
+  font-weight: 500;
+  /* ✓ 已同步＝橄欖綠（原型 `.sypill.ok`）。⛔ 唔用灰 —— 灰同「待同步」分唔開。 */
+  color: var(--q-accent);
+}
+
+.sync-stamp--wait {
+  border-color: rgba(182, 138, 69, 0.4);
+  background: rgba(182, 138, 69, 0.16);
+  color: var(--q-incomplete);
+}
+
+.sync-stamp--fail {
+  border-color: rgba(179, 93, 74, 0.45);
+  background: rgba(179, 93, 74, 0.18);
+  color: #d78975;
+}
+
+/* ── 匯出 PDF 頁（原型 `#screenPdf`）──────────────────────────── */
+/* ⚠️ `.chips` 本身係工程列表嗰排篩選，佢橫跨成版所以左右各留 18px。
+   呢度啲 chip 喺一張卡入面，卡本身已經有內距 ⇒ 再留 18px 就會縮成一嚿。 */
+.chips.chips--in-card {
+  padding: 2px 2px 10px;
+}
+/* ⚠️ 呢一版原型冇量過（佢冇「選擇樹木」嗰段嘅完整樣本），
+   所以呢度跟返 app 自己嗰套卡／行嘅間距，⛔ 唔係亂拍腦袋。 */
+.card__title-note {
+  font-weight: 400;
+  font-size: 13px;
+  color: var(--q-text-3);
+}
+
+.ex-row {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 12px 2px;
+  border-bottom: 1px solid var(--q-border);
+  cursor: pointer;
+}
+
+/* ⛔ 一張相都冇嘅樹灰咗佢，剔唔到（第四輪第 10 條）——
+   剔到嘅話個匯出頁會話你揀咗，但 PDF 出嚟根本冇嗰棵樹。 */
+.ex-row--empty {
+  opacity: 0.45;
+}
+
+.ex-box {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  border-radius: 7px;
+  border: 1px solid var(--q-border);
+  background: transparent;
+  color: var(--q-accent);
+  font-size: 13px;
+  line-height: 1;
+}
+
+.ex-box--on {
+  border-color: var(--q-accent);
+  background: rgba(152, 165, 107, 0.16);
+}
+
+.ex-row--empty .ex-box {
+  border-style: dashed;
+}
+
+.ex-name {
+  font-family: var(--q-font-serif);
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.ex-count {
+  margin-left: auto;
+  font-size: 13px;
+  color: var(--q-text-3);
+}
+
+.ex-shots {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  padding: 10px 0 12px;
+}
+
+.ex-cell {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 6px;
+  border-radius: 12px;
+  border: 1px solid var(--q-border);
+  background: var(--q-card-alt);
+  font-size: 11.5px;
+  color: var(--q-text-2);
+}
+
+.ex-cell--on {
+  border-color: var(--q-accent);
+  background: rgba(152, 165, 107, 0.14);
+}
+
+.ex-tick {
+  align-self: flex-end;
+  color: var(--q-accent);
+  font-size: 12px;
+  line-height: 1;
+  min-height: 12px;
+}
+
+.ex-cap {
+  overflow-wrap: anywhere;
+}
+
+/* 匯出頁最底兩粒掣：取消｜匯出 PDF（原型 `.sheetrow`）。
+   ⚠️ 原型嗰兩粒掣係跟住內容行落去嘅，喺 774px 高嘅機會被 nav 遮住 ——
+      同單價設定嗰粒儲存掣一樣嘅問題，⇒ 一樣釘喺 nav 上面。 */
+.export-bar {
+  position: absolute;
+  left: 18px;
+  right: 18px;
+  bottom: calc(69px + 16px + 12px + env(safe-area-inset-bottom, 0px));
+  z-index: 6;
+  display: flex;
+  gap: 10px;
+}
+
+.export-bar .button {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 16px;
+  border-radius: 16px;
+  box-shadow: 0 12px 30px -12px rgba(0, 0, 0, 0.5);
+}
+
+/* 主掣用返同單價設定嗰粒儲存掣一樣嘅綠 —— 全 app 只得一種「浮起嘅條」。
+   ⛔ 唔用 `.button` 預設嗰隻淺綠：喺深底上面太搶，同 nav 打交。 */
+.export-bar .button:not(:disabled):not(.button--secondary) {
+  background: #68794d;
+  border: 1px solid rgba(157, 169, 105, 0.55);
+  color: #f1ebdd;
+}
+
+/* ⛔ 「取消」唔可以同「匯出」一樣咁搶 —— 兩粒一樣綠嘅話會撳錯。 */
+.export-bar .button--secondary {
+  flex: 0 0 34%;
+  background: linear-gradient(180deg, rgba(28, 36, 29, 0.96), rgba(19, 26, 20, 0.96));
+  border: 1px solid var(--q-border);
+  color: var(--q-text-secondary);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.export-bar .button:disabled {
+  background: linear-gradient(180deg, rgba(28, 36, 29, 0.96), rgba(19, 26, 20, 0.96));
+  border: 1px solid var(--q-border);
+  color: var(--q-text-3);
+}
+
+/* 內容要留返個位畀嗰條掣，⛔ 否則最後一棵樹會俾佢遮住。 */
+.export-scroll-pad {
+  height: 78px;
+}
+
+/* ── 客戶簿（原型 stage57 `#screenClients` ＋ 揀客戶彈窗 `.cbrow`）────────
+   ⚠️ 數值直接抄原型：`.cbrow` padding 13px 12px、b 15px/650、small 12.5px、
+   `.cbscroll` max-height 46vh。深色嗰套色抄原型 `.sheet .cbrow`
+   （彈窗入面嗰個先係真 app 用緊嗰款）。⛔ 唔准自己拍腦袋改。 */
+.cbscroll {
+  max-height: 46vh;
+  overflow-y: auto;
+  margin-top: 10px;
+}
+
+.cbrow {
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  font-family: var(--q-font-sans);
+  padding: 13px 12px;
+  border-radius: var(--q-radius-sm);
+  border: 1px solid var(--q-border);
+  background: rgba(255, 255, 255, 0.035);
+  color: var(--q-text-primary);
+  margin-bottom: 8px;
+  cursor: pointer;
+}
+
+.cbrow b {
+  display: block;
+  font-weight: 650;
+  font-size: 15px;
+  color: var(--q-text-primary);
+}
+
+.cbrow small {
+  display: block;
+  font-size: 12.5px;
+  margin-top: 2px;
+  color: var(--q-text-secondary);
+}
+
+/* 客戶簿清單一行：左邊撳得入去改，右邊一粒刪除。
+   ⛔ 唔用滑動刪除（`docs/開發紀錄.md` §八：戴住手套易誤觸）。 */
+.client-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  text-align: left;
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  min-width: 0;
+}
+
+.card.pcard[data-testid='client-row'] {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* ── 「未上載 N 張」（`docs/上線清單.md` 第 1 條第 2 項）────────────
+   Jason 2026-09-06 睇完原型 `public/proto-pending-count.html` 拍板：
+   釘喺底部導航上面、撳得（去同步頁）、到零變綠停兩秒、⛔ 冇網唔變樣。
+
+   ⛔⛔ 呢度**冇加任何一條蓋過 `.bottom-nav` 嘅規則** —— 條 nav 嘅位置、
+      內距、圓角、陰影一個字都冇郁。條 bar 係疊上去嘅一層，
+      ⚠️ 咁樣 `ui:check` 對 nav 嗰批數先會維持原樣。
+
+   ⭐ `--pending-bar-lift` ＝ nav 條 bar 實際幾高（由 JS 度返，見 `PendingBar`
+      掛住嘅容器）。⛔ 唔寫死一個數 —— nav 高度改過三次，每次寫死都會漏改。 */
+.pending-bar {
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  bottom: calc(16px + env(safe-area-inset-bottom, 0px) + var(--pending-bar-lift, 79px));
+  z-index: 6;
+
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: auto;
+  margin: 0;
+  padding: 11px 14px;
+  border: 1px solid rgba(240, 225, 180, 0.5);
+  border-radius: 14px;
+  /* ⭐ 用返 --q-incomplete（#b68a45）嗰個色系 ——「要人知、但唔係出錯」
+     全 app 就係呢隻色。⛔ 唔係另揀一隻金。 */
+  background: linear-gradient(160deg, #c29a4e, #8e6b34);
+  box-shadow: 0 10px 24px -12px rgba(0, 0, 0, 0.6);
+  color: #0d120e;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 650;
+  text-align: left;
+  cursor: pointer;
+}
+
+.pending-bar--done {
+  /* ⭐ 綠 ＝ 做完咗（--q-complete 嗰個色系）。 */
+  background: linear-gradient(160deg, #8fa25d, #68794d);
+  cursor: default;
+}
+
+.pending-bar__text {
+  font-variant-numeric: tabular-nums;
+}
+
+.pending-bar__go {
+  margin-left: auto;
+  font-size: 13px;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+.pending-bar:active {
+  transform: scale(0.99);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pending-bar:active {
+    transform: none;
+  }
+}
+
+/* ⚠️ 條「未上載 N 張」出現嗰陣，捲動區底部要讓返佢嗰個高度，
+   ⛔ 否則最後一張卡會匿咗喺條 bar 後面，戴住手套點都撳唔到。
+
+   ⭐ 做法：`--pending-extra` 由 `PendingBar` 度返實際高度再寫落 `.app--float`。
+   ⛔ 冇條 bar 嗰陣佢係 `0px` —— 即係**計出嚟同以前一個 px 都唔差**，
+      所以 `ui:check` 嗰 90 項唔會郁（已實測：仍然 0 項對唔上）。
+   ⛔ 唔喺各處 padding 度寫死一個新數：三個變體各有一條自己嘅 calc，
+      寫死就一定有一條漏改。 */
+
+/* ⛔⛔ 擋走瀏覽器自己嗰個「下拉整頁 reload」。
+   ⚠️ Android Chrome 喺 scrollTop 0 再向下拉會自己 reload 成版 ——
+      而 Jason 2026-09-13 第 2 條講明⛔ 唔准整頁 reload（會弄走打到一半嘅字）。
+   ⭐ `contain` 只係擋住「傳俾上一層」，⛔ 唔影響版面（實測 ui:check 仍然 90 / 0）。 */
+.float-cards-scroll,
+/* ⚠️ 首頁唔用共用嗰個容器（見 `HomeScreen` 檔頭），所以要明文寫多次 ——
+   ⛔ 漏咗嘅話首頁拉落去會行返 Android 自己嗰個整頁 reload。 */
+.hmain {
+  overscroll-behavior-y: contain;
+}
+
+/* ── 向下拉刷新（Jason 2026-09-13）────────────────────────────────
+   ⛔⛔ 靜止嗰陣**成個 node 都唔會出**（見 `shell.tsx` 個 `PullIndicator`），
+      所以下面呢幾條規則喺平時嘅畫面上面**一個 px 都影響唔到**。
+   ⚠️ `ui:check` 量嘅就係靜止嗰個樣 —— 實測改完仍然 90 項 / 對唔上 0 項。 */
+.pull-refresh {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  overflow: hidden;
+  flex: none;
+  color: var(--q-text-secondary);
+  font-size: 13px;
+  font-weight: 600;
+  /* ⛔ 唔加 transition —— 拉緊嗰陣要跟實手指，慢半拍就似卡住。 */
+}
+
+.pull-refresh__spin {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid var(--q-border);
+  border-top-color: var(--q-accent);
+  flex: none;
+}
+
+/* 刷緊先至轉。⭐ 拉緊嗰陣個圈唔郁 —— 郁嘅係佢跟住手指落嚟。 */
+.pull-refresh--busy .pull-refresh__spin {
+  animation: pull-spin 0.8s linear infinite;
+}
+
+@keyframes pull-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pull-refresh--busy .pull-refresh__spin {
+    animation: none;
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   工程卡向左推露出刪除（Jason 2026-09-14 推過原型之後拍板，跟 tree app）
+   ⛔ 冇軸鎖係故意嘅 —— 見 src/lib/swipeDelete.ts 檔頭。
+   ══════════════════════════════════════════════════════════════════ */
+
+.swipe-wrap {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--q-radius-md);
+}
+
+/* 鋪滿成行嘅紅色，連圓角都自己帶 —— ⭐ 咁樣四個角都填得滿，
+   ⚠️ 唔靠 .swipe-wrap 個 overflow 剪（iOS 喺 transform 圖層上面會漏）。 */
+.swipe-bg {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background: var(--q-danger);
+  border-radius: var(--q-radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.swipe-bin {
+  width: var(--swipe-w, 76px);
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #fff;
+  cursor: pointer;
+}
+
+.swipe-bin .ico {
+  width: 26px;
+  height: 26px;
+}
+
+/* 張卡滑喺紅色上面。⛔ `position: relative` ＋ `z-index` 缺一不可。 */
+.swipe-wrap > .proj-card {
+  position: relative;
+  z-index: 1;
+  will-change: transform;
+  /* ⛔⛔⛔ **呢一句係整件事嘅一半，⛔ 唔准拆。**
+     ⚠️ 2026-09-14 Jason 真機（Android Chrome）推唔郁，兩個成因入面嘅第二個
+     就係呢度冇 `touch-action`：瀏覽器會把橫向手勢當成佢自己嘅（捲動／邊緣返回），
+     發一個 `touchcancel` 抵制咗我哋個 handler。
+     ⭐ `pan-y` ＝ 同瀏覽器講「**上下你攞去，左右我自己嚟**」。
+     另一半係 JS 嗰邊改用 Pointer Events（`src/lib/swipeDelete.ts` 檔頭）——
+     ⛔ 兩邊缺一不可，淨係改一邊等於冇改。 */
+  touch-action: pan-y;
+}
+
+/* ⭐ 推到盡頭之後手指仲繼續向左 ⇒ ⛔ 唔准變成瀏覽器嘅「返上一頁」。
+   ⚠️ Android Chrome 同 iOS Safari 兩邊都有邊緣返回，⛔ 唔擋就會刪到一半跳咗走。 */
+.swipe-wrap {
+  overscroll-behavior-x: contain;
+}
+
+/* ── 確認彈窗 ──────────────────────────────────────────────────
+   ⭐ 版面照 **Jason 2026-09-14 交嗰張截圖**（畫面中間、一張卡）；
+   ⛔ 底色**唔跟**截圖嗰個白底，跟返 quote app 其餘所有畫面（深色）——
+   佢明文：「排列、字、掣位仲然照佢张截圖，只係底色跟 app」。
+
+   ⛔⛔ 呢一段唯一嘅硬要求：**令兩粒掣嘅座標同內容幾長完全無關**。
+   2026-08-11 tree app 嗰單真實誤刪就係「內容變長 → 掣換咗位」。
+   見 src/lib/deleteDialog.ts 檔頭。 */
+
+.sheet-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: rgba(0, 0, 0, 0.62);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.sheet {
+  width: 100%;
+  max-width: 340px;
+  display: flex;
+  flex-direction: column;
+  background: var(--q-card-alt);
+  border: 1px solid var(--q-border);
+  border-radius: 18px;
+  padding: 20px 18px;
+  gap: 14px;
+  text-align: left;
+}
+
+.sheet__head {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 0;
+  font-family: var(--q-font-serif);
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.3;
+  color: var(--q-text-primary);
+}
+
+.sheet__head .ico {
+  width: 22px;
+  height: 22px;
+  flex: none;
+}
+
+/* ⛔⛔⛔ **呢個高度係寫死嘅，⛔ 唔准改成 `auto`、⛔ 唔准改成 `min-height`。**
+   ⚠️ 一改成跟內容，兩粒掣就會跟住郁 —— 嗰個就係 2026-08-11 誤刪嘅成因本身。
+   ⭐ 內容短 ⇒ 個框有啲空（**特登嘅，⛔ 唔係執漏**）；內容長 ⇒ 中間自己捲。
+   ⚠️ 186px 呢個數係度出嚟嘅：工程名兩行（52）＋ 日期一行（26）＋
+      連帶消失一行（30，P8 步 2 補）＋ 真相一行（32）＋ 未傳警告兩行（40）＋ gap。
+      ⛔ 改之前要重新度，⛔ 唔准拍腦袋。 */
+.sheet__body {
+  flex: none;
+  height: 186px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+/* 工程名同日期：兩行都係大、粗 —— ⛔ 照截圖。 */
+.sheet__name {
+  font-size: 20px;
+  font-weight: 800;
+  line-height: 1.3;
+  color: var(--q-text-primary);
+  overflow-wrap: anywhere;
+}
+
+.sheet__date {
+  font-size: 20px;
+  font-weight: 800;
+  line-height: 1.3;
+  color: var(--q-text-primary);
+}
+
+.sheet__truth {
+  margin: 10px 0 0;
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--q-text-2);
+}
+
+.sheet__truth b {
+  font-weight: 800;
+  color: var(--q-text-primary);
+}
+
+/* 「連帶消失：N 棵樹、N 張相」。⭐ 兩個 N 紅色粗體 —— 照截圖。 */
+.sheet__loss {
+  margin: 8px 0 0;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.5;
+  color: var(--q-text-primary);
+}
+
+.sheet__loss b {
+  font-weight: 800;
+  color: var(--q-danger);
+}
+
+/* 數緊嗰陣。⛔ 唔准留空行 —— 空白會令人以為冇嘢會消失。 */
+.sheet__loss--wait {
+  font-weight: 500;
+  color: var(--q-text-secondary);
+}
+
+/* ⚠️ 只剩部機一份嗰行。⛔ 截圖冇呢行，但佢係另一個真相 —— ⛔ 唔准拆。 */
+.sheet__warn {
+  margin: 8px 0 0;
+  font-size: var(--q-text-sm);
+  line-height: 1.5;
+  font-weight: 700;
+  color: var(--q-incomplete);
+}
+
+/* ⛔⛔ `flex: none` ＝ 連埋上面寫死嘅高度，呢一行就係解藥。粒掣⛔ 唔跟內容走。 */
+.sheet__acts {
+  flex: none;
+  display: flex;
+  align-items: stretch;
+  gap: 10px;
+}
+
+/* ⭐ 兩粒**一樣闊** —— 照 Jason 張截圖。
+   ⚠️ 我本來寫「唔刪」闊 1.7 倍，佢張截圖係一樣闊 ⇒ 照佢。
+   ⛔ 但顏色一定要唔同：左邊實色紅＝刪除，右邊描邊＝取消。 */
+.sheet__keep,
+.sheet__go {
+  flex: 1 1 0;
+  border-radius: 12px;
+  padding: 13px 10px;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1;
+  border: 1px solid transparent;
+}
+
+.sheet__keep {
+  background: transparent;
+  border-color: var(--q-border);
+  color: var(--q-text-primary);
+}
+
+.sheet__go {
+  background: var(--q-danger);
+  border-color: var(--q-danger);
+  color: #fff;
+}
+
+/* ───── 以下先至係原型自己嗰啲 ───── */
+
+/* ── 原型自己嗰條頂帶（⛔ 唔屬於真 app）──────────────────────── */
+/* ⭐ 成版係一條直行：條頂帶 ＋ 個 app 食晒剩返嘅高。
+   ⛔ 唔用「calc(100dvh 減條帶高度)」—— 2026-09-16 實測嗰條 calc 出咗
+      個 app 高 844px（＝底 nav 跌咗出畫面外 108px），而畫面上面完全睇唔出。
+   ⭐ flex 由瀏覽器自己計，⛔ 冇得計錯。 */
+html, body { height: 100%; }
+body { margin: 0; background: var(--q-page-bg); display: flex; flex-direction: column; }
+.pt { flex: 0 0 auto; }
+.pt {
+  position: relative; z-index: 20;
+  padding: calc(8px + env(safe-area-inset-top, 0px)) 14px 8px;
+  background: #1c241d; border-bottom: 1px solid var(--q-line);
+  font-family: var(--q-font-sans); color: var(--q-text-primary);
+}
+/* ⛔ 頂部最多兩行字（原型規矩，2026-09-15 定）—— 就係下面兩條。 */
+.pt1, .pt2 { margin: 0; font-size: 12.5px; line-height: 1.45; }
+.pt2 { color: var(--q-text-2); }
+.segs { display: flex; gap: 6px; margin-top: 8px; }
+.segs button {
+  flex: 1; min-height: 44px; padding: 5px 2px;
+  display: flex; flex-direction: column; align-items: center; gap: 1px;
+  border: 1px solid var(--q-line); border-radius: 12px;
+  background: #171e18; color: var(--q-text-2);
+  font: inherit; font-size: 14px; font-weight: 700;
+}
+.segs button small { font-size: 10.5px; font-weight: 500; opacity: .85; }
+.segs button.on { background: var(--q-accent); border-color: var(--q-accent); color: #0f140f; }
+.segs button.bad.on { background: #b35d4a; border-color: #b35d4a; color: #fff; }
+
+/* 個 app 食晒剩返嗰忽，⛔ 唔係嘅話底 nav 會俾推出畫面外（實測中過）。 */
+#app { height: auto; flex: 1 1 auto; min-height: 0; }
+
+/* ⭐ 甲：捲完之後閃一閃，⛔ 唔係為咗靚 —— 係要佢知「你而家喺呢度」。 */
+#statusCard.flash { animation: protoFlash 1.1s ease-out; }
+@keyframes protoFlash {
+  0%, 100% { box-shadow: none; }
+  15%, 60% { box-shadow: 0 0 0 2px var(--q-accent); }
+}
+
+/* ⭐ 乙：個「狀態」格改到**明顯唔似掣** —— 虛線邊、冇底、冇圓角陰影。 */
+#app.v-B #statStatus {
+  background: none; border: 1px dashed var(--q-line); box-shadow: none;
+}
+#app.v-B #statStatus .k::after { content: '（睇嘅）'; font-size: 10px; opacity: .7; }
+
+/* ⭐ 甲：個「狀態」格照樣似粒掣（真 app 而家三格就係咁），加返撳落去嘅反應。 */
+#app.v-A #statStatus { cursor: pointer; }
+#app.v-A #statStatus:active { transform: scale(.98); }
+
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+<symbol id="01_bottom_nav__home_seedling" viewBox="0 0 24 24">
+<g transform="translate(0.1641 0.0469)">
+<path d="M12 20V10.2"/>
+<path d="M12 13.1c-4.0 0-6.5-2.5-6.7-6.1 4.1-.2 6.7 2.2 6.7 6.1Z"/>
+<path d="M12 10.2c0-3.8 2.4-6.2 6.4-6.3.1 4-2.3 6.3-6.4 6.3Z"/>
+</g>
+</symbol><symbol id="01_bottom_nav__projects_clipboard" viewBox="0 0 24 24">
+<rect x="6.5" y="5.5" width="11" height="15" rx="2.2"/>
+<rect x="9" y="3.5" width="6" height="4" rx="1.4"/>
+<path d="M9.5 11h5M9.5 14.5h5M9.5 18h3.2"/>
+</symbol><symbol id="01_bottom_nav__settings_gear" viewBox="0 0 24 24">
+<path d="M 12.000 5.400 L 13.600 3.958 L 15.138 4.424 L 15.667 6.512 L 16.667 7.333 L 18.818 7.444 L 19.576 8.862 L 18.473 10.712 L 18.600 12.000 L 20.042 13.600 L 19.576 15.138 L 17.488 15.667 L 16.667 16.667 L 16.556 18.818 L 15.138 19.576 L 13.288 18.473 L 12.000 18.600 L 10.400 20.042 L 8.862 19.576 L 8.333 17.488 L 7.333 16.667 L 5.182 16.556 L 4.424 15.138 L 5.527 13.288 L 5.400 12.000 L 3.958 10.400 L 4.424 8.862 L 6.512 8.333 L 7.333 7.333 L 7.444 5.182 L 8.862 4.424 L 10.712 5.527 Z"/>
+<circle cx="12" cy="12" r="3.0"/>
+</symbol><symbol id="01_bottom_nav__sync_cloud_upload" viewBox="0 0 24 24">
+<g transform="translate(0.4219 -1.2422)">
+<path d="M7.5 18.5H6.4A3.9 3.9 0 1 1 7.2 10.8 5.1 5.1 0 0 1 17 9.8a4 4 0 0 1 .6 7.9H16.5"/>
+<path d="M12 20V13"/>
+<path d="m9.5 15.5 2.5-2.5 2.5 2.5"/>
+</g>
+</symbol><symbol id="02_global_actions__add" viewBox="0 0 24 24">
+<path d="M12 5v14M5 12h14"/>
+</symbol><symbol id="02_global_actions__back" viewBox="0 0 24 24">
+<g transform="translate(1.0078 0.0000)">
+<path d="m14.5 5-7 7 7 7"/>
+</g>
+</symbol><symbol id="02_global_actions__chevron_right" viewBox="0 0 24 24">
+<g transform="translate(-0.4922 0.0000)">
+<path d="m9 5 7 7-7 7"/>
+</g>
+</symbol><symbol id="02_global_actions__close" viewBox="0 0 24 24">
+<path d="m7 7 10 10M17 7 7 17"/>
+</symbol><symbol id="02_global_actions__delete_bin" viewBox="0 0 24 24">
+<path d="M4 7h16M10 4h4M9 7v12M12 7v12M15 7v12M6 7l1 13h10l1-13"/>
+</symbol><symbol id="02_global_actions__dropdown" viewBox="0 0 24 24">
+<path d="m7 9.5 5 5 5-5"/>
+</symbol><symbol id="02_global_actions__filter" viewBox="0 0 24 24">
+<path d="M4 6h16M7 12h10M10 18h4"/>
+</symbol><symbol id="02_global_actions__gps_target" viewBox="0 0 24 24">
+<circle cx="12" cy="12" r="6"/>
+<circle cx="12" cy="12" r="2"/>
+<path d="M12 2.8v2.4M12 18.8v2.4M2.8 12h2.4M18.8 12h2.4"/>
+</symbol><symbol id="02_global_actions__notification_bell" viewBox="0 0 24 24">
+<g transform="translate(0.0000 -0.4219)">
+<path d="M6.8 9.8A5.2 5.2 0 0 1 12 4.6a5.2 5.2 0 0 1 5.2 5.2v3.8l1.6 2.2H5.2l1.6-2.2V9.8Z"/>
+<path d="M10 19a2.2 2.2 0 0 0 4 0"/>
+</g>
+</symbol><symbol id="02_global_actions__search" viewBox="0 0 24 24">
+<g transform="translate(-0.1172 -0.1172)">
+<circle cx="10.5" cy="10.5" r="5.8"/><path d="m14.8 14.8 4.7 4.7"/>
+</g>
+</symbol><symbol id="03_project_detail__customer" viewBox="0 0 24 24">
+<g transform="translate(0.0000 -0.4922)">
+<circle cx="12" cy="8" r="3"/>
+<path d="M5.5 20a6.5 6.5 0 0 1 13 0"/>
+</g>
+</symbol><symbol id="03_project_detail__district_pin" viewBox="0 0 24 24">
+<g transform="translate(0.0000 -0.7031)">
+<path d="M12 20.5s5.5-5 5.5-10.1a5.5 5.5 0 1 0-11 0c0 5.1 5.5 10.1 5.5 10.1Z"/>
+<circle cx="12" cy="10.3" r="1.9"/>
+</g>
+</symbol><symbol id="03_project_detail__environment_camera" viewBox="0 0 24 24">
+<g transform="translate(0.0000 0.5156)">
+<rect x="4" y="6.5" width="16" height="12" rx="2.2"/>
+<path d="M8 6.5 9.4 4.5h5.2L16 6.5"/>
+<circle cx="12" cy="12.5" r="3"/>
+</g>
+</symbol><symbol id="03_project_detail__export_pdf" viewBox="0 0 24 24">
+<g transform="translate(-0.7500 0.1172)">
+<path d="M7 3.8h7.5l3.5 3.5V20H7z"/>
+<path d="M14.5 3.8v4h4"/>
+<path d="M9.5 11h5"/>
+<path d="M12 13.5v4"/>
+<path d="m10 15.8 2 2 2-2"/>
+</g>
+</symbol><symbol id="03_project_detail__photo_selected" viewBox="0 0 24 24">
+<rect x="4" y="5.5" width="16" height="13" rx="2.2"/>
+<path d="m8 12 2.2 2.2L16 8.8"/>
+</symbol><symbol id="03_project_detail__project_info" viewBox="0 0 24 24">
+<g transform="translate(-0.7500 0.1172)">
+<path d="M7 3.8h7.5l3.5 3.5V20H7z"/>
+<path d="M14.5 3.8v4h4"/>
+<path d="M9.5 11h5M9.5 14.5h5M9.5 18h3.2"/>
+</g>
+</symbol><symbol id="03_project_detail__status_quote" viewBox="0 0 24 24">
+<g transform="translate(-0.7500 0.0000)">
+<rect x="6.5" y="4" width="11" height="16" rx="2"/>
+<path d="M9 8.5h6M9 12h6M9 15.5h4"/>
+<circle cx="16.5" cy="16.5" r="2.5"/>
+</g>
+</symbol><symbol id="03_project_detail__tree_count" viewBox="0 0 24 24">
+<g transform="translate(0.1172 0.3047)">
+<path d="M12 20v-6"/>
+<path d="M9.3 14.5H7.7A4.2 4.2 0 0 1 7.2 6.2 5.2 5.2 0 0 1 17 8.2a3.8 3.8 0 0 1-.7 7.5h-1.6"/>
+<path d="M9.5 20h5"/>
+</g>
+</symbol><symbol id="03_project_detail__tree_detail" viewBox="0 0 24 24">
+<g transform="translate(0.0469 0.3047)">
+<path d="M12 20v-6"/>
+<path d="M9.5 14.6H7.8a4.2 4.2 0 0 1-.5-8.3A5.1 5.1 0 0 1 17 8.2a3.9 3.9 0 0 1-.7 7.6h-1.8"/>
+<path d="M9.4 20h5.2"/>
+<circle cx="17.8" cy="17.8" r="2.2"/>
+<path d="M17.8 16.8v2M16.8 17.8h2"/>
+</g>
+</symbol><symbol id="03_project_detail__tree_list" viewBox="0 0 24 24">
+<g transform="translate(-0.4453 -1.1484)">
+<path d="M8.8 16H7.5a4 4 0 0 1-.4-7.9A5 5 0 0 1 16.6 10a3.7 3.7 0 0 1-1 6"/>
+<path d="M11 13v8M8.7 21h4.6"/>
+<path d="M16.5 15.5H21M16.5 18.5H21"/>
+</g>
+</symbol><symbol id="04_form_fields__calendar" viewBox="0 0 24 24">
+<g transform="translate(0.0000 0.4922)">
+<rect x="4.5" y="6" width="15" height="13.5" rx="2"/>
+<path d="M8 3.5V8M16 3.5V8M4.5 9.5h15"/>
+</g>
+</symbol><symbol id="04_form_fields__location" viewBox="0 0 24 24">
+<g transform="translate(0.0000 -0.7031)">
+<path d="M12 20.5s5.5-5 5.5-10.1a5.5 5.5 0 1 0-11 0c0 5.1 5.5 10.1 5.5 10.1Z"/>
+<circle cx="12" cy="10.3" r="1.9"/>
+</g>
+</symbol><symbol id="04_form_fields__moon_night" viewBox="0 0 24 24">
+<g transform="translate(-0.1641 0.1641)">
+<path d="M18.2 15.8A7.4 7.4 0 0 1 8.2 5.8a6.5 6.5 0 1 0 10 10Z"/>
+</g>
+</symbol><symbol id="04_form_fields__note" viewBox="0 0 24 24">
+<rect x="5" y="4" width="14" height="16" rx="2"/>
+<path d="M8.5 9h7M8.5 12.5h7M8.5 16h4.5"/>
+</symbol><symbol id="04_form_fields__phone" viewBox="0 0 24 24">
+<g transform="translate(0.7969 0.6094)">
+<path d="M7 4.3 4.8 5.8c-.6.4-.8 1.2-.6 1.8 1.9 5 5.8 8.9 10.8 10.8.6.2 1.4 0 1.8-.6l1.5-2.2-3.8-1.9-1.3 1.5a13 13 0 0 1-4.4-4.4l1.5-1.3L8.4 5.7 7 4.3Z"/>
+</g>
+</symbol><symbol id="04_form_fields__sun_day" viewBox="0 0 24 24">
+<circle cx="12" cy="12" r="3.2"/>
+<path d="M12 3.5v2.2M12 18.3v2.2M3.5 12h2.2M18.3 12h2.2M6 6l1.6 1.6M16.4 16.4 18 18M18 6l-1.6 1.6M7.6 16.4 6 18"/>
+</symbol><symbol id="05_sync_status__failed" viewBox="0 0 24 24">
+<g transform="translate(0.0000 0.4922)">
+<path d="M12 4 3.5 19h17L12 4Z"/>
+<path d="M12 9.5v4.5M12 16.8v.1"/>
+</g>
+</symbol><symbol id="05_sync_status__pending" viewBox="0 0 24 24">
+<circle cx="12" cy="12" r="8"/>
+<path d="M12 7.5V12l3 2"/>
+</symbol><symbol id="05_sync_status__synced" viewBox="0 0 24 24">
+<circle cx="12" cy="12" r="8"/>
+<path d="m8.5 12 2.2 2.2 4.8-5"/>
+</symbol><symbol id="05_sync_status__upload_now" viewBox="0 0 24 24">
+<g transform="translate(0.4219 -1.2422)">
+<path d="M7.5 18.5H6.4A3.9 3.9 0 1 1 7.2 10.8 5.1 5.1 0 0 1 17 9.8a4 4 0 0 1 .6 7.9H16.5"/>
+<path d="M12 20V13"/><path d="m9.5 15.5 2.5-2.5 2.5 2.5"/>
+</g>
+</symbol><symbol id="06_settings_admin__diagnostics" viewBox="0 0 24 24">
+<path d="M3 12h4l2-5 4 10 2-5h6"/>
+</symbol><symbol id="06_settings_admin__info" viewBox="0 0 24 24">
+<circle cx="12" cy="12" r="8"/>
+<path d="M12 10.5V17M12 7.4v.1"/>
+</symbol><symbol id="06_settings_admin__lock" viewBox="0 0 24 24">
+<rect x="5.5" y="10" width="13" height="10" rx="2"/>
+<path d="M8.5 10V7.5a3.5 3.5 0 0 1 7 0V10"/>
+</symbol><symbol id="06_settings_admin__logout" viewBox="0 0 24 24">
+<g transform="translate(0.4922 0.0000)">
+<path d="M10 5H5.5v14H10"/>
+<path d="m13.5 8 4 4-4 4M9 12h8.5"/>
+</g>
+</symbol><symbol id="06_settings_admin__unit_price" viewBox="0 0 24 24">
+<path d="M4.5 4.5h7l8 8-7 7-8-8v-7Z"/>
+<circle cx="8" cy="8" r="1.2"/>
+</symbol><symbol id="07_quote_status__quote_pending" viewBox="0 0 24 24">
+<g transform="translate(-0.7500 0.0000)">
+<path d="M7 4h7.5l3.5 3.5V20H7z"/>
+<path d="M14.5 4v4h4"/>
+<path d="M9.5 12h5M9.5 15.5h3.5"/>
+</g>
+</symbol><symbol id="07_quote_status__quoted" viewBox="0 0 24 24">
+<g transform="translate(-0.7500 0.0000)">
+<path d="M7 4h7.5l3.5 3.5V20H7z"/>
+<path d="M14.5 4v4h4"/>
+<path d="m9.5 14 2 2 3.8-4"/>
+</g>
+</symbol><symbol id="07_quote_status__won" viewBox="0 0 24 24">
+<g transform="translate(0.0000 -0.2344)">
+<path d="M8.5 4.5h7v4.8a3.5 3.5 0 0 1-7 0V4.5Z"/>
+<path d="M8.5 6.5h-3V8a3.2 3.2 0 0 0 3.2 3.2M15.5 6.5h3V8a3.2 3.2 0 0 1-3.2 3.2"/>
+<path d="M12 13v3.5M9 20h6M10 16.5h4V20"/>
+</g>
+</symbol><symbol id="08_management__customer_book" viewBox="0 0 24 24">
+<rect x="5.2" y="3.8" width="13.6" height="16.4" rx="2"/>
+<path d="M8 3.8v16.4"/>
+<circle cx="13.3" cy="9" r="2.1"/>
+<path d="M9.9 16a3.4 3.4 0 0 1 6.8 0"/>
+</symbol><symbol id="08_management__unit_price" viewBox="0 0 24 24">
+<path d="M4.5 4.5h7l8 8-7 7-8-8v-7Z"/>
+<circle cx="8" cy="8" r="1.2"/>
+<path d="M11 11.2h4.3M11 14.2h3"/>
+</symbol><symbol id="09_pdf__pdf_document" viewBox="0 0 24 24">
+<g transform="translate(-0.7500 0.1172)">
+<path d="M7 3.8h7.5l3.5 3.5V20H7z"/>
+<path d="M14.5 3.8v4h4"/>
+<path d="M9.5 12h5M9.5 15h5"/>
+</g>
+</symbol><symbol id="09_pdf__photo_include" viewBox="0 0 24 24">
+<g transform="translate(0.0000 -0.3984)">
+<rect x="4" y="5.5" width="16" height="13" rx="2.2"/>
+<circle cx="9" cy="9.5" r="1.3"/>
+<path d="m6.5 16 3.5-3.5 2.7 2.4 2.1-2 2.7 3.1"/>
+<circle cx="17.3" cy="16.8" r="2.5"/>
+<path d="m16.2 16.8.8.8 1.5-1.7"/>
+</g>
+</symbol>
+</defs></svg>
+
+<div class="pt">
+  <p class="pt1"><b>樣板，⛔ 唔會真係存嘢。</b>三個做法自己撳，⛔ 唔係睇字。</p>
+  <p class="pt2">要試嘅係：<b>撳個「狀態」格</b>，同埋<b>轉狀態嗰張卡好唔好搵</b>。</p>
+  <div class="segs" id="segs">
+    <button data-v="A" class="on">甲<small>撳咗捲落去</small></button>
+    <button data-v="B">乙<small>唔似掣</small></button>
+    <button data-v="C">丙<small>搬咗上嚟</small></button>
+    <button data-v="N" class="bad">今日<small>⛔ 壞咗嗰個</small></button>
+  </div>
+</div>
+
+<div class="app app--float" id="app">
+  <header class="bheader bheader--compact bheader--project">
+    <div class="bheader-row">
+      <div class="bheader-left">
+        <div class="head-row">
+          <button class="chip-btn" aria-label="返回"><svg class="ico" aria-hidden="true"><use href="#02_global_actions__back"></use></svg></button>
+          <div class="head-title">
+            <div class="head-name">彩</div>
+            <div class="head-sub">
+              <div class="head-sub-line">2026-08-22 · 九龍 · 日更</div>
+              <div class="head-sub-line">彩霞邨，彩月樓</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="bheader-right">
+        <button class="head-trash" type="button" aria-label="刪除 彩"><svg class="ico" aria-hidden="true"><use href="#02_global_actions__delete_bin"></use></svg></button>
+      </div>
+    </div>
+  </header>
+
+  <div class="float-cards-scroll scroll-body scroll-body--compact" id="scroll">
+    <div class="stats stats--project" id="pills">
+      <div class="stat" id="statStatus">
+        <span class="sic"><svg class="ico" aria-hidden="true"><use href="#03_project_detail__status_quote"></use></svg></span>
+        <span class="k">狀態</span>
+        <span class="v v--sm" id="statStatusV">待報價</span>
+      </div>
+      <div class="stat">
+        <span class="sic"><svg class="ico" aria-hidden="true"><use href="#03_project_detail__tree_count"></use></svg></span>
+        <span class="k">樹木</span><span class="v">5</span>
+      </div>
+      <div class="stat">
+        <span class="sic"><svg class="ico" aria-hidden="true"><use href="#03_project_detail__district_pin"></use></svg></span>
+        <span class="k">地區</span><span class="v v--sm">九龍</span>
+      </div>
+    </div>
+
+    <section class="card" id="statusCard">
+      <h2 class="card__title">狀態 <span class="card__title-note" id="cardNote">（待報價）</span></h2>
+      <div class="chips chips--in-card" id="chips">
+        <button class="chip2 on" type="button" data-s="待報價">待報價</button>
+        <button class="chip2" type="button" data-s="已報價">已報價</button>
+        <button class="chip2" type="button" data-s="中標">中標</button>
+      </div>
+    </section>
+
+    <button class="hub-row">
+      <span class="hub-ic"><svg class="ico" aria-hidden="true"><use href="#03_project_detail__customer"></use></svg></span>
+      <span class="hub-main"><span class="hub-title">客戶資料</span><span class="hub-sub">客戶、聯絡人、電話</span></span>
+      <span class="hub-chev"><svg class="ico" aria-hidden="true"><use href="#02_global_actions__chevron_right"></use></svg></span>
+    </button>
+    <button class="hub-row">
+      <span class="hub-ic"><svg class="ico" aria-hidden="true"><use href="#03_project_detail__project_info"></use></svg></span>
+      <span class="hub-main"><span class="hub-title">工程資料</span><span class="hub-sub">日期、日／夜、地址、地區、人手、垃圾、機械、起樹頭</span></span>
+      <span class="hub-chev"><svg class="ico" aria-hidden="true"><use href="#02_global_actions__chevron_right"></use></svg></span>
+    </button>
+    <button class="hub-row">
+      <span class="hub-ic"><svg class="ico" aria-hidden="true"><use href="#03_project_detail__tree_list"></use></svg></span>
+      <span class="hub-main"><span class="hub-title">樹木清單</span><span class="hub-sub">共 5 棵</span></span>
+      <span class="hub-chev"><svg class="ico" aria-hidden="true"><use href="#02_global_actions__chevron_right"></use></svg></span>
+    </button>
+    <button class="hub-row">
+      <span class="hub-ic"><svg class="ico" aria-hidden="true"><use href="#03_project_detail__environment_camera"></use></svg></span>
+      <span class="hub-main"><span class="hub-title">環境相</span><span class="hub-sub">尚未拍攝</span></span>
+      <span class="hub-chev"><svg class="ico" aria-hidden="true"><use href="#02_global_actions__chevron_right"></use></svg></span>
+    </button>
+    <button class="hub-row">
+      <span class="hub-ic"><svg class="ico" aria-hidden="true"><use href="#03_project_detail__export_pdf"></use></svg></span>
+      <span class="hub-main"><span class="hub-title">匯出 PDF</span><span class="hub-sub">相片報告。⛔ 環境相唔會入</span></span>
+      <span class="hub-chev"><svg class="ico" aria-hidden="true"><use href="#02_global_actions__chevron_right"></use></svg></span>
+    </button>
+
+    <section class="cost-card">
+      <h2 class="cost-title">成本</h2>
+      <p class="cost-note">只供內部參考</p>
+      <div class="cost-rows">
+        <div class="cost-row"><span class="cost-label">攀樹師 2 人 × 3 日</span><span class="cost-value">$21,000</span></div>
+        <div class="cost-row"><span class="cost-label">地面工人 3 人 × 3 日</span><span class="cost-value">$13,500</span></div>
+        <div class="cost-row"><span class="cost-label">Overhead 3 日</span><span class="cost-value">$4,500</span></div>
+        <div class="cost-row"><span class="cost-label">24噸夾車 2 架</span><span class="cost-value">$4,400</span></div>
+      </div>
+      <div class="cost-row cost-row--total"><span class="cost-label">總成本</span><span class="cost-value">$43,400</span></div>
+      <div class="cost-foot">
+        <label class="cost-field"><span class="cost-field-label">加成</span>
+          <span class="cost-input"><input inputmode="numeric" type="text" value="50"><span class="cost-unit" aria-hidden="true">%</span></span>
+        </label>
+        <div class="cost-field"><span class="cost-field-label">報價價錢</span><div class="cost-asking">$65,100</div></div>
+      </div>
+    </section>
+  </div>
+
+  <nav class="bottom-nav">
+    <button class="nav-item"><span class="nav-ic"><svg class="ico" aria-hidden="true"><use href="#01_bottom_nav__home_seedling"></use></svg></span><span>首頁</span></button>
+    <button class="nav-item active"><span class="nav-ic"><svg class="ico" aria-hidden="true"><use href="#01_bottom_nav__projects_clipboard"></use></svg></span><span>工程</span><span class="nav-dot"></span></button>
+    <button class="nav-item"><span class="nav-ic"><svg class="ico" aria-hidden="true"><use href="#01_bottom_nav__sync_cloud_upload"></use></svg></span><span>同步</span></button>
+    <button class="nav-item"><span class="nav-ic"><svg class="ico" aria-hidden="true"><use href="#01_bottom_nav__settings_gear"></use></svg></span><span>設定</span></button>
+  </nav>
+</div>
+
+
+<script>
+/* ⛔ 純樣板：冇 fetch、冇 localStorage、冇任何寫入。 */
+var app = document.getElementById('app')
+var scroll = document.getElementById('scroll')
+var card = document.getElementById('statusCard')
+var pills = document.getElementById('pills')
+var statStatus = document.getElementById('statStatus')
+
+/*
+ * 三個做法**唯一嘅分別就係張卡排喺邊、同埋頂格撳唔撳得**。
+ * ⛔ 冇任何一個係「出句字講俾你聽佢會點」—— 三個都真係做出嚟。
+ */
+function apply(v) {
+  app.className = 'app app--float v-' + v
+
+  // 丙：張卡真係搬到三格下面（＝一開就見到）。其餘：張卡排喺「匯出 PDF」之後。
+  if (v === 'C') {
+    pills.after(card)
+  } else {
+    scroll.querySelector('.cost-card').before(card)
+  }
+  scroll.scrollTop = 0
+
+  for (var b of document.querySelectorAll('#segs button')) {
+    b.classList.toggle('on', b.dataset.v === v)
+  }
+}
+
+/*
+ * ⭐⭐ 甲 ＝ 撳頂格**真係捲落去**（有動畫，睇到佢捲），⛔ 唔係出句字話你知會捲。
+ *    ⚠️ 要留返底 nav 嗰條位：捲到張卡頂喺三格下面少少，
+ *       ⛔ 唔准捲到張卡匿咗喺底 nav 後面（嗰個正正就係今日個病）。
+ */
+statStatus.addEventListener('click', function () {
+  if (!app.classList.contains('v-A')) return   // 乙／丙／今日：⛔ 真係冇反應
+  var to = scroll.scrollTop + card.getBoundingClientRect().top - scroll.getBoundingClientRect().top - 12
+  scroll.scrollTo({ top: to, behavior: 'smooth' })
+  card.classList.remove('flash')
+  void card.offsetWidth
+  card.classList.add('flash')
+})
+
+/* 三粒狀態掣：三個做法入面全部真係撳得、真係會轉。 */
+document.getElementById('chips').addEventListener('click', function (e) {
+  var btn = e.target.closest('.chip2')
+  if (!btn) return
+  for (var c of document.querySelectorAll('.chip2')) c.classList.toggle('on', c === btn)
+  document.getElementById('statStatusV').textContent = btn.dataset.s
+  document.getElementById('cardNote').textContent = '（' + btn.dataset.s + '）'
+})
+
+document.getElementById('segs').addEventListener('click', function (e) {
+  var btn = e.target.closest('button')
+  if (btn) apply(btn.dataset.v)
+})
+
+apply('A')
+</script>
+</body>
+</html>
