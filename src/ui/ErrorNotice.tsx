@@ -44,6 +44,7 @@ import { useEffect, useRef } from 'react'
 export default function ErrorNotice({
   message,
   testId,
+  inline,
 }: {
   message: string | null
   /**
@@ -51,6 +52,26 @@ export default function ErrorNotice({
    * ⭐ 加咗佢，個彈窗換走自己嗰行紅字改用呢個組件嗰陣，把尺唔使跟住改。
    */
   testId?: string
+  /**
+   * **打字途中出嗰啲錯誤，⛔ 一定要開呢個。**
+   *
+   * ⭐⭐ **點解要有 —— ⛔ 唔准淨係記住結論**
+   *
+   * 2026-09-16 修「加成 ％ 存唔到冇聲」嗰陣，把尺即刻捉到：
+   * 原本呢個組件會 `focus()` 自己（為咗讀屏同鍵盤），⚠️ 但嗰格係
+   * **一路打字一路存**嘅 —— 錯誤一出就**搶咗個輸入格嘅 focus**，
+   * ⛔ **下一個掣打咗落紅字度，唔見咗**。
+   *
+   * ```
+   * ✗ ⛔ 存唔到之後，人打嘅「35」唔見咗（個格而家係「503」）
+   * ```
+   *
+   * ⇒ `inline` ＝ ⛔ 唔捲畫面、⛔ 唔搶 focus，就喺原位出。
+   * ⚠️ 咁樣佢就**冇咗「一定睇得到」呢個保證** —— 所以⛔ 一定要擺喺
+   *    人隻手指已經喺嗰度嘅位置，而且**要有把尺量住佢喺唔喺畫面入面**
+   *    （`measure.mjs` 個 `typeThenSee`）。
+   */
+  inline?: boolean
 }) {
   const ref = useRef<HTMLParagraphElement | null>(null)
   /**
@@ -69,6 +90,8 @@ export default function ErrorNotice({
 
     const node = ref.current
     if (!node) return
+    // ⛔ 打字途中⛔ 唔准捲畫面、⛔ 唔准搶 focus —— 見上面 `inline`。
+    if (inline) return
     // `block: 'center'` ⇒ 拉到畫面中間，⛔ 唔係啱啱好貼住頂 —— 貼住頂好易
     // 俾波浪 header 蓋住半行。
     node.scrollIntoView({ block: 'center', behavior: 'smooth' })
@@ -76,7 +99,7 @@ export default function ErrorNotice({
     //    ⛔ `preventScroll` 一定要開 —— 唔係嘅話 focus 自己會再拉一次，
     //    同上面個 smooth 打交，畫面會抽一抽。
     node.focus({ preventScroll: true })
-  }, [message])
+  }, [message, inline])
 
   if (message === null || message === '') return null
 

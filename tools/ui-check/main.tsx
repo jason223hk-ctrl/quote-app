@@ -206,7 +206,7 @@ const body =
     />
   ) : screen === 'price' ? (
     <PriceScreen api={fx.fullPriceApi} canEdit onBack={() => {}} />
-  ) : screen === 'hub' ? (
+  ) : screen === 'hub' || screen === 'hubfail' ? (
     <RecordHubScreen
       api={fx.trees}
       siteFormApi={fx.siteFormApi}
@@ -214,7 +214,12 @@ const body =
       photosApi={fx.photosApi}
       record={fx.RECORD}
       canEditMarkup
-      onMarkupSave={async () => {}}
+      /* ⭐ `?screen=hubfail` ⇒ 每次存加成都拒絕。⛔ 唔係為咗好玩：
+         呢格係全 app 唯一一格冇儲存掣嘅嘢，而佢一直**存唔到都冇聲**。
+         ⚠️ 靜態睇 CSS／讀 code 睇唔出 —— 要真撳過先量到。 */
+      onMarkupSave={async () => {
+        if (screen === 'hubfail') throw new Error('呢一單唔係你開嘅，你只可以改同刪自己開嗰啲單。')
+      }}
       swipeDelete={fx.swipeDelete}
       nav={fx.nav}
     />

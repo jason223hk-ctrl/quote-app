@@ -340,6 +340,23 @@ const SCREENS = {
     overlap: [{ a: 'proj-title', b: 'proj-side', why: '工程名壓住右邊粒狀態標籤' }],
   },
 
+  /* ⭐⭐ 加成 ％ 存唔到，一定要出聲。
+
+     ⛔⛔ **點解要一把尺** —— 呢格係全 app **唯一一格冇儲存掣、打一個字存一次**嘅。
+     2026-09-16 實測：存唔到**畫面一個字都冇**（兩次 unhandled rejection）。
+     ⚠️ 而佢係**計報價價錢**嘅格。⭐ 同 PR #17「撳咗冇反應」係同一條。
+     ⚠️ 靜態睇 code 睇唔出 —— 一定要**真鍵盤打落去**先量到。 */
+  hubfail: {
+    screen: 'hubfail',
+    query: '',
+    typeThenSee: {
+      testid: 'markup-input',
+      type: '35',
+      needs: 'markup-error',
+      why: '加成 ％ 存唔到',
+    },
+  },
+
   /* ⭐⭐ 工程詳情頁頂部：大字工程名 ＋ 右上角粒垃圾桶。
      ⚠️ **同上面張卡一模一樣嘅病**，所以一加咗粒垃圾桶就要即刻量返。
      ⛔ 用返 Jason 部機嗰個真名，⛔ 唔准用短名量完就算。
@@ -677,6 +694,10 @@ let lockBad = 0
 /** 「兩件嘢冇疊埋」嗰組。 */
 let overlapChecked = 0
 let overlapBad = 0
+/** 「打完字存唔到要出聲」嗰組。 */
+let typedChecked = 0
+let typedBad = 0
+
 /** 「撳完⛔ 唔變藍」同「鍵盤仲睇得到」嗰組。 */
 let blueChecked = 0
 let blueBad = 0
@@ -861,6 +882,50 @@ for (const [name, spec] of Object.entries(SCREENS)) {
         `      啲字畫到 ${r.inkRight}（個盒淨係去到 ${r.boxRight}），而 [${one.b}] 由 ${r.otherLeft} 開始`,
       )
       console.log('      ⛔ 兩樣字疊埋 ＝ 兩樣都讀唔到。')
+    }
+  }
+
+  /* ── 打完字，存唔到有冇出聲？ ────────────────────────────────
+     ⭐ **真鍵盤打落去**，⛔ 唔係 `fill()`、⛔ 唔係讀 code。 */
+  if (spec.typeThenSee) {
+    const one = spec.typeThenSee
+    typedChecked += 1
+    await real.locator(`[data-testid="${one.testid}"]`).click()
+    /* ⛔⛔ 一定要先剷清個格先打。
+       ⚠️ 2026-09-16 中過：個格本來有「50」，撳一下游標停喺尾，打「35」
+       ⇒ 出「5035」，把尺報咗個**假紅**。⭐ 修嘅係**測試起點**，
+       ⛔ 唔係放鬆個 assertion —— 要量嘅係「人打嘅嘢有冇俾人食咗」，
+       所以個起點一定要係我控制得住嘅。 */
+    await real.keyboard.press('Control+a')
+    await real.keyboard.press('Backspace')
+    await real.waitForTimeout(250)
+    await real.keyboard.type(one.type, { delay: 90 })
+    await real.waitForTimeout(700)
+    const r = await real.evaluate(([need, field]) => {
+      const el = document.querySelector(`[data-testid="${need}"]`)
+      const box = document.querySelector(`[data-testid="${field}"]`)
+      if (!el) return { seen: false, typedStill: box?.value ?? null }
+      const rect = el.getBoundingClientRect()
+      return {
+        seen: true,
+        text: (el.textContent ?? '').trim().slice(0, 30),
+        inView: rect.top >= 0 && rect.bottom <= innerHeight,
+        typedStill: box?.value ?? null,
+      }
+    }, [one.needs, one.testid])
+
+    if (!r.seen) {
+      typedBad += 1
+      console.log(`  ✗ ⛔⛔ ${one.why}，但畫面**一個字都冇** —— 又一次「撳咗冇反應」`)
+    } else if (!r.inView) {
+      typedBad += 1
+      console.log(`  ✗ ⛔ ${one.why} 有出聲，但嗰句字唔喺畫面入面（要碌先見到）`)
+    } else if (r.typedStill !== one.type) {
+      // ⛔ 存唔到唔應該連人打咗嘅嘢都食咗。
+      typedBad += 1
+      console.log(`  ✗ ⛔ 存唔到之後，人打嘅「${one.type}」唔見咗（個格而家係「${r.typedStill}」）`)
+    } else {
+      console.log(`  ✓ ${one.why} ⇒ 出咗聲「${r.text}…」，而且打咗嘅「${r.typedStill}」仲喺格入面`)
     }
   }
 
@@ -1141,6 +1206,7 @@ console.log(`數唔到就鎖住：量咗 ${lockChecked} 粒掣，冇鎖 ${lockBa
 console.log(`兩件嘢冇疊埋：量咗 ${overlapChecked} 對，疊咗 ${overlapBad} 對。`)
 console.log(`粒掣夠大撳：量咗 ${sizeChecked} 粒，唔夠 ${sizeBad} 粒。`)
 console.log(`撳完⛔ 唔變藍 ＋ 鍵盤仲睇得到：量咗 ${blueChecked} 項，唔啱 ${blueBad} 項。`)
+console.log(`打完字存唔到要出聲：量咗 ${typedChecked} 格，冇聲 ${typedBad} 格。`)
 console.log(`⛔ 冇得撳走：量咗 ${escapeChecked} 件，走得甩 ${escapeBad} 件。`)
 
 if (SELF_TEST) {
@@ -1164,7 +1230,8 @@ process.exit(
     overlapBad === 0 &&
     sizeBad === 0 &&
     blueBad === 0 &&
-    escapeBad === 0
+    escapeBad === 0 &&
+    typedBad === 0
     ? 0
     : 1,
 )
