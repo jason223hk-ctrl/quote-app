@@ -18,6 +18,7 @@ import {
   sitePhotoFilename,
 } from './names.mjs'
 import { RENAME_BATCH_MAX, needsRename, renamePlan, renameSummary } from './rename.mjs'
+import { WHERE, driveFailure, redact } from './driveError.mjs'
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
@@ -175,19 +176,44 @@ async function googleToken(env) {
     } catch {
       why = raw.slice(0, 120)
     }
-    throw new Error(`Drive 登入失敗（${res.status}${why ? '：' + why : ''}）`)
+    // ⛔ 過埋 `redact()` —— ⚠️ 呢個回覆本來就唔應該有 token，
+    //    但「應該冇」⛔ 唔係一個保障。規矩喺 `driveError.mjs` 檔頭②。
+    throw new Error(redact(`Drive 登入失敗（${res.status}${why ? '：' + why : ''}）`))
   }
   return (await res.json()).access_token
+}
+
+/**
+ * Drive 回咗錯 ⇒ 砌返一句講得出係乜事嘅說話，順手寫低 log。
+ *
+ * ⛔⛔ **⛔ 唔准繞過呢個 helper 自己寫 `throw new Error(\`…（${res.status}）\`)`。**
+ * ⚠️ 2026-09-16 就係因為 `files.list` 嗰句淨係報咗個 `429`，
+ *    Jason 部機出咗「Drive 查詢失敗（429）」，而**我哋分唔到係
+ *    「打得太密」（修得到）定「今日額度用晒」（修唔到）** ——
+ *    而答案本來就喺 Google 回嘅 body 入面，俾我哋自己掉咗。
+ *    完整經過同兩條硬規矩喺 `driveError.mjs` 檔頭。
+ *
+ * ⛔ 傳入去嘅係一個**寫死嘅呼叫名**（`WHERE`），⛔ 唔准傳 URL —— 個 `q` 入面
+ *    有工程名同檔名，記落 log 就係漏出去。
+ */
+async function driveThrow(where, res) {
+  // ⛔ `.text()` 可能 throw（連線中途斷）——⚠️ 喺錯誤路上面再 throw 一次，
+  //    原本嗰個真原因就會冇咗。
+  const raw = await res.text().catch(() => '')
+  const { message, log } = driveFailure(where, res.status, raw, res.headers.get('retry-after'))
+  console.error(log)
+  return new Error(message)
 }
 
 function escapeQ(value) {
   return String(value).replace(/\\/g, '\\\\').replace(/'/g, "\\'")
 }
 
-async function driveList(token, q) {
+async function driveList(token, q, where) {
   const url = `${DRIVE}/files?q=${encodeURIComponent(q)}&spaces=drive&fields=files(id,name)&pageSize=100`
   const res = await fetch(url, { headers: { authorization: `Bearer ${token}` } })
-  if (!res.ok) throw new Error(`Drive 查詢失敗（${res.status}）`)
+  // ⛔ `where` 係必須 —— 三個唔同嘅 `files.list` 撞 429 嘅意思唔一樣。
+  if (!res.ok) throw await driveThrow(where, res)
   return (await res.json()).files || []
 }
 
@@ -206,7 +232,7 @@ async function ensureFolder(token, name, parentId) {
     parentId ? `'${parentId}' in parents` : `'root' in parents`,
   ].join(' and ')
 
-  const existing = (await driveList(token, q)).map((f) => f.id).sort()
+  const existing = (await driveList(token, q, WHERE.listFolder)).map((f) => f.id).sort()
   if (existing.length) return existing[0]
 
   const res = await fetch(`${DRIVE}/files?fields=id`, {
@@ -218,10 +244,10 @@ async function ensureFolder(token, name, parentId) {
       ...(parentId ? { parents: [parentId] } : {}),
     }),
   })
-  if (!res.ok) throw new Error(`Drive 開資料夾失敗（${res.status}）`)
+  if (!res.ok) throw await driveThrow(WHERE.createFolder, res)
   const mine = (await res.json()).id
 
-  const after = (await driveList(token, q)).map((f) => f.id).sort()
+  const after = (await driveList(token, q, WHERE.listFolder)).map((f) => f.id).sort()
   return after.length ? after[0] : mine
 }
 
@@ -242,7 +268,7 @@ async function findMirroredFile(token, photoId, folderId) {
     'trashed = false',
     `'${folderId}' in parents`,
   ].join(' and ')
-  const files = await driveList(token, q)
+  const files = await driveList(token, q, WHERE.listMirrored)
   return files.length ? files[0].id : null
 }
 
@@ -263,7 +289,7 @@ async function findNameClash(token, name, folderId, photoId, expectedSize) {
 
   const url = `${DRIVE}/files?q=${encodeURIComponent(q)}&spaces=drive&fields=files(id,name,size,appProperties)&pageSize=100`
   const res = await fetch(url, { headers: { authorization: `Bearer ${token}` } })
-  if (!res.ok) throw new Error(`Drive 查詢失敗（${res.status}）`)
+  if (!res.ok) throw await driveThrow(WHERE.listClash, res)
   const files = (await res.json()).files || []
 
   for (const file of files) {
@@ -279,7 +305,12 @@ async function driveFileSize(token, fileId) {
   const res = await fetch(`${DRIVE}/files/${fileId}?fields=size`, {
     headers: { authorization: `Bearer ${token}` },
   })
-  if (!res.ok) return null
+  // ⛔ 照舊回 `null`（＝「唔知」，⛔ 唔當佢啱）—— ⚠️ 但⛔ 唔准再靜靜咁過骨：
+  //    呢個位撞 429 係查案嘅線索，冇咗就連「原來上載成功咗但對唔到數」都唔知。
+  if (!res.ok) {
+    console.error((await driveThrow(WHERE.getSize, res)).message)
+    return null
+  }
   const size = (await res.json()).size
   return size === undefined ? null : size
 }
@@ -302,7 +333,7 @@ async function uploadToDrive(token, name, folderId, bytes, photoId) {
     },
     body,
   })
-  if (!res.ok) throw new Error(`Drive 上載失敗（${res.status}）`)
+  if (!res.ok) throw await driveThrow(WHERE.upload, res)
   return (await res.json()).id
 }
 
@@ -312,7 +343,11 @@ async function driveQuota(token) {
     const res = await fetch(`${DRIVE}/about?fields=storageQuota`, {
       headers: { authorization: `Bearer ${token}` },
     })
-    if (!res.ok) return { known: false }
+    // ⛔ 照舊回「唔知」，⛔ 唔當佢充足 —— 但一樣要留低點解攞唔到。
+    if (!res.ok) {
+      console.error((await driveThrow(WHERE.getQuota, res)).message)
+      return { known: false }
+    }
     const q = (await res.json()).storageQuota || {}
     if (q.limit === undefined || q.usage === undefined) return { known: false }
     const remaining = Number(q.limit) - Number(q.usage)
@@ -636,7 +671,13 @@ async function driveNameAndParent(token, fileId) {
   const res = await fetch(`${DRIVE}/files/${fileId}?fields=name,parents`, {
     headers: { authorization: `Bearer ${token}` },
   })
-  if (!res.ok) return null
+  // ⛔ 照舊回 `null`（＝「查唔到」）—— ⚠️ 但⛔ 唔准靜靜過骨。
+  //    ⭐ 呢個位撞 429 特別緊要：回 null ⇒ 上面會**跳過撞名檢查照改**，
+  //       即係一個限流錯誤會靜靜咁令一道保險失效。
+  if (!res.ok) {
+    console.error((await driveThrow(WHERE.getName, res)).message)
+    return null
+  }
   const body = await res.json()
   const parents = body.parents
   return {
@@ -652,7 +693,7 @@ async function driveRename(token, fileId, name) {
     headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
     body: JSON.stringify({ name }),
   })
-  if (!res.ok) throw new Error(`Drive 改名失敗（${res.status}）`)
+  if (!res.ok) throw await driveThrow(WHERE.rename, res)
   return res.json()
 }
 
