@@ -1,0 +1,309 @@
+<!doctype html>
+<html lang="zh-HK">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>樣板：四樣要你撳</title>
+<style>
+/* 色同尺寸全部由 src/styles/tokens.css 抄過嚟，⛔ 冇一個係自己調。 */
+:root{
+  --page:#0d120e; --card:linear-gradient(180deg,#283229 0%,#1f2720 44%,#161d17 100%);
+  --card-alt:#1c241d; --header:#16201a;
+  --text:#f1ebdd; --text2:#bdb6a6; --text3:#96978e;
+  --danger:#b35d4a; --danger-bg:rgba(179,93,74,.16); --warn:#b68a45;
+  --border:rgba(190,178,139,.28); --accent:#98a56b; --good:#8fa25d;
+  --r-sm:14px; --r-md:20px; --serif:'Noto Serif TC','Songti TC',serif;
+}
+*{box-sizing:border-box}
+body{margin:0 auto;max-width:430px;background:var(--page);color:var(--text);
+  font:15px/1.5 'Noto Sans TC','PingFang TC',system-ui,sans-serif;padding:0 16px 40px}
+/* ⛔⛔ 頂部最多兩行 —— 附錄 B 嗰條伏。 */
+.top{padding:10px 2px 8px;display:flex;justify-content:space-between;gap:10px;
+  font-size:12px;color:var(--text3);border-bottom:1px solid var(--border)}
+.top b{color:var(--accent)}
+.tabs{display:flex;gap:6px;overflow-x:auto;padding:10px 0 2px;-webkit-overflow-scrolling:touch}
+.tabs button{flex:none;background:var(--card-alt);border:1px solid var(--border);color:var(--text2);
+  border-radius:999px;padding:8px 13px;font:600 13px/1 inherit;cursor:pointer;white-space:nowrap}
+.tabs button[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:#16201a}
+.stage{margin-top:12px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--r-md);padding:16px}
+.lbl{display:block;font-size:13px;color:var(--text2);margin:0 0 6px}
+.inp{width:100%;min-height:48px;padding:0 13px;border-radius:var(--r-sm);
+  border:1px solid var(--border);background:rgba(255,255,255,.04);color:var(--text);font:15px inherit}
+.inp:focus{outline:2px solid var(--accent);outline-offset:2px}
+.row{display:flex;align-items:center;gap:8px;margin-top:10px;min-height:22px;font-size:13px}
+.dot{width:9px;height:9px;border-radius:50%;flex:none}
+.muted{color:var(--text3)} .okc{color:var(--good)} .badc{color:var(--danger)}
+.btn{width:100%;min-height:48px;border-radius:var(--r-sm);border:1px solid transparent;
+  background:var(--header);color:var(--text);font:700 15px/1 inherit;cursor:pointer;margin-top:12px}
+.btn.sec{background:transparent;border-color:var(--border)}
+.btn.dan{background:var(--danger);border-color:var(--danger);color:#fff}
+.nb{margin:10px 0 0;padding:11px 13px;border-radius:14px;font-size:13px;line-height:1.55;
+  border:1px solid var(--border);background:rgba(152,165,107,.1);color:var(--text2)}
+.nb.warn{border-color:rgba(182,138,69,.4);background:rgba(182,138,69,.14);color:var(--warn)}
+.nb.bad{border-color:rgba(179,93,74,.5);background:var(--danger-bg);color:#e8b3a6}
+.seg{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+.seg button{background:var(--card-alt);border:1px solid var(--border);color:var(--text2);
+  border-radius:999px;padding:7px 12px;font:600 12.5px/1 inherit;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:#16201a}
+.say{margin:10px 2px 0;font-size:12.5px;line-height:1.6;color:var(--text3)}
+.say em{color:var(--accent);font-style:normal;font-weight:700}
+
+/* 條 bar */
+.barwrap{position:relative;height:96px;border:1px dashed var(--border);border-radius:var(--r-md);
+  margin-top:10px;display:flex;align-items:flex-end;padding:8px}
+.cnt{display:flex;align-items:center;gap:10px;width:100%;font-size:15px;font-weight:650;color:#0D120E;
+  background:linear-gradient(160deg,#C29A4E,#8E6B34);border:1px solid rgba(240,225,180,.5);
+  border-radius:14px;padding:11px 14px;box-shadow:0 10px 24px -12px rgba(0,0,0,.6);cursor:pointer}
+.cnt .n{font-size:20px} .cnt .sub{display:block;font-size:11.5px;font-weight:500;opacity:.85;margin-top:1px}
+.cnt .go{margin-left:auto;font-size:13px;font-weight:650;white-space:nowrap}
+
+/* 工序剔格 */
+.opt{display:flex;align-items:center;gap:10px;padding:11px 12px;border:1px solid var(--border);
+  border-radius:var(--r-sm);margin-top:8px;background:rgba(255,255,255,.03);cursor:pointer;
+  font-size:14px;width:100%;color:var(--text);text-align:left}
+.opt[aria-checked="true"]{border-color:var(--accent);background:rgba(152,165,107,.12)}
+.opt:disabled{opacity:.45;cursor:default}
+.opt .why{margin-left:auto;font-size:11.5px;color:var(--text3);text-align:right}
+.box{width:18px;height:18px;border-radius:5px;border:1.5px solid var(--border);flex:none}
+.opt[aria-checked="true"] .box{background:var(--accent);border-color:var(--accent)}
+
+/* 狀態格 */
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin-top:10px}
+.stat{padding:9px 8px 10px;background:var(--card);border:1px solid var(--border);border-radius:16px;
+  text-align:left;color:var(--text);font:inherit}
+.stat .k{font-size:12px;color:var(--text3)} .stat .v{font-size:15px;font-weight:700}
+.stat.tapme{border-color:var(--accent)}
+.stat.flat{background:none;border-style:dashed;box-shadow:none}
+
+.why2{margin-top:26px;border-top:1px solid var(--border);padding-top:10px}
+.why2 summary{font-size:13px;color:var(--text3);cursor:pointer;padding:6px 0}
+.why2 div{font-size:13px;line-height:1.7;color:var(--text2)}
+.why2 h4{margin:14px 0 4px;font-size:13px;color:var(--text)}
+.why2 code{background:var(--card-alt);padding:1px 5px;border-radius:5px;font-size:12px}
+</style>
+</head>
+<body>
+
+<div class="top">
+  <div>樣板，唔會真係存嘢</div>
+  <div><b>四樣，逐樣撳吓</b></div>
+</div>
+
+<div class="tabs" id="tabs"></div>
+<div class="stage" id="stage"></div>
+<p class="say" id="say">撳上面四粒，逐樣試。</p>
+
+<details class="why2">
+  <summary>點解要出呢個樣板（撳開睇）</summary>
+  <div>
+    <h4>四樣夾埋一個原型，唔係四個</h4>
+    因為 <b>①③④ 三樣都係同一條問題</b>：個 app 想跟你講一件你冇問嘅事，用乜嘢語氣。
+    分開問就會出三套語氣。
+
+    <h4>① 打字自動存</h4>
+    你 2026-09-15 講：「入所有頁面打完字自動儲存，唔駛撳存儲制」。
+    <b>重點唔係幾秒存一次，係存唔到嗰陣點辦</b> —— 現場信號時有時冇，
+    打完字撳返回就衝出門口，嗰一下存唔到<b>冇人會知</b>。
+    <br>⚠️ 而家「加成 ％」已經係咁做緊，實測：存唔到<b>畫面一個字都冇</b>。
+
+    <h4>② 未上載嗰條 bar</h4>
+    你 2026-09-06 拍板嗰個原型，條 bar 有埋一行「背景上緊，唔使撳」同一個大字數字。
+    真 app 兩樣都冇（高 72px vs 47px）。<code>docs/</code> 揾唔到講過拆。
+
+    <h4>③ 剪唔到嗰陣</h4>
+    你 2026-08-24 講：「移除係獨立，有移除就唔會有修剪同拉索加固，可能會起樹頭」。
+    P3f 寫明要<b>變灰撳唔到 ＋ 喺個掣度寫明原因</b>。呢度就係試嗰句原因夠唔夠清楚。
+    <br>⚠️ 舊單已經兩樣都剔咗嗰啲樹點算 —— <b>仲未決定</b>，⛔ 冇人會幫你抹走。
+
+    <h4>④ 狀態格</h4>
+    你話「我撳狀態無反應」。查咗：頂部嗰格<b>由頭到尾唔係撳得嘅</b>，
+    佢係個 <code>&lt;div&gt;</code>；真正轉狀態嗰張卡喺同一版<b>最底</b>，
+    未碌之前 100% 俾底 nav 遮住。三個做法喺呢度揀。
+
+    <h4>⛔ 呢個樣板驗唔到啲乜</h4>
+    佢驗「順唔順手、夠唔夠清楚」。⛔ 驗唔到真係存到未、相有冇上錯 ——
+    嗰啲要兩邊對數。
+  </div>
+</details>
+
+<script>
+/* ⛔ 樣板，冇任何真寫入。真資料樣本：真工程名、真樹牌。 */
+var TABS = [['a','① 打字自動存'],['b','② 未上載條 bar'],['c','③ 剪唔到'],['d','④ 狀態格']];
+var tab = 'a';
+
+/* ── ① 自動存 ───────────────────────────────── */
+var A = { text:'天水圍天恆邨恆貴樓', net:'ok', state:'idle', timer:null, dirty:false, saved:'天水圍天恆邨恆貴樓' };
+/* ── ② 條 bar ──────────────────────────────── */
+var B = { ver:'now' };
+/* ── ③ 剪唔到 ──────────────────────────────── */
+var C = { picked:['removal'], old:false };
+/* ── ④ 狀態格 ──────────────────────────────── */
+var D = { way:'1' };
+
+function say(t){ document.getElementById('say').innerHTML = t; }
+function h(html){ document.getElementById('stage').innerHTML = html; }
+
+/* ══ ① ══════════════════════════════════════ */
+function viewA(){
+  var s = A.state;
+  var line =
+    s==='saving' ? '<span class="dot" style="background:var(--warn)"></span><span class="muted">存緊⋯</span>' :
+    s==='saved'  ? '<span class="dot" style="background:var(--good)"></span><span class="okc">已經存咗</span>' :
+    s==='fail'   ? '<span class="dot" style="background:var(--danger)"></span><span class="badc">存唔到</span>' :
+                   '<span class="muted">　</span>';
+  var fail = s==='fail'
+    ? '<div class="nb bad">⛔ 存唔到：而家冇網。<br>你打嘅字<b>仲喺部機度</b>，⛔ 唔會冇咗。有網會自己再試。'
+      + '<div style="margin-top:8px;display:flex;gap:8px">'
+      + '<button class="btn sec" style="margin:0" onclick="retryA()">而家再試</button></div></div>'
+    : '';
+  var leave = A.dirty && s!=='saved'
+    ? '<div class="nb warn">⚠️ 仲有嘢未存。撳「返回」會點？—— <b>呢個就係要你決定嗰樣</b>。</div>' : '';
+  h('<div class="card">'
+    + '<label class="lbl">工程名稱</label>'
+    + '<input class="inp" id="fa" value="'+A.text+'" oninput="typeA(this.value)">'
+    + '<div class="row">'+line+'</div>'
+    + fail + leave
+    + '<button class="btn sec" onclick="backA()">返回</button>'
+    + '</div>'
+    + '<div class="seg">'
+      + seg('setNetA','ok','有網', A.net==='ok')
+      + seg('setNetA','off','冇網', A.net==='off')
+      + seg('setNetA','no','唔係你開嘅單（伺服器拒絕）', A.net==='no')
+    + '</div>');
+  var el = document.getElementById('fa');
+  if (el && A.focus) { el.focus(); el.setSelectionRange(A.pos, A.pos); }
+}
+function seg(fn,v,label,on){
+  return '<button aria-pressed="'+(on?'true':'false')+'" onclick="'+fn+'(\''+v+'\')">'+label+'</button>';
+}
+window.setNetA = function(v){ A.net=v; render();
+  say(v==='ok' ? '有網。打啲字試吓。'
+    : v==='off' ? '扮咗冇網。<em>打啲字，睇吓佢點同你講。</em>'
+    : '扮咗「唔係你開嘅單」—— 伺服器每次都會拒絕。'); };
+window.typeA = function(v){
+  A.text=v; A.dirty=true; A.focus=true; A.pos=(document.getElementById('fa')||{}).selectionStart||v.length;
+  A.state='idle'; clearTimeout(A.timer);
+  /* ⭐ 連代價一齊擺出嚟：真係等 —— ⛔ 唔會即刻變綠。 */
+  A.timer = setTimeout(function(){
+    A.state='saving'; render();
+    setTimeout(function(){
+      if (A.net==='ok'){ A.state='saved'; A.dirty=false; A.saved=A.text;
+        say('存咗。<em>由你停手到綠燈，大約 1.4 秒</em> —— ⛔ 唔係即時。'); }
+      else { A.state='fail';
+        say(A.net==='off' ? '⛔ 冇網 ⇒ 存唔到。<em>睇吓佢有冇話你知、你做唔做到嘢。</em>'
+                          : '⛔ 伺服器拒絕。⚠️ 呢種係<em>永遠唔會自己好</em>，同冇網唔同。'); }
+      render();
+    }, 700);
+  }, 700);
+  render();
+};
+window.retryA = function(){ A.state='saving'; render();
+  setTimeout(function(){ if(A.net==='ok'){A.state='saved';A.dirty=false;} else A.state='fail'; render(); }, 700); };
+window.backA = function(){
+  if (A.dirty && A.state!=='saved'){ say('⚠️ 你仲有嘢未存就撳咗返回。<em>而家個樣板乜都唔做 —— 真 app 應該點？</em>'); }
+  else say('冇嘢未存，走得。');
+};
+
+/* ══ ② ══════════════════════════════════════ */
+function viewB(){
+  var now = '<div class="cnt"><span>未上載 3 張</span><span class="go">睇同步 ›</span></div>';
+  var proto = '<div class="cnt"><span>未上載 <span class="n">3</span> 張'
+    + '<span class="sub">背景上緊，唔使撳</span></span><span class="go">睇同步 ›</span></div>';
+  h('<div class="barwrap">'+(B.ver==='now'?now:proto)+'</div>'
+    + '<div class="seg">'
+      + seg('setB','now','而家嘅樣（高 47px）', B.ver==='now')
+      + seg('setB','proto','你 09-06 批過嗰個（高 72px）', B.ver==='proto')
+    + '</div>'
+    + '<div class="nb">兩個都撳得、兩個都⛔ 冇得撳走。分別淨係：<b>大字數字</b>同埋<b>底下嗰行「背景上緊，唔使撳」</b>。</div>');
+}
+window.setB = function(v){ B.ver=v; render();
+  say(v==='proto' ? '呢個係你 2026-09-06 批過嗰個。<em>高咗 25px，會推高成個清單底部。</em>'
+                  : '呢個係而家線上嗰個。<em>少咗嗰行「你使唔使做嘢」。</em>'); };
+
+/* ══ ③ ══════════════════════════════════════ */
+var OPTS = [['crown_cleaning','清理樹冠'],['crown_thinning','疏枝'],['crown_reduction','縮減樹冠'],
+            ['crown_raising','提升樹冠'],['removal','移除'],['stump_removal','起樹頭'],['cabling','拉索加固']];
+var PRUNE = ['crown_cleaning','crown_thinning','crown_reduction','crown_raising','cabling'];
+function blocked(v){
+  if (C.picked.indexOf(v) >= 0) return null;            /* ⭐ 剔走永遠得 */
+  if (v==='removal' && C.picked.some(function(x){return PRUNE.indexOf(x)>=0})) return '此樹已有修剪工序';
+  if (C.picked.indexOf('removal')>=0){
+    if (v==='cabling') return '此樹已列為移除';
+    if (PRUNE.indexOf(v)>=0) return '此樹已列為移除';
+  }
+  return null;
+}
+function viewC(){
+  if (C.old && C.picked.indexOf('crown_cleaning')<0) C.picked = ['removal','crown_cleaning'];
+  var rows = OPTS.map(function(o){
+    var why = blocked(o[0]);
+    var on = C.picked.indexOf(o[0])>=0;
+    return '<button class="opt" aria-checked="'+(on?'true':'false')+'"'+(why?' disabled':'')
+      + ' onclick="tapC(\''+o[0]+'\')"><span class="box"></span><span>'+o[1]+'</span>'
+      + (why? '<span class="why">'+why+'</span>':'') + '</button>';
+  }).join('');
+  var both = C.picked.indexOf('removal')>=0 && C.picked.some(function(x){return PRUNE.indexOf(x)>=0});
+  h('<div class="card"><div class="lbl">樹牌 <b>T-07</b> ・ 處理方法</div>'+rows+'</div>'
+    + (both ? '<div class="nb warn">⚠️ 呢棵樹<b>兩樣都有</b>（舊單存落嚟嘅）。'
+        + '⛔ 樣板唔會幫你抹走任何嘢 —— <b>點處理仲未決定</b>。</div>' : '')
+    + '<div class="seg">'
+      + seg('setC','new','新樹（乜都未剔）', !C.old)
+      + seg('setC','old','舊單嗰種：兩樣都已經剔咗', C.old)
+    + '</div>');
+}
+window.tapC = function(v){
+  var i = C.picked.indexOf(v);
+  if (i>=0) C.picked.splice(i,1); else C.picked.push(v);
+  render(); say('而家剔咗：<em>'+(C.picked.length?C.picked.length+' 樣':'冇')+'</em>。灰咗嗰啲右邊有寫原因。');
+};
+window.setC = function(v){
+  C.old = v==='old';
+  C.picked = C.old ? ['removal','crown_cleaning'] : [];
+  render();
+  say(C.old ? '⚠️ 呢種就係舊單。<em>兩邊都仲剔得走</em> —— ⛔ 唔准卡死佢。'
+            : '新樹。剔「移除」，睇吓修剪嗰幾樣點。');
+};
+
+/* ══ ④ ══════════════════════════════════════ */
+function viewD(){
+  var s1 = D.way==='1', s2 = D.way==='2', s3 = D.way==='3';
+  var statusCell = s2
+    ? '<div class="stat flat"><div class="k">狀態</div><div class="v">待報價</div></div>'
+    : '<button class="stat'+(s1?' tapme':'')+'" onclick="tapD()"><div class="k">狀態</div><div class="v">待報價</div></button>';
+  h('<div class="stats">'+statusCell
+    + '<div class="stat"><div class="k">樹木</div><div class="v">5</div></div>'
+    + '<div class="stat"><div class="k">地區</div><div class="v">九龍</div></div></div>'
+    + (s3 ? '<div class="card" style="margin-top:12px"><div class="lbl">狀態（待報價）</div>'
+        + '<div class="seg" style="margin-top:4px">'
+        + '<button aria-pressed="true">待報價</button><button>已報價</button><button>已中標</button>'
+        + '</div></div>'
+        : '<div class="nb">⚠️ 真正轉狀態嗰張卡而家喺呢一版<b>最底</b> —— 未碌之前 <b>100% 俾底 nav 遮住</b>（實測：掣 761–797，nav 由 759 開始）。</div>')
+    + '<div class="seg">'
+      + seg('setD','1','甲：頂格撳得（撳咗捲落去）', s1)
+      + seg('setD','2','乙：頂格明顯唔似掣', s2)
+      + seg('setD','3','丙：轉狀態搬上嚟', s3)
+    + '</div>');
+}
+window.tapD = function(){ say('撳到喇 —— <em>甲就係撳咗自動捲落去轉狀態嗰張卡</em>。'); };
+window.setD = function(v){ D.way=v; render();
+  say(v==='1' ? '甲：頂格照樣似粒掣，但撳咗會捲落去。<em>代價：要碌。</em>'
+    : v==='2' ? '乙：頂格改到明顯唔似掣（虛線、冇底）。<em>代價：同首頁三格唔再一樣。</em>'
+    : '丙：轉狀態搬上嚟，一眼睇到。<em>代價：入口卡全部推低。</em>'); };
+
+/* ══ 殼 ══════════════════════════════════════ */
+function render(){
+  document.getElementById('tabs').innerHTML = TABS.map(function(t){
+    return '<button aria-pressed="'+(tab===t[0]?'true':'false')+'" onclick="go(\''+t[0]+'\')">'+t[1]+'</button>';
+  }).join('');
+  ({a:viewA,b:viewB,c:viewC,d:viewD})[tab]();
+}
+window.go = function(t){ tab=t; A.focus=false; render();
+  say(({a:'打啲字落個格度，<em>停手之後睇吓佢點講</em>。',
+        b:'兩個版本撳嚟對。',
+        c:'剔「移除」，睇吓修剪嗰幾樣變成點。',
+        d:'三個做法撳嚟換。'})[t]); };
+render();
+</script>
+</body>
+</html>
