@@ -5,9 +5,11 @@ import type { TreesApi } from '../lib/trees'
 import type { SiteFormApi, SiteForm } from '../lib/siteForm'
 import type { PriceApi, PriceTable, PriceSnapshot } from '../lib/prices'
 import type { PhotosApi } from '../lib/photos'
+import { markupSaveFailed, markupToPct, markupToSave } from '../lib/markup'
 import { quoteLines, type Quote, type PricingInput } from '../lib/pricing'
 import type { Nav } from '../ui/routes'
 import { BackChip, BotanicalHeader, FloatBody, HeaderTitle } from '../ui/shell'
+import ErrorNotice from '../ui/ErrorNotice'
 import { Icon, ICONS } from '../ui/Icon'
 import CostCard from './CostCard'
 import DeleteRecordDialog from './DeleteRecordDialog'
@@ -68,6 +70,14 @@ export default function RecordHubScreen({
   const [statusBusy, setStatusBusy] = useState(false)
   /** 撳咗右上角粒垃圾桶，等緊確認。 */
   const [asking, setAsking] = useState(false)
+  /**
+   * 加成 ％ 存唔到嗰句。**⛔ `null` ＝ 冇事。**
+   *
+   * ⛔⛔ 呢格係全 app **唯一一格冇儲存掣、打一個字存一次**嘅嘢，
+   *    ⚠️ 而佢一直**存唔到都完全冇聲**（實測：兩次 unhandled rejection、
+   *    畫面一個字都冇）。⇒ 同 PR #17「撳咗冇反應」係同一條。
+   */
+  const [markupError, setMarkupError] = useState<string | null>(null)
   const [markupInput, setMarkupInput] = useState<string>(
     record.markup_pct === null ? '' : String(record.markup_pct),
   )
@@ -132,21 +142,37 @@ export default function RecordHubScreen({
   const onMarkupChange = useCallback(
     (value: string) => {
       setMarkupInput(value)
-      const trimmed = value.trim()
-      if (trimmed === '') {
-        void onMarkupSave(null)
-        return
-      }
-      const n = Number(trimmed)
-      // ⛔ 打錯字唔好寫落 DB，畫面照樣顯示佢打咗嘅嘢。
-      if (!Number.isFinite(n) || n < 0) return
-      void onMarkupSave(n)
+      // ⛔ 打錯字唔好寫落 DB（`undefined` ＝ 乜都唔好做），畫面照樣顯示佢打咗嘅嘢。
+      const next = markupToSave(value)
+      if (next === undefined) return
+
+      /**
+       * ⛔⛔ **一定要接住** —— ⚠️ 舊寫法係 `void onMarkupSave(n)`，
+       *    存唔到就變咗一個 unhandled rejection，**畫面一個字都冇**。
+       * ⭐ 出返伺服器嗰句原因（`refusalReason()` 三句入面啱嗰一句），
+       *    ⛔ 唔准食咗佢換一句通用嘢。
+       * ⚠️ `ErrorNotice` 見到同一句嘢⛔ 唔會再捲一次，
+       *    所以一路打字一路失敗⛔ 唔會不停抢畫面。
+       */
+      void onMarkupSave(next)
+        .then(() => setMarkupError(null))
+        .catch((caught: unknown) => {
+          console.error('[quote-app] markup save failed:', caught)
+          setMarkupError(
+            markupSaveFailed(caught instanceof Error ? caught.message : String(caught)),
+          )
+        })
     },
     [onMarkupSave],
   )
 
   const line = clientAddressLine(record.client, record.address)
-  const markupPct = markupInput.trim() === '' ? null : Number(markupInput)
+  /**
+   * ⛔⛔ **永遠唔會係 `NaN`。**
+   * ⚠️ 舊寫法 `Number(markupInput)` 會俾個 `NaN` 漏落 `CostCard`，
+   *    而**報價價錢**就會變 `$NaN`（實測過）—— 嗰個係報俾客人嘅數。
+   */
+  const markupPct = markupToPct(markupInput)
 
   return (
     <>
@@ -335,8 +361,14 @@ export default function RecordHubScreen({
           }}
         />
 
+        {/* ⛔ 淨係存唔到先出，平時⛔ 一個 pixel 都冇加。⭐ 用返已批准嗰行紅字。
+            ⛔⛔ `inline` 缺唔得：呢格係一路打字一路存，唔開就會搶咗輸入格個
+            focus，下一個掣打咗落紅字度（把尺 2026-09-16 即刻捉到）。 */}
+        <ErrorNotice message={markupError} testId="markup-error" inline />
+
         <CostCard
           quote={quote}
+          typedMarkup={markupInput}
           markupPct={markupPct}
           canEditMarkup={canEditMarkup}
           onMarkupChange={onMarkupChange}

@@ -2,6 +2,15 @@ import type { Quote } from '../lib/pricing'
 
 type Props = {
   quote: Quote
+  /**
+   * 人**打咗乜**（原文）。⛔ 個格顯示呢個，⛔ 唔准倒返轉由 `markupPct` 砌返個字串。
+   *
+   * ⚠️⚠️ 2026-09-16 實測到嘅死循環：舊寫法個格出 `String(Number(typed))`，
+   *    打 `abc` ⇒ 格變 `NaN` ⇒ 跟住打乜都接落 `"NaN"` 後面 ⇒ **永遠打唔返出嚟**，
+   *    而**報價價錢同時變 `$NaN`**。⭐ 個格出返原文就冇咗呢件事。
+   */
+  typedMarkup: string
+  /** 計價用嗰個數。⛔ 永遠唔會係 `NaN`（見 `src/lib/markup.ts`）。 */
   markupPct: number | null
   /** 淨係辦公室改得（Jason 2026-08-30）。⛔ 唔准收埋 —— 要見到但改唔到。 */
   canEditMarkup: boolean
@@ -27,12 +36,14 @@ const money = (n: number) => '$' + Math.round(n).toLocaleString('en-US')
  */
 export default function CostCard({
   quote,
+  typedMarkup,
   markupPct,
   canEditMarkup,
   onMarkupChange,
   loading,
 }: Props) {
   const { lines, ask, total } = quote
+  // ⛔ `markupPct` 永遠唔會係 NaN，所以 `asking` 亦都唔會。
   const pct = markupPct ?? 0
   const asking = Math.round(total * (1 + pct / 100))
 
@@ -81,7 +92,7 @@ export default function CostCard({
                   type="text"
                   inputMode="numeric"
                   data-testid="markup-input"
-                  value={markupPct === null ? '' : String(markupPct)}
+                  value={typedMarkup}
                   readOnly={!canEditMarkup}
                   onChange={(e) => onMarkupChange(e.target.value)}
                 />
