@@ -199,9 +199,12 @@ export function RecordsScreen({
 
   return (
     <div className="app app--float">
-      {renderRoute()}
-      {/* ⛔ 釘喺底部導航上面，⛔ 唔跟畫面走 —— 換咩版都仲喺度（Jason 2026-09-06）。 */}
+      {/* ⛔⛔ **排第一個係故意嘅** —— 條 bar 而家係成版最頂嗰條
+          （Jason 2026-09-16「細條啲既 bar 放最頂」，⛔ 推翻咗 09-06 嗰個底部位置）。
+          ⚠️ DOM 次序 ＝ 畫面次序 ＝ 讀屏次序，⛔ 唔准靠 CSS `order` 掉返轉。
+          ⛔ 唔跟畫面走 —— 換咩版都仲喺度。 */}
       <PendingBar onOpenSync={() => nav.go({ name: 'sync' })} />
+      {renderRoute()}
       <BottomNav active={activeTab(route)} nav={nav} />
     </div>
   )

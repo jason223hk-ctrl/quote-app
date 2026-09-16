@@ -2,14 +2,34 @@ import { useEffect, useRef } from 'react'
 import { ALL_DONE_LABEL, pendingLabel } from '../lib/pendingCount'
 import { usePendingCount } from '../lib/usePendingCount'
 
-/** 條 bar 同 nav 之間留幾多空隙。 */
-const GAP = 10
-
 /**
- * 「未上載 N 張」—— 釘喺底部導航上面嗰條 bar。
+ * 「未上載 N 張」—— **釘喺成版最頂嗰條 bar。**
  *
- * Jason 2026-09-06 睇完原型 `public/proto-pending-count.html` 拍板嘅五條：
- *   ① 擺喺底部導航上面，⭐ 永遠可見（碌到邊都喺度）
+ * ⛔⛔⛔ **2026-09-06 拍板嗰條「① 擺喺底部導航上面」已經作廢，⛔ 唔准照返。**
+ *
+ * **Jason 2026-09-16 原話：「47，可以撳走，宜家個版位遮住左新增工程個 fab」，
+ * 追問之後定案：「細條啲既 bar 放最頂」。**
+ *
+ * ⚠️⚠️ **點解要推翻 —— ⛔ 唔准淨係記住結論**
+ *
+ * 實測（390×844 真 render，`tools/ui-check/measure.mjs`）：
+ *
+ * ```
+ * 條 bar      y 703 – 749
+ * 加工程 FAB   y 684 – 742      ← 中心點 (343, 713)
+ * elementFromPoint(343, 713) → data-testid="pending-bar"   ⛔ 唔係 FAB
+ * ```
+ *
+ * ⇒ **戴住手套嗰個人撳個 FAB 個正正中央，撳到嘅係條 bar，跳咗去同步頁。**
+ * ⭐ 而嗰陣 `ui:check` 係**全綠**嘅：「撳得到」嗰把尺係「25 點有一點通就算數」，
+ *    FAB 四隻角仲露住 ⇒ 佢照綠。**又一次：一把尺量唔到嘅嘢，佢綠燈證明唔到佢冇事。**
+ *    ⇒ 所以今次一齊加咗 `centreHit`（中心點要打到自己）。
+ *
+ * ⭐⭐ **Jason 自己揀嗰個做法保住咗規矩**：佢本來講「可以撳走」——
+ *    ⚠️ 嗰樣會直接踩爛下面「⛔ 唔准有得撳走」嗰條。追問之後佢改為
+ *    「細條啲 ＋ 放最頂」，⭐ **既解決咗 FAB 被遮，又一條規矩都冇拆。**
+ *
+ * **今日仍然作數嗰四條**（2026-09-06 五條入面除咗位置嗰條）：
  *   ② N 只數「一份雲端副本都未有」嗰啲（見 `pendingCount`）
  *   ③ 撳得，撳咗去同步頁
  *   ④ N 到零：變綠、寫「✓ 全部上晒」、停兩秒先消失
@@ -42,33 +62,30 @@ export default function PendingBar({
   const barRef = useRef<HTMLElement | null>(null)
 
   /**
-   * 度返底部導航實際幾高，再擺高條 bar。
+   * 度返條 bar 自己實際幾高，寫落 `.app--float` 個 `--pending-top`。
    *
-   * ⛔ 唔寫死一個數：nav 高度 2026-08-29 改過兩次（icon 放大、行高改 1），
-   *    每次都有人漏改由佢推算出嚟嘅常數。⭐ 度返實際值就永遠唔會走位。
+   * ⭐ **點解仲要度**：條 bar 而家係 flex 仔，`.bheader` / `.hhero` 嗰啲
+   *    **自己會順住落**，⛔ 唔使人幫手。⚠️ 但 `.float-cards-scroll` 同
+   *    `.float-pills-layer` 係 `position: absolute` —— **佢哋唔識跟 flex 仔落**，
+   *    唔推佢哋一推，成個浮卡層就會由畫面頂開始，匿咗半橛喺條 bar 後面。
+   *
+   * ⛔ 唔寫死一個數：條 bar 高度跟字體大細同 `safe-area-inset-top` 變
+   *    （瀏海機同冇瀏海機唔同高）。⭐ 度返實際值就永遠唔會走位。
    * ⚠️ 做法跟返 `shell.tsx` 個 `FloatBody`（佢都係 ResizeObserver 度 pills 高度）。
    */
   useEffect(() => {
     const bar = barRef.current
     if (!bar) return
-    const nav = bar.parentElement?.querySelector('.bottom-nav')
-    if (!(nav instanceof HTMLElement)) return
-
     const shell = bar.parentElement
-    const apply = () => {
-      bar.style.setProperty('--pending-bar-lift', `${nav.offsetHeight + GAP}px`)
-      // ⛔ 條 bar 疊喺內容上面，所以捲動區底部要讓返佢 —— 唔係嘅話
-      //    最後一張卡會匿喺佢後面，戴住手套點都撳唔到（見 app.css 尾嗰段）。
-      shell?.style.setProperty('--pending-extra', `${bar.offsetHeight + GAP}px`)
-    }
+
+    const apply = () => shell?.style.setProperty('--pending-top', `${bar.offsetHeight}px`)
     apply()
     const observer = new ResizeObserver(apply)
-    observer.observe(nav)
     observer.observe(bar)
     return () => {
       observer.disconnect()
       // ⭐ 條 bar 一收，個位要即刻還返 —— ⛔ 唔准留低一段永遠嘅空白。
-      shell?.style.removeProperty('--pending-extra')
+      shell?.style.removeProperty('--pending-top')
     }
   }, [celebrating, count])
 

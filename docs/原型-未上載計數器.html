@@ -119,7 +119,8 @@
   .cnt.off{background:linear-gradient(160deg,#8E8577,#6E675C);border-color:rgba(220,212,196,.4)}
   .cnt.done{background:linear-gradient(160deg,#8FA25D,#68794D);color:#0D120E}
 
-  /* 甲位：底部導航上面一條 bar */
+  /* ⛔ 甲位：底部導航上面一條 bar —— **2026-09-16 已作廢**（見頂部紅色橫額）。
+     ⛔ 留喺度淨係為咗睇返當日點揀，⛔ 唔准照住實作。 */
   .barslot{position:absolute;left:0;right:0;bottom:88px;padding:0 16px;pointer-events:none;z-index:5}
   .barslot .cnt{pointer-events:auto}
 
@@ -149,6 +150,18 @@
   .qa hr{border:0;border-top:1px solid var(--mq-border);margin:18px 0}
   .qa code{font-size:13px;background:rgba(28,36,29,.8);padding:1px 5px;border-radius:5px}
 </style>
+
+<div class="banner" style="background:#5a2b22;border-color:#b35d4a">
+  <b>⛔⛔ 呢份稿入面「① 擺喺邊」嗰條已經作廢，⛔ 唔准再照住做。</b><br>
+  2026-09-06 拍板咗<s>「甲 · 底部導航上面一條 bar」</s>，
+  <b>2026-09-16 Jason 自己推翻咗</b> —— 原話：<b>「細條啲既 bar 放最頂」</b>。<br>
+  ⚠️ 推翻嘅理由（佢原話）：<b>「宜家個版位遮住左新增工程個 fab」</b>。
+  實測 390×844：條 bar 坐喺 <code>y 703–749</code>，加工程個 FAB 坐喺
+  <code>y 684–742</code>，<b>FAB 中心 (343, 713) 撳落去撳到條 bar</b>。<br>
+  ⭐ <b>而家嘅做法⛔ 唔係呢度嗰個「乙 · 頂部」</b>：乙嘅代價係「碌落去就唔見咗」，
+  而真 code 嗰條係<b>釘死喺最頂、⛔ 碌唔走</b>（`ui:check` 有一把尺碌到底再量佢）。<br>
+  ⇒ 其餘四條（②③④⑤）仍然作數。真嘢睇 <code>src/components/PendingBar.tsx</code>。
+</div>
 
 <div class="banner">
   <b>樣板，唔會真係存嘢。</b><br>
@@ -271,10 +284,16 @@
 
   <h2>① 擺喺邊</h2>
   <ul>
-    <li><b>甲 · 底部導航上面一條 bar</b> —— 永遠喺同一個位，換版都仲喺度。碌到邊都見到。<br>
-      代價：食咗畫面最底一條，卡少見咗一行。</li>
+    <li><s><b>甲 · 底部導航上面一條 bar</b> —— 永遠喺同一個位，換版都仲喺度。碌到邊都見到。<br>
+      代價：食咗畫面最底一條，卡少見咗一行。</s><br>
+      <span class="warn">⛔⛔ 2026-09-06 揀咗呢個，<b>2026-09-16 推翻咗</b>：
+      佢<b>唔止「食咗最底一條」，佢仲坐咗喺「加工程」個 FAB 上面</b>，
+      FAB 中心撳唔到。⚠️ 呢個代價當日冇寫出嚟 ——
+      <b>原型上面冇 FAB，所以撞唔到。</b></span></li>
     <li><b>乙 · 頂部</b> —— 開 app 第一眼就見到。<br>
-      <span class="warn">代價：碌落去就唔見咗</span> —— 一單有二十棵樹嗰陣，成日都唔喺畫面入面。</li>
+      <span class="warn">代價：碌落去就唔見咗</span> —— 一單有二十棵樹嗰陣，成日都唔喺畫面入面。<br>
+      ⚠️ <b>2026-09-16 最後做咗嘅嘢⛔ 唔係呢個乙</b>：真 code 嗰條係
+      <b>釘死喺最頂、碌唔走</b>，所以⛔ 冇咗呢個代價。</li>
     <li><b>丙 · 逐張工程卡上面</b> —— 直接話你知係<b>邊一單</b>未傳完。<br>
       代價：<b>唔知總共幾多張</b>。原型入面兩單各有幾張（3 ＋ 2），
       你要自己加埋先知係 5 —— 戴住手套企喺樹下唔會有人加。</li>
