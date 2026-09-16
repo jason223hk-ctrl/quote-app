@@ -49,6 +49,30 @@ README 比冇 README 更差：睇嘅人會以為線上冇嘢，然後放心改�
 - **唔信前端俾嘅檔名** —— 前端只講得出影相編號，講唔到自己係邊個
 - **唔掂 `tree-photos`** —— 只寫 `quote-photos`
 
+## `/rename-tree`（2026-09-16 加，⛔ **未部署**）
+
+改樹牌 ⇒ 連 Drive 舊檔名一齊改（**Jason 2026-08-24 拍板**，`docs/P3f-全app版面-實作計劃.md` §4）。
+
+```
+POST /rename-tree     { "treeId": "…" }      Authorization: Bearer <用家個 token>
+```
+
+- ⛔ **由頭到尾用家自己個 token**（`CLAUDE.md` §2.9）—— ⛔ 冇 `service_role`。
+  ⚠️ 即係話呢條路**淨係喺人仲登住入嗰陣行得**，⛔ 唔可以有 cron 幫手補。
+- ⛔ **唔收呼叫者傳入嚟嘅樹牌** —— 讀返 DB 嗰個新 `tree_no`。
+  ⚠️ 收就會出現「DB 一個名、Drive 另一個名」而兩邊都以為自己啱。
+- ⛔ **冇開新欄、冇 migration。** 「個檔而家叫乜」問 Drive 攞
+  （`fields=name,parents`，一個請求攞埋兩樣）——
+  ⭐ Drive 自己先係真相，一份存喺 DB 嘅副本只會同佢飄開。
+- ⛔ 一次最多 `RENAME_BATCH_MAX`（12）個，改唔晒回 `hitLimit: true`。
+  ⛔ **唔准靜靜咁改一半就報成功。**
+- ⛔ 撞名保護（I7）照行：改之前查 Drive 有冇另一個檔已經叫嗰個名，有就唔改、出聲。
+- ⭐ **重試係安全嘅**：個檔已經叫啱就跳過。
+
+⚠️ **前端仲未接** —— 呢個 endpoint 而家係 inert，⛔ 冇人叫佢。
+P3f §4.6 兩個要出錯嘅位（樹木頁黃橫幅、設定頁診斷）係**新畫面元素**，
+⇒ `CLAUDE.md` §2.11 要原型先行，⛔ 未做。
+
 ## 部署要準備嘅嘢
 
 `[vars]`（唔係 secret，寫喺 `wrangler.toml` 得）：

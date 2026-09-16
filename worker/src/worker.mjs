@@ -17,6 +17,7 @@ import {
   projectFolderName,
   sitePhotoFilename,
 } from './names.mjs'
+import { RENAME_BATCH_MAX, needsRename, renamePlan, renameSummary } from './rename.mjs'
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
@@ -512,6 +513,150 @@ async function mirror(request, env, origin) {
 }
 
 /**
+ * 改樹牌 ⇒ 連 Drive 檔名一齊改（Jason 2026-08-24 拍板，P3f §4）。
+ *
+ * ⛔⛔ **由頭到尾用家自己個 token**（CLAUDE.md §2.9）—— ⛔ 冇 `service_role`。
+ *    ⚠️ 即係話呢條路**淨係喺人仲登住入嗰陣行得**，⛔ 唔可以有 cron 幫手補。
+ *
+ * ⭐ 呼叫嗰邊**要先改好 `quote_trees.tree_no`**，先至叫呢條 —— 呢度讀返 DB
+ *   嗰個**新**樹牌，⛔ 唔收呼叫者傳入嚟嘅名。
+ *   ⚠️ 收就會出現「DB 一個名、Drive 另一個名」而兩邊都以為自己啱。
+ *
+ * ⛔ 一次最多改 `RENAME_BATCH_MAX` 個，改唔晒回 `hitLimit: true`，
+ *    ⛔ 唔准靜靜咁改一半就報成功。
+ */
+async function renameTree(request, env, origin) {
+  const auth = request.headers.get('authorization') || ''
+  if (!auth.startsWith('Bearer ')) return json({ error: 'no token' }, 401, origin)
+  const userToken = auth.slice('Bearer '.length)
+
+  let body
+  try {
+    body = await request.json()
+  } catch {
+    return json({ error: 'bad json' }, 400, origin)
+  }
+  if (!body?.treeId) return json({ error: 'treeId 冇傳' }, 400, origin)
+
+  try {
+    // ⛔ 讀返 DB 嗰個新樹牌，⛔ 唔信呼叫者傳入嚟嘅名。
+    const trees = await pg(env, userToken, `quote_trees?id=eq.${body.treeId}&select=tree_no`)
+    const tree = trees[0]
+    if (!tree) return json({ ok: false, message: '揾唔到呢棵樹，或者你冇權睇。' }, 404, origin)
+
+    const photos = await pg(
+      env,
+      userToken,
+      // ⛔ 冇 `drive_name` 呢個欄（得 drive_file_id / drive_synced_at / drive_error）——
+      //    「而家叫乜」問 Drive 攞，見下面。
+      `quote_photos?tree_id=eq.${body.treeId}&select=id,seq,mitigation,drive_file_id`,
+    )
+
+    const plan = renamePlan(tree.tree_no, photos)
+    const batch = plan.todo.slice(0, RENAME_BATCH_MAX)
+    const hitLimit = plan.todo.length > batch.length
+
+    let renamed = 0
+    let alreadyOk = 0
+    const failed = []
+
+    if (batch.length > 0) {
+      const gtoken = await googleToken(env)
+      for (const item of batch) {
+        try {
+          /* ⭐ 一個請求攞埋「而家叫乜」同「喺邊個資料夾」—— ⛔ 唔使兩個來回。
+             ⚠️ Drive 自己先係「個檔叫乜」嘅真相；DB 冇呢個欄，⛔ 亦唔應該有一份副本。 */
+          const now = await driveNameAndParent(gtoken, item.fileId)
+
+          // ⭐ 已經叫啱 ⇒ ⛔ 唔郁。呢個就係「重試係安全嘅」嗰個保證。
+          if (!needsRename(now?.name ?? null, item.name)) {
+            alreadyOk += 1
+            continue
+          }
+
+          /* ⛔⛔ 撞名保護（I7）—— ⛔ 改名之前一定要查。
+             ⚠️ Drive 容許同名：兩棵樹改到撞埋，兩個檔就會一模一樣名，
+                之後冇人分得開邊個係邊個。⭐ 寧願唔改、出聲等人修。
+             ⚠️ `findNameClash` 會跳過 `quotePhotoId` 等於自己嗰個。 */
+          if (now?.parent) {
+            const clash = await findNameClash(gtoken, item.name, now.parent, item.photoId, null)
+            if (clash) {
+              failed.push({
+                photoId: item.photoId,
+                why: `Drive 度已經有另一個檔叫「${item.name}」，⛔ 唔敢改（改咗兩個檔就同名）。請截圖搵 Jason。`,
+              })
+              continue
+            }
+          }
+
+          await driveRename(gtoken, item.fileId, item.name)
+          renamed += 1
+        } catch (err) {
+          failed.push({ photoId: item.photoId, why: String(err?.message || err) })
+        }
+      }
+    }
+
+    const message = renameSummary({
+      renamed,
+      failed: failed.length,
+      cannot: plan.cannot.length,
+      hitLimit,
+    })
+
+    return json(
+      {
+        // ⛔ 有任何一樣未搞掂就⛔ 唔准回 ok: true —— 呼叫嗰邊靠佢決定出唔出橫幅。
+        ok: failed.length === 0 && plan.cannot.length === 0 && !hitLimit,
+        treeNo: tree.tree_no,
+        renamed,
+        alreadyOk,
+        notMirrored: plan.notMirrored,
+        hitLimit,
+        failed,
+        cannot: plan.cannot,
+        message,
+      },
+      200,
+      origin,
+    )
+  } catch (err) {
+    return json({ ok: false, message: String(err?.message || err) }, 502, origin)
+  }
+}
+
+/**
+ * 一個檔**而家叫乜**、**喺邊個資料夾** —— 一個請求攞晒。
+ *
+ * ⛔ 攞唔到回 `null` ⇒ 上面會**照改**（⛔ 唔當佢已經啱），
+ *    同時**跳過撞名檢查**（⛔ 唔係當佢冇撞，係查唔到）。
+ * ⚠️ 兩邊都揀咗「寧願多做一次」—— ⭐ 改成同一個名冇後果，漏咗一個舊名先係真問題。
+ */
+async function driveNameAndParent(token, fileId) {
+  const res = await fetch(`${DRIVE}/files/${fileId}?fields=name,parents`, {
+    headers: { authorization: `Bearer ${token}` },
+  })
+  if (!res.ok) return null
+  const body = await res.json()
+  const parents = body.parents
+  return {
+    name: body.name ?? null,
+    parent: Array.isArray(parents) && parents.length ? parents[0] : null,
+  }
+}
+
+/** 淨係改個名。⛔ 唔郁 parents、⛔ 唔郁 appProperties（`quotePhotoId` 係認人嘅根據）。 */
+async function driveRename(token, fileId, name) {
+  const res = await fetch(`${DRIVE}/files/${fileId}?fields=id,name`, {
+    method: 'PATCH',
+    headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+    body: JSON.stringify({ name }),
+  })
+  if (!res.ok) throw new Error(`Drive 改名失敗（${res.status}）`)
+  return res.json()
+}
+
+/**
  * 寫返 `quote_photos`。
  *
  * ⛔ 用 `return=representation` 唔用 `return=minimal` ——
@@ -557,6 +702,10 @@ export default {
 
     if (url.pathname === '/read' && request.method === 'POST') {
       return readUrl(request, env, origin)
+    }
+
+    if (url.pathname === '/rename-tree' && request.method === 'POST') {
+      return renameTree(request, env, origin)
     }
 
     if (url.pathname === '/mirror' && request.method === 'POST') {
