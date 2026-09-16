@@ -5,6 +5,8 @@ import {
   MAX_DRIVE_ATTEMPTS,
   pickMirrorBatch,
   PHOTO_STATUS_HINT,
+  photoCanRetry,
+  photoHint,
   PHOTO_STATUS_LABEL,
   createPhotosApi,
   digestMatches,
@@ -149,6 +151,80 @@ describe('狀態文字', () => {
       expect(PHOTO_STATUS_HINT[status]).not.toContain('兩份齊')
     }
     expect(PHOTO_STATUS_LABEL.synced).toContain('兩份齊')
+  })
+})
+
+describe('⛔ 唔准承諾一個我哋量唔到嘅時間（Jason 2026-09-16 第 ① 條）', () => {
+  /* 2026-09-16 真機：同一張卡上面同時寫住「通常幾秒到幾分鐘就得」
+     同「抄唔到去 Drive：Drive 查詢失敗（429）」。⭐ 而 429 可以係
+     「今日額度用晒」—— 嗰種等成日都唔會好。⇒ 嗰句係我哋自己講嘅假話。 */
+  const 時間承諾 = ['幾秒', '幾分鐘', '一陣', '好快', '即刻好', '分鐘就得']
+
+  it('五個狀態嘅提示，一句都唔准出現時間承諾', () => {
+    for (const status of ['local', 'uploading', 'r2', 'synced', 'error'] as const) {
+      for (const 詞 of 時間承諾) {
+        expect(PHOTO_STATUS_HINT[status], `${status} 唔准講「${詞}」`).not.toContain(詞)
+      }
+    }
+  })
+
+  it('四種處境嘅 photoHint()，一句都唔准出現時間承諾', () => {
+    for (const trouble of [
+      { status: 'r2' as const, r2Done: true, hasLocal: true },
+      { status: 'error' as const, r2Done: true, hasLocal: true },
+      { status: 'error' as const, r2Done: false, hasLocal: true },
+      { status: 'error' as const, r2Done: false, hasLocal: false },
+    ]) {
+      for (const 詞 of 時間承諾) {
+        expect(photoHint(trouble), `${JSON.stringify(trouble)} 唔准講「${詞}」`).not.toContain(詞)
+      }
+    }
+  })
+})
+
+describe('⭐ 要講得出「你而家做得到咩」（Jason 2026-09-16 第 ② 條）', () => {
+  it('R2 有份 ＝ 張相安全 —— 兩種情況都要寫明，⛔ 唔可以淨係講 Drive 失敗', () => {
+    expect(photoHint({ status: 'r2', r2Done: true, hasLocal: true })).toContain('⛔ 唔會冇咗')
+    expect(photoHint({ status: 'error', r2Done: true, hasLocal: true })).toContain('⛔ 唔會冇咗')
+  })
+
+  it('⭐ Drive 試夠三次：老實講「做唔到嘢」，⛔ 唔准再叫人撳「再試一次」', () => {
+    const hint = photoHint({ status: 'error', r2Done: true, hasLocal: true })
+    expect(hint).toContain('做唔到嘢')
+    expect(hint).toContain('搵 Jason')
+    // ⛔ 呢個先係重點：粒掣撳落去一個請求都唔發，所以⛔ 唔准叫人撳。
+    expect(hint).not.toContain('再試一次')
+  })
+
+  it('R2 都未上到而部機有份：⭐ 撳「再試一次」真係做到嘢 ⇒ 照叫佢撳', () => {
+    const hint = photoHint({ status: 'error', r2Done: false, hasLocal: true })
+    expect(hint).toContain('再試一次')
+    expect(hint).toContain('唔會影多張相')
+  })
+
+  it('每種處境都要講到張相喺邊，⛔ 唔准淨係話「失敗」', () => {
+    expect(photoHint({ status: 'error', r2Done: false, hasLocal: true })).toContain('仲喺部機')
+    expect(photoHint({ status: 'error', r2Done: false, hasLocal: false })).toContain('呢部機冇')
+  })
+})
+
+describe('⛔ 粒「再試一次」唔准喺一個佢乜都唔做嘅情況下出', () => {
+  it('⭐ Drive 試夠三次 ⇒ ⛔ 唔出 —— runMirror() 嗰陣一個請求都唔會發', () => {
+    expect(photoCanRetry({ status: 'error', r2Done: true, hasLocal: true })).toBe(false)
+  })
+
+  it('R2 都未上到而部機有份 ⇒ 出（佢真係會再上一次）', () => {
+    expect(photoCanRetry({ status: 'error', r2Done: false, hasLocal: true })).toBe(true)
+  })
+
+  it('⛔ 部機冇份 ⇒ ⛔ 唔出（`retry()` 冇 local item 就乜都唔做）', () => {
+    expect(photoCanRetry({ status: 'error', r2Done: false, hasLocal: false })).toBe(false)
+  })
+
+  it('⛔ 唔係 error 嘅狀態一律唔出', () => {
+    for (const status of ['local', 'uploading', 'r2', 'synced'] as const) {
+      expect(photoCanRetry({ status, r2Done: true, hasLocal: true })).toBe(false)
+    }
   })
 })
 
