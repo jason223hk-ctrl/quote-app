@@ -42,28 +42,99 @@ if (!sprite.includes('<symbol id="01_bottom_nav__home_seedling"')) {
 
 const body = read('tools/proto/status-cell.body.html')
 
-/** 原型自己嗰件衫（⛔ 唔改真 app 任何一條規則，全部用 `.pt` / `#app` 前綴）。 */
+/** 原型自己嗰件衫（⛔ 唔改真 app 任何一條規則，全部用 `.frame` / `.pick` / `#app` 前綴）。 */
 const protoCss = `
-/* ── 原型自己嗰條頂帶（⛔ 唔屬於真 app）──────────────────────── */
-/* ⭐ 成版係一條直行：條頂帶 ＋ 個 app 食晒剩返嘅高。
-   ⛔ 唔用「calc(100dvh 減條帶高度)」—— 2026-09-16 實測嗰條 calc 出咗
-      個 app 高 844px（＝底 nav 跌咗出畫面外 108px），而畫面上面完全睇唔出。
-   ⭐ flex 由瀏覽器自己計，⛔ 冇得計錯。 */
-html, body { height: 100%; }
-body { margin: 0; background: var(--q-page-bg); display: flex; flex-direction: column; }
-.pt { flex: 0 0 auto; }
-.pt {
-  position: relative; z-index: 20;
-  padding: calc(8px + env(safe-area-inset-top, 0px)) 14px 8px;
-  background: #1c241d; border-bottom: 1px solid var(--q-line);
-  font-family: var(--q-font-sans); color: var(--q-text-primary);
+/* ══════════════════════════════════════════════════════════════════
+   ⛔⛔⛔ **個機殼高度釘死 727px，⛔ 唔准跟瀏覽器視窗。**
+
+   ⚠️⚠️ **2026-09-16 第一版就係喺呢度死咗一次，⛔ 唔准淨係記住結論：**
+
+   第一版寫咗 \`#app { flex: 1 }\` —— 即係個機殼**跟住視窗高度變**。
+   喺我部量度機（844）睇落一切正常，但 Jason 喺真瀏覽器開條 link，
+   佢個視窗高 **1328**，於是：
+
+     「已報價」chip top   859
+     .bottom-nav   top  1243
+     中間空咗            384px
+
+   ⇒ **張轉狀態卡未撳之前已經完全見到、⛔ 根本冇俾底 nav 遮住。**
+     跟住撳「甲」，個畫面只郁咗大約 8px —— **眼睇唔到**，
+     佢照樣會覺得「撳完冇反應」。
+
+   ⭐⭐ **而佢要驗嗰樣嘢本身就係「高度夠唔夠」** ——
+      個原型跟住視窗變，等於**自己把要驗嘅條件拆咗**。
+      ⚠️ 同上一次「寫咗會捲但冇真係捲」係同一個病嘅另一個版本：
+      **個原型睇落做齊晒嘢，但佢證明唔到任何嘢。**
+
+   ⇒ 727 ＝ Jason 部機實際可見高度。⛔ 呢個數釘死，
+     ⛔ 唔准改成 \`dvh\` / \`vh\` / \`flex: 1\` / \`100%\` 任何一種跟住變嘅寫法。
+   ══════════════════════════════════════════════════════════════════ */
+:root { --frame-h: 727px; }
+
+/* ⛔⛔⛔ **一定要蓋返真 app 嗰兩條，⛔ 唔准當佢哋唔存在。**
+   真 app 個 app.css 寫住：
+       html, body, #root { height: 100dvh }
+       html, body        { overflow: hidden }
+   ⭐ 對真 app 嚟講啱 —— 佢成版唔捲，只有入面個 .float-cards-scroll 捲。
+   ⚠️⚠️ **但呢個原型個機殼下面仲有「揀做法」嗰行**，成版要捲得到。
+      2026-09-16 實測中過：唔蓋返嘅話，\`body\` 變咗一個 727px 高、
+      \`overflow: hidden\` 嘅盒，入面 847px 嘅內容**溢咗出去而且用手指碌唔到**
+      ⇒ **Jason 喺部機上面永遠見唔到甲／乙／丙三粒掣。**
+   ⚠️ 而呢個病用 scrollTop = … 係試唔出嘅（程式碌得郁，手指碌唔郁）——
+      所以 measure-status-cell.mjs 用 **真滾輪** 嚟量。 */
+html, body { margin: 0; background: #060a07; height: auto; overflow: visible; }
+
+.frame {
+  position: relative;
+  width: 100%;
+  max-width: 480px;
+  margin: 0 auto;
+  height: var(--frame-h);   /* ⛔ 釘死。⛔ 唔准用 dvh／vh／%／flex。 */
+  overflow: hidden;
 }
-/* ⛔ 頂部最多兩行字（原型規矩，2026-09-15 定）—— 就係下面兩條。 */
-.pt1, .pt2 { margin: 0; font-size: 12.5px; line-height: 1.45; }
-.pt2 { color: var(--q-text-2); }
-.segs { display: flex; gap: 6px; margin-top: 8px; }
+
+/* ⛔ \`.app--float\` 本身係 \`height: 100dvh\` —— id 蓋過佢，食足個機殼。 */
+#app { height: 100%; }
+
+/* ⭐ 「樣板」四個字擺喺個機殼最頂嗰條**本來就係空**嘅帶入面
+   （\`.bheader\` 上內距 22px，工程名同垃圾桶都由 y=22 先開始）。
+   ⇒ ⛔ 佢冇遮住任何嘢，亦冇把成個殼推低 —— 呢兩樣都會令個殼唔再係真嘢。 */
+.stamp {
+  position: absolute; top: 0; left: 0; right: 0; z-index: 30;
+  height: 20px; line-height: 20px;
+  padding: 0 12px;
+  border: 0; border-radius: 0;
+  background: rgba(179, 93, 74, .92); color: #fff;
+  font-family: var(--q-font-sans); font-size: 11px; font-weight: 700;
+  letter-spacing: .02em; text-align: center;
+}
+
+/* ⛔⛔⛔ **點解條帶要撳得 —— ⛔ 唔准淨係記住結論**
+
+   「揀做法」嗰行喺個機殼**下面**（⛔ 唔准疊上去，疊上去就遮住咗要驗嘅嘢）。
+   ⚠️ 即係喺 Jason 部 727 機上面，佢喺條 fold 下面。
+
+   ⚠️⚠️ **而佢⛔ 碌唔到落去** —— 實測（真滾輪，⛔ 唔係 set scrollTop）：
+   真 app 個 .float-cards-scroll 帶住 \`overscroll-behavior: contain\`
+   （2026-09-13 特登加，為咗擋 Android 下拉整頁 reload）。
+   ⇒ 手指喺卡度向上掃，**掃到個清單見底就停**，⛔ 唔會傳落去成版。
+   實測 window.scrollY 一路都係 0。
+
+   ⭐ 所以⛔ 唔靠掃 —— **撳一下條帶就直接帶佢落去**，撳完揀完自動帶返上嚟。
+   ⛔ 亦⛔ 唔准去改真 app 個 overscroll-behavior 嚟遷就原型。 */
+.stamp u { text-underline-offset: 2px; }
+
+/* ── 揀做法嗰行：⛔ 擺喺個機殼**下面**，⛔ 唔准疊喺個殼上面 ──────
+   ⚠️ 疊上去就會遮住殼入面啲嘢，而「有冇嘢遮住」正正就係今次要驗嘅嘢。 */
+.pick {
+  max-width: 480px; margin: 0 auto; padding: 10px 12px 18px;
+  font-family: var(--q-font-sans); color: var(--q-text-2);
+}
+.pick p { margin: 0 0 8px; font-size: 12.5px; line-height: 1.45; }
+.pick p b { color: var(--q-text-primary); }
+.segs { display: flex; gap: 6px; }
 .segs button {
-  flex: 1; min-height: 44px; padding: 5px 2px;
+  flex: 1; min-height: 46px; padding: 5px 2px;
   display: flex; flex-direction: column; align-items: center; gap: 1px;
   border: 1px solid var(--q-line); border-radius: 12px;
   background: #171e18; color: var(--q-text-2);
@@ -72,9 +143,6 @@ body { margin: 0; background: var(--q-page-bg); display: flex; flex-direction: c
 .segs button small { font-size: 10.5px; font-weight: 500; opacity: .85; }
 .segs button.on { background: var(--q-accent); border-color: var(--q-accent); color: #0f140f; }
 .segs button.bad.on { background: #b35d4a; border-color: #b35d4a; color: #fff; }
-
-/* 個 app 食晒剩返嗰忽，⛔ 唔係嘅話底 nav 會俾推出畫面外（實測中過）。 */
-#app { height: auto; flex: 1 1 auto; min-height: 0; }
 
 /* ⭐ 甲：捲完之後閃一閃，⛔ 唔係為咗靚 —— 係要佢知「你而家喺呢度」。 */
 #statusCard.flash { animation: protoFlash 1.1s ease-out; }
@@ -184,9 +252,18 @@ document.getElementById('chips').addEventListener('click', function (e) {
   document.getElementById('cardNote').textContent = '（' + btn.dataset.s + '）'
 })
 
+/* 撳條紅帶 → 直接帶佢去揀做法嗰行（⛔ 唔靠掃，見 .stamp 上面嗰段）。 */
+document.getElementById('toPick').addEventListener('click', function () {
+  document.querySelector('.pick').scrollIntoView({ behavior: 'smooth', block: 'end' })
+})
+
 document.getElementById('segs').addEventListener('click', function (e) {
   var btn = e.target.closest('button')
-  if (btn) apply(btn.dataset.v)
+  if (!btn) return
+  apply(btn.dataset.v)
+  /* ⭐ 揀完即刻帶佢返上去睇個機殼 —— 粒掣喺個殼下面，⛔ 唔可以疊喺殼上面
+     （疊上去就遮住咗殼入面啲嘢，而「有冇嘢遮住」正正就係今次要驗嘅嘢）。 */
+  window.scrollTo({ top: 0, behavior: 'smooth' })
 })
 
 apply('A')
