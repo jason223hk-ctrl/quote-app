@@ -57,13 +57,105 @@ export const PHOTO_STATUS_LABEL: Record<PhotoStatus, string> = {
 /**
  * ⛔ 唔准靜靜降級：每個狀態都要有一句寫得出嘅中文。
  * 「只喺部機」特登講到明張相仲未安全，唔可以令人以為做完。
+ *
+ * ⚠️⚠️ **`r2` 同 `error` 兩句已經搬咗落 `photoHint()`，⛔ 唔好喺呢度改返。**
+ *    見下面 `photoHint()` 檔頭 —— 一個狀態唔夠講清楚「你而家做得到咩」。
  */
 export const PHOTO_STATUS_HINT: Record<PhotoStatus, string> = {
   local: '仲未上到雲端。唔好清瀏覽器資料，返到有網開一開 app。',
   uploading: '上緊，唔好熄咗個 app。',
-  r2: '雲端有一份，Drive 嗰份補緊。通常幾秒到幾分鐘就得。',
+  r2: '雲端（R2）已經有一份，⛔ 唔會冇咗。Drive 嗰份補緊。',
   synced: '兩份雲端副本齊晒。',
-  error: '上唔到。撳「再試一次」，唔會影多張相。',
+  /* ⚠️ `error` 呢句**⛔ 出唔到畫面** —— `photoHint()` 見到 `error` 一定會行
+     三條分支其中一條。留喺度淨係為咗 `Record<PhotoStatus, string>` 齊整。
+     ⛔ 唔好喺呢度加字期望佢會出 —— 要改就改 `photoHint()`。 */
+  error: '上唔到。',
+}
+
+/**
+ * 一張相而家卡喺邊 —— ⛔ 唔止一個 `status`，因為**同一個 `status` 之下，
+ * 「你而家做得到咩」可以完全唔同**。
+ */
+export type PhotoTrouble = {
+  status: PhotoStatus
+  /** 雲端（R2）嗰份有冇。⭐ 有 ＝ 張相安全咗，⛔ 唔會因為 Drive 抄唔到而冇。 */
+  r2Done: boolean
+  /** **呢部機**仲有冇呢張相嘅 bytes。⛔ 冇就重試唔到（重試要靠部機嗰份）。 */
+  hasLocal: boolean
+}
+
+/**
+ * 出畫面嗰句提示。
+ *
+ * ⭐⭐⭐ **⛔ 兩條硬規矩（Jason 2026-09-16 拍板），⛔ 一條都唔准拆**
+ *
+ * **①** ⛔ **唔准承諾一個我哋量唔到嘅時間。**
+ *
+ * ⚠️ 舊版寫住「Drive 嗰份補緊。**通常幾秒到幾分鐘就得。**」
+ * 2026-09-16 Jason 部真機同一張卡上面**同時**寫住
+ * 「抄唔到去 Drive：Drive 查詢失敗（429）」——
+ * ⭐ 而 429 可以係「今日 Google 額度用晒」，嗰種**等成日都唔會好**。
+ * ⇒ **「幾分鐘就得」嗰句喺嗰一刻係假嘅**，而且係我哋自己講嘅。
+ * ⛔ 我哋根本量唔到要幾耐 ⇒ **就唔好講。**
+ *
+ * **②** **要講得出佢而家做得到咩。⭐ 如果答案係「乜都做唔到，等就得」，
+ *    就老實咁寫出嚟。** 而且**張相喺 R2 安唔安全，一定要寫明** ——
+ *    ⭐ 嗰個先係佢真正想知嘅嘢。
+ *
+ * ⚠️⚠️ **點解要拆開 `r2Done` 同 `hasLocal` —— ⛔ 唔准淨係記住結論**
+ *
+ * 舊版 `error` 得一句「上唔到。撳『再試一次』，唔會影多張相。」，
+ * 但 `error` 底下其實有**兩種完全唔同嘅處境**：
+ *
+ *   · **R2 都未上到**（部機仲有份）⇒ 撳「再試一次」**真係會再上一次**。✅
+ *   · **R2 上咗，Drive 試咗三次都唔得** ⇒ `PhotoSlot` 個 `runMirror()`
+ *     **第一行就會因為 `driveAttempts >= MAX_DRIVE_ATTEMPTS` 直接返**，
+ *     ⛔⛔ **一個請求都唔會發。**
+ *
+ * ⇒ 即係第二種情況之下，**畫面叫佢撳一粒乜都唔會做嘅掣**。
+ * ⭐ 同「撳個狀態格冇反應」係一模一樣嘅病：**粒掣喺度、撳得落、乜都唔發生。**
+ *
+ * ⛔ 所以呢度⛔ 唔可以淨係睇 `status`。
+ */
+export function photoHint(trouble: PhotoTrouble): string {
+  const { status, r2Done, hasLocal } = trouble
+
+  if (status !== 'error') return PHOTO_STATUS_HINT[status]
+
+  // ⭐ R2 有份 ⇒ 卡住嘅係 Drive 嗰份。⛔ 而呢個情況人做唔到嘢。
+  if (r2Done) {
+    return (
+      '⭐ 張相已經安全入咗雲端，⛔ 唔會冇咗 —— 差嘅淨係 Drive 嗰份副本。' +
+      '試咗三次都唔得，⛔ 唔會再自動試。' +
+      '⚠️ 你而家做唔到嘢，請截圖搵 Jason。'
+    )
+  }
+
+  // 連 R2 都未上到，而部機仲有份 ⇒ 撳「再試一次」真係會再上一次。
+  if (hasLocal) {
+    return '上唔到雲端。張相仲喺部機度，⛔ 唔會冇咗。撳「再試一次」——⛔ 唔會影多張相。'
+  }
+
+  /* ⚠️ 連 R2 都未上到，而**呢部機冇份**（喺第二部機影嘅）。
+     ⛔ 今日行唔到呢條路（`saveRow()` 係 R2 上咗之後先寫行，而 `r2_error`
+     由頭到尾冇人寫過非空值）—— ⭐ 但⛔ 唔准因為「行唔到」就出一句錯嘅字：
+     一個將來加嘅路徑會靜靜咁踩中佢，而嗰陣冇人記得呢度。 */
+  return (
+    '上唔到雲端，而呢部機冇呢張相嘅副本（喺第二部機影嘅）。' +
+    '⛔ 喺呢部機做唔到嘢 —— 請喺影嗰部機開一開 app。'
+  )
+}
+
+/**
+ * 「再試一次」粒掣出唔出。
+ *
+ * ⛔⛔ **⛔ 唔准淨係睇 `status === 'error'`。** 見 `photoHint()`：
+ *    Drive 試夠三次嗰種，粒掣撳落去**一個請求都唔會發**。
+ * ⭐ **一粒乜都唔做嘅掣，比冇粒掣更差** —— 人會一路撳一路等，
+ *    而個 app 由頭到尾冇郁過。
+ */
+export function photoCanRetry(trouble: PhotoTrouble): boolean {
+  return trouble.status === 'error' && !trouble.r2Done && trouble.hasLocal
 }
 
 /** R2 檔名。`{用戶id}/{影相編號}.jpg`（`docs/P3-現場影相-設計.md` 第三章）。 */

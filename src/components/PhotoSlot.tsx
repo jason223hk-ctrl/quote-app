@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   MAX_DRIVE_ATTEMPTS,
-  PHOTO_STATUS_HINT,
+  photoCanRetry,
+  photoHint,
   PHOTO_STATUS_LABEL,
   newOperationId,
   pickMirrorBatch,
@@ -56,6 +57,12 @@ type SlotItem = {
   message: string
   thumbUrl: string | null
   capturedAt: string
+  /* ⛔⛔ 下面兩個⛔ 唔可以慳 —— 見 `photos.ts` 個 `photoHint()`：
+     同一個 `status` 之下「你而家做得到咩」可以完全唔同。 */
+  /** 雲端（R2）嗰份有冇。⭐ 有 ＝ 張相安全咗。 */
+  r2Done: boolean
+  /** 呢部機仲有冇呢張相嘅 bytes。⛔ 冇就重試唔到。 */
+  hasLocal: boolean
 }
 
 function mergeItems(
@@ -85,6 +92,9 @@ function mergeItems(
         message: row ? (row.drive_synced_at ? '' : (item.driveError ?? '')) : item.error,
         thumbUrl: null as string | null,
         capturedAt: item.capturedAt,
+        r2Done: row ? row.r2_synced_at !== null : false,
+        // 由本機清單嚟嘅 ⇒ 部機一定仲有份。
+        hasLocal: true,
       }
     })
 
@@ -102,6 +112,9 @@ function mergeItems(
       message: row.r2_error || row.drive_error,
       thumbUrl: null as string | null,
       capturedAt: row.captured_at ?? row.created_at,
+      r2Done: row.r2_synced_at !== null,
+      // ⛔ 呢批係「得 DB 一行，冇本機副本」—— 定義上就係冇。
+      hasLocal: false,
     }))
 
   return [...fromLocal, ...fromRows].sort((a, b) => a.capturedAt.localeCompare(b.capturedAt))
@@ -476,13 +489,16 @@ export default function PhotoSlot({
               )}
               <div className="photo-list__text">
                 <strong className="photo-list__status">{PHOTO_STATUS_LABEL[item.status]}</strong>
-                <span className="photo-list__hint">{PHOTO_STATUS_HINT[item.status]}</span>
+                <span className="photo-list__hint">{photoHint(item)}</span>
                 {item.message && (
                   <span className="photo-list__error" role="alert">
                     {item.message}
                   </span>
                 )}
-                {item.status === 'error' && (
+                {/* ⛔⛔ ⛔ 唔准改返做 `item.status === 'error'` —— 見
+                    `photos.ts` 個 `photoCanRetry()`：Drive 試夠三次嗰種，
+                    粒掣撳落去**一個請求都唔會發**，而畫面就係咁叫咗人白撳。 */}
+                {photoCanRetry(item) && (
                   <button
                     className="button button--secondary button--small"
                     type="button"
