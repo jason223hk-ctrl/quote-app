@@ -287,38 +287,81 @@ const SCREENS = {
        ⇒ 呢度量兩樣：真係 focus 咗「取消」，而且**個 focus 睇得到**。 */
     focusStart: { testid: 'delete-cancel' },
   },
-  /* ⭐⭐ 「未上載 N 張」條 bar。
+  /* ⭐⭐ 「未上載 N 張」條 bar（首頁，條 bar 出住）。
 
-     ⛔⛔ **佢對嘅原型⛔ 唔係 stage57，係另一個檔** —— 呢個位要講清楚：
-     stage57 入面有個 `.upbanner`（大大隻數字，擺喺首頁統計同待報價清單之間），
-     ⚠️ 但嗰個係 **2026-09-01 嘅建議稿**，**已經俾人推翻咗**。
-     真正拍板嗰個係 `docs/原型-未上載計數器.html`（Jason 2026-09-06 撳完四個位置
-     揀咗「甲：底部導航上面一條 bar」）。
-     ⇒ 所以呢個畫面用 `protoFile` 指去嗰個檔。
-     ⛔ **唔准改去對 stage57** —— 對一個已經作廢嘅稿，綠燈同紅燈都冇意思。
+     ⛔⛔⛔ **呢個畫面而家一項對數都冇，⛔ 唔係漏咗 —— 係特登拆走嘅。**
 
-     ⭐ 除咗對數，仲量埋兩條**上線清單第 1 條嘅硬規矩**（`docs/上線清單.md`）：
-       · N 唔係零就⛔ 唔准收埋
-       · ⛔ 唔准有得撳走（冇 ✕、冇「知道喇」、冇「唔好再提」）
-     ⚠️ 呢兩條**冇任何原型對得到**（原型嗰邊都係「冇」）—— 佢哋係絕對要求。 */
+     **點解**：佢本來對 `docs/原型-未上載計數器.html`（Jason 2026-09-06
+     撳完四個位置揀咗「甲：底部導航上面一條 bar」）。
+     ⚠️ **嗰個決定 2026-09-16 俾佢自己推翻咗** ——
+     原話「宜家個版位遮住左新增工程個 fab」，定案「細條啲既 bar 放最頂」。
+     ⇒ 嗰份原型而家係一份**作廢嘅稿**。
+     ⭐ 呢個檔本身寫過嘅規矩：**對一個已經作廢嘅稿，綠燈同紅燈都冇意思。**
+     ⛔ 所以三項對數（成條 bar 位置、入面啲字、「睇同步 ›」）一齊拆走，
+        對數總數由 93 跌返 90。⛔ 唔准偷偷搬去對第二份稿嚟湊返個數。
+
+     ⭐⭐ **拆走三項對數，換返嚟嘅係三條「⛔ 唔使原型都成立」嘅絕對要求：**
+       · ⛔ 唔准有得撳走（`noEscape`，上線清單第 1 條）
+       · 粒掣夠大撳（`minSize` 44px）
+       · **中心點撳到自己**（`centreHit`）—— 就係捉返 FAB 被遮嗰個窿 */
   pending: {
     screen: 'pending',
     query: '',
-    protoFile: path.resolve(HERE, '../../docs/原型-未上載計數器.html'),
-    pairs: [
-      ['成條 bar', '.pending-bar', '#slotBar .cnt', 'nosize', {
-          width:
-            '差 2px，⛔ 唔係版面唔同 —— 係原型嗰個**電話外框自己有 1px 邊**。' +
-            '實測：原型 `.phone` width 390 但 `box-sizing: border-box` ＋ 左右各 1px 邊 ' +
-            '⇒ 入面得 388，減 16×2 padding ＝ 356；真 app 冇呢個框，390 − 16×2 ＝ 358。' +
-            '⭐ 兩邊講嘅係同一件事「畫面闊度減兩邊 16px」。' +
-            '⛔ 唔准靠調大 TOL 嚟做綠 —— 嗰樣會鬆晒成個 90 項對數。',
-        }],
-      ['入面啲字', '.pending-bar__text', '#slotBar .cnt > span', 'font'],
-      ['「睇同步 ›」', '.pending-bar__go', '#slotBar .cnt .go', 'font'],
-    ],
     noEscape: [{ testid: 'pending-bar' }],
     minSize: [{ testid: 'pending-bar', w: 200, h: 44, noLabel: true }],
+    centreHit: [
+      {
+        testid: 'home-add',
+        why:
+          '⛔⛔ 2026-09-16 Jason 真機撞到嗰個窿本身：條 bar 坐咗喺「加工程」FAB 上面。' +
+          '⚠️ 佢中心撳唔到 ＝ 現場同事開唔到新單，而「撳得到」嗰把尺照樣綠。',
+      },
+      /* ⭐ 條 bar 自己都要量：佢搬咗去最頂，⚠️ 瀏海／狀態列會唔會壓返佢？ */
+      { testid: 'pending-bar', why: '條 bar 自己俾人坐住 ⇒ 撳極都入唔到同步頁。' },
+      /* ⛔⛔ 碌到底之後佢仲要喺同一個位 —— 見 `scrollFirst` 上面嗰段。 */
+      {
+        testid: 'pending-bar',
+        scrollFirst: true,
+        why:
+          '⛔⛔ 碌落去就唔見咗 ＝ 偷偷做成咗 2026-09-06 已經否決嘅「乙 · 頂部」，' +
+          '而且踩爛上線清單第 1 條「畫面永遠見到『未上載 N 張』」。',
+      },
+      /* ⭐ 首頁三個數字掣 2026-09-14 中過一次「成個捲動區蓋咗上面」。 */
+      { testid: 'stat-pending', why: '首頁三個數字掣 2026-09-14 俾捲動層蓋過一次。' },
+      /* ⛔ 唔係掣，但一樣唔准俾人坐住 —— 條 bar 搬咗去最頂，佢隔籬就係品牌字。 */
+      { sel: '.hmark', why: '條 bar 搬咗最頂，⚠️ 一疊落去就會坐喺品牌字上面。' },
+    ],
+  },
+
+  /* ⭐⭐ **條 bar ＋ 波浪 header 一齊出。**
+
+     ⛔⛔ **點解要多開一個畫面 —— ⛔ 唔准淨係記住結論**
+
+     條 bar 由「底 nav 上面」搬去「最頂」，⚠️ **等於由一個窿搬去另一個窿旁邊**：
+     底部嗰邊有 FAB，頂部嗰邊有**返回掣、頁面標題、user pill、垃圾桶**。
+     實測（390×844）頂部頭 64px 從來都唔係空嘅：
+
+     ```
+     首頁         .hmark（品牌字）      top 22  h 49
+     工程詳情     .head-trash（垃圾桶） top 22  h 44   ← 一粒真·刪嘢掣
+     工程列表     .page-title ＋ user pill
+     ```
+
+     ⇒ 所以⛔ 唔可以淨係量首頁。呢個畫面用**工程詳情 ＋ 最長嗰個真工程名**，
+       量粒垃圾桶同粒返回掣嘅中心 —— ⭐ 兩粒入面有一粒係**冇得反悔**嘅動作。 */
+  pendinghub: {
+    screen: 'pendinghub',
+    query: '',
+    noEscape: [{ testid: 'pending-bar' }],
+    centreHit: [
+      {
+        testid: 'hub-delete',
+        why: '⛔⛔ 粒垃圾桶俾條 bar 坐住 ＝ 刪唔到工程，而且睇落好似個 app 壞咗。',
+      },
+      { testid: 'pending-bar', why: '條 bar 自己俾人坐住 ⇒ 撳極都入唔到同步頁。' },
+      { sel: '.chip-btn', why: '返回掣俾條 bar 坐住 ＝ 出唔返去，戴住手套更加試唔到第二下。' },
+      { sel: '.head-name', why: '工程名俾條 bar 坐住 ＝ 唔知自己開緊邊一單。' },
+    ],
   },
 
   /* ⭐⭐ 工程名長到爆嗰張卡 —— 量嘅係**兩件嘢有冇疊埋**。
@@ -697,6 +740,9 @@ let overlapBad = 0
 /** 「打完字存唔到要出聲」嗰組。 */
 let typedChecked = 0
 let typedBad = 0
+/** 「中心點撳到自己」嗰組 —— ⛔ 同上面「撳得到」係兩把唔同嘅尺，見下面。 */
+let centreChecked = 0
+let centreBad = 0
 
 /** 「撳完⛔ 唔變藍」同「鍵盤仲睇得到」嗰組。 */
 let blueChecked = 0
@@ -1102,6 +1148,88 @@ for (const [name, spec] of Object.entries(SCREENS)) {
     }
   }
 
+  /* ── ⛔ 粒掣個**正中央**撳唔撳到佢自己？ ───────────────────────
+
+     ⛔⛔ **點解要多一把尺 —— ⛔ 唔准淨係記住結論**
+
+     2026-09-16 Jason 真機報料：「宜家個版位遮住左新增工程個 fab」。
+     嗰陣 `ui:check` 係**全綠**嘅 —— 「撳得到」嗰把尺量咗 179 粒掣、撳唔到 0 粒。
+
+     實測返去先知點解（390×844）：
+
+     ```
+     「未上載 N 張」bar   y 703 – 749
+     「加工程」FAB        y 684 – 742      中心 (343, 713)
+     elementFromPoint(343, 713) → pending-bar   ⛔ 唔係 FAB
+     ```
+
+     ⭐ 即係話 **FAB 上面三分二俾遮咗，中心點根本撳唔到佢**，
+        但「撳得到」嗰把尺係「**撒 5×5 點，有一點通就算數**」——
+        FAB 下面兩隻角仲露住 ⇒ **佢照綠**。
+
+     ⚠️⚠️ 嗰個「有一點通就算」⛔ **唔係寫錯，係特登嘅**（見 `HIT_GRID` 上面嗰段）：
+        要求 25 點全通會出一大堆假紅，跟住冇人再理佢。
+     ⇒ 所以⛔ **唔准去改嗰把尺**。正解係**另開一把窄啲、但嚴得多**嘅：
+        **指名幾粒最緊要嘅掣，佢哋嘅正中央一定要打到自己。**
+
+     ⭐ 點解係「中心」：人撳嘢係向住個中心撳嘅。一粒掣四隻角露住、
+        中間俾人坐住，喺用嘅人嚟講就係**撳極都冇反應**。 */
+  for (const one of spec.centreHit ?? []) {
+    centreChecked += 1
+    const r = await real.evaluate(([sel, scrollFirst]) => {
+      /* ⭐ `scrollFirst` ＝ 先把某個捲動區碌到底，再量。
+         ⛔⛔ 呢個⛔ 唔係「順手加」：2026-09-06 個原型入面，「乙 · 頂部」
+         嗰個選擇嘅**明文代價**就係「碌落去就唔見咗」，而 Jason 嗰陣
+         **正正因為呢個代價唔揀乙**。2026-09-16 佢叫「放最頂」——
+         ⚠️ 如果做成「跟住內容一齊碌走」，就等於偷偷幫佢揀返嗰個
+         佢已經否決咗嘅乙，**而且踩爛上線清單第 1 條「畫面永遠見到」**。
+         ⇒ 所以要有一把尺，碌到底之後再量佢仲喺唔喺原位。 */
+      if (scrollFirst) {
+        /* ⛔⛔ **碌哂所有碌得到嘅嘢**，⛔ 唔係淨係碌一個指定嘅容器。
+           ⚠️ 「條 bar 跟住碌走」唔止一種壞法：跟成版碌、跟 `.hmain` 碌、
+              跟 `.float-cards-scroll` 碌、跟一個將來先出現嘅容器碌。
+           ⭐ 指名一個 ⇒ 其餘全部走得甩，而把尺會綠住畀人睇。
+              ⇒ 所以呢度掃晒，⛔ 唔准縮返做一個 selector。 */
+        window.scrollTo(0, 1e6)
+        for (const box of document.querySelectorAll('*')) {
+          if (box.scrollHeight > box.clientHeight) box.scrollTop = box.scrollHeight
+        }
+      }
+      const el = document.querySelector(sel)
+      if (!el) return null
+      const b = el.getBoundingClientRect()
+      const x = b.left + b.width / 2
+      const y = b.top + b.height / 2
+      const hit = document.elementFromPoint(x, y)
+      const name = (node) =>
+        node === null
+          ? 'null'
+          : (node.closest('[data-testid]')?.getAttribute('data-testid') ??
+            (typeof node.className === 'string' && node.className !== ''
+              ? node.className
+              : node.tagName.toLowerCase()))
+      return {
+        x: Math.round(x),
+        y: Math.round(y),
+        ok: hit !== null && (el === hit || el.contains(hit)),
+        blocker: name(hit),
+      }
+    /* ⭐ `testid` 係常用嗰個寫法；`sel` 係俾**唔係掣**嘅嘢用嘅
+       （品牌字、頁面標題嗰啲冇 testid，但一樣⛔ 唔准俾人坐住）。 */
+    }, [one.testid ? `[data-testid="${one.testid}"]` : one.sel, one.scrollFirst ?? null])
+    const who = (one.testid ?? one.sel) + (one.scrollFirst ? '（碌到底之後）' : '')
+    if (r === null) {
+      centreBad += 1
+      console.log(`  ✗ [${who}] 揾唔到 —— ⛔ 量唔到就當唔合格`)
+    } else if (!r.ok) {
+      centreBad += 1
+      console.log(`  ✗ ⛔⛔ [${who}] 個中心 (${r.x}, ${r.y}) 撳落去打中「${r.blocker}」`)
+      console.log(`      ⚠️ ${one.why ?? '個正中央俾人坐住 ⇒ 用嘅人淨係覺得「撳極冇反應」。'}`)
+    } else {
+      console.log(`  ✓ [${who}] 個中心 (${r.x}, ${r.y}) 打中自己`)
+    }
+  }
+
   /* ── 數唔到就鎖住？ ────────────────────────────────────────────
      ⛔⛔ 兩樣一齊要，⛔ 唔可以淨係一樣：
        ① 粒危險掣真係 `disabled`（⛔ 唔係「睇落灰灰哋」）
@@ -1208,6 +1336,7 @@ console.log(`粒掣夠大撳：量咗 ${sizeChecked} 粒，唔夠 ${sizeBad} 粒
 console.log(`撳完⛔ 唔變藍 ＋ 鍵盤仲睇得到：量咗 ${blueChecked} 項，唔啱 ${blueBad} 項。`)
 console.log(`打完字存唔到要出聲：量咗 ${typedChecked} 格，冇聲 ${typedBad} 格。`)
 console.log(`⛔ 冇得撳走：量咗 ${escapeChecked} 件，走得甩 ${escapeBad} 件。`)
+console.log(`中心點撳到自己：量咗 ${centreChecked} 粒掣，中心撳唔到 ${centreBad} 粒。`)
 
 if (SELF_TEST) {
   console.log('\n──── 自我測試 ────')
@@ -1231,7 +1360,8 @@ process.exit(
     sizeBad === 0 &&
     blueBad === 0 &&
     escapeBad === 0 &&
-    typedBad === 0
+    typedBad === 0 &&
+    centreBad === 0
     ? 0
     : 1,
 )

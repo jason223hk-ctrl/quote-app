@@ -238,6 +238,21 @@ const body =
       swipeDelete={fx.swipeDelete}
       nav={fx.nav}
     />
+  ) : screen === 'pendinghub' ? (
+    /* ⭐⭐ **條 bar ＋ 波浪 header 一齊出。**
+       ⚠️ 條 bar 由底搬去頂，頂部本來就唔係空嘅：返回掣、工程名、粒垃圾桶。
+       ⛔ 用最長嗰個真工程名 —— 短名唔會逼到 header 換行，試唔出真嘢。 */
+    <RecordHubScreen
+      api={fx.trees}
+      siteFormApi={fx.siteFormApi}
+      priceApi={fx.priceApi}
+      photosApi={fx.photosApi}
+      record={fx.LONG_NAME_RECORD}
+      canEditMarkup
+      onMarkupSave={async () => {}}
+      swipeDelete={fx.swipeDelete}
+      nav={fx.nav}
+    />
   ) : screen.startsWith('pending') ? (
     /* ⭐ 條 bar 疊喺內容上面，所以要有真內容先量得到「有冇遮住最後一張卡」。
        ⛔ 用返真嘅首頁，⛔ 唔係一個空殼。 */
@@ -250,9 +265,8 @@ createRoot(document.getElementById('root')!).render(
   <>
     <IconSprite />
     <div className="app app--float">
-      {body}
-      {/* ⭐⭐ 「未上載 N 張」條 bar。**⛔ 照返真 app 嘅位置：`.app--float` 入面、
-          底 nav 嘅兄弟** —— 佢要度返 nav 實際幾高再擺高自己，
+      {/* ⭐⭐ 「未上載 N 張」條 bar。**⛔ 照返真 app 嘅位置：`.app--float` 入面
+          第一個仔**（見 `HomePage`）—— 佢要度返自己實際幾高寫落 `--pending-top`，
           ⚠️ 唔擺喺同一個 parent 就度唔到，而把尺就會量緊一條浮咗喺第二度嘅 bar。
           ⛔ 只喺 `?screen=pending…` 出，⚠️ 唔係就每一版都多咗一條，
              成個 90 項對數即刻走晒位。 */}
@@ -262,6 +276,7 @@ createRoot(document.getElementById('root')!).render(
           sample={{ count: 3, celebrating: params.get('done') === '1' }}
         />
       )}
+      {body}
       <BottomNav
         active={
           screen === 'price' || screen === 'settings'

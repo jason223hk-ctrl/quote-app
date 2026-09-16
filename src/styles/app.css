@@ -318,13 +318,17 @@ button {
 .float-cards-scroll {
   position: absolute;
   inset: 0;
+  /* ⚠️ 條「未上載 N 張」bar 係 flex 仔，⛔ 但呢層係 absolute —— 佢唔識自己讓位。
+     ⭐ `--pending-top` 由 `PendingBar` 度返實際高度寫落 `.app--float`；
+        冇條 bar 嗰陣係 `0px` ⇒ **計出嚟同以前一個 px 都唔差**。 */
+  top: var(--pending-top, 0px);
   z-index: 2;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
   gap: 14px;
   padding: calc(var(--wave-line) + var(--pill-h, 56px) + 14px) 16px
-    calc(var(--nav-clear, 26px) + 82px + var(--pending-extra, 0px));
+    calc(var(--nav-clear, 26px) + 82px);
   -webkit-mask-image: linear-gradient(
     to bottom,
     transparent calc(var(--wave-line) - 40px),
@@ -348,7 +352,8 @@ button {
 
 .float-pills-layer {
   position: absolute;
-  top: var(--wave-line);
+  /* ⚠️ 同 `.float-cards-scroll` 一樣係 absolute ⇒ 一樣要讓返條 bar。 */
+  top: calc(var(--wave-line) + var(--pending-top, 0px));
   left: 0;
   right: 0;
   z-index: 4;
@@ -2442,10 +2447,7 @@ h3 {
   gap: 12px;
   /* 底部要讓返 nav（69+16）＋ 儲存掣（58+12）＋ 呼吸位。 */
   padding: 6px 18px
-    calc(
-      69px + 16px + 12px + 58px + 14px + env(safe-area-inset-bottom, 0px) +
-        var(--pending-extra, 0px)
-    );
+    calc(69px + 16px + 12px + 58px + 14px + env(safe-area-inset-bottom, 0px));
   mask-image: none;
   -webkit-mask-image: none;
 }
@@ -3058,38 +3060,52 @@ h3 {
 }
 
 /* ── 「未上載 N 張」（`docs/上線清單.md` 第 1 條第 2 項）────────────
-   Jason 2026-09-06 睇完原型 `public/proto-pending-count.html` 拍板：
-   釘喺底部導航上面、撳得（去同步頁）、到零變綠停兩秒、⛔ 冇網唔變樣。
 
-   ⛔⛔ 呢度**冇加任何一條蓋過 `.bottom-nav` 嘅規則** —— 條 nav 嘅位置、
-      內距、圓角、陰影一個字都冇郁。條 bar 係疊上去嘅一層，
-      ⚠️ 咁樣 `ui:check` 對 nav 嗰批數先會維持原樣。
+   ⛔⛔ **2026-09-06 嗰個「甲：底部導航上面一條 bar」已經俾 Jason 喺
+      2026-09-16 推翻咗**（原話：「細條啲既 bar 放最頂」）。⛔ 唔准照返舊嗰行。
 
-   ⭐ `--pending-bar-lift` ＝ nav 條 bar 實際幾高（由 JS 度返，見 `PendingBar`
-      掛住嘅容器）。⛔ 唔寫死一個數 —— nav 高度改過三次，每次寫死都會漏改。 */
+   ⚠️⚠️ **點解要推翻 —— ⛔ 唔准淨係記住結論**
+   釘喺底 nav 上面嗰陣，條 bar 實測坐喺 `y 703–749`，而「加工程」個 FAB
+   坐喺 `y 684–742` —— **FAB 嘅中心點 (343, 713) `elementFromPoint` 打落去
+   打中嘅係 `pending-bar`，⛔ 唔係 FAB 本人**。即係戴住手套嗰個人
+   **撳個 FAB 個正中央，撳到嘅係條 bar，跳咗去同步頁**。
+   ⭐ 而嗰陣 `ui:check` 係全綠嘅 —— 因為「撳得到」嗰把尺係「25 點有一點通就算」,
+      FAB 四隻角仲露住，所以佢照綠。⇒ 見 `measure.mjs` 新嗰把 `centreHit`。
+
+   ⭐⭐ **而家嘅做法：條 bar 係 `.app--float` 嘅第一個 flex 仔，⛔ 唔再浮喺上面。**
+      佢佔返自己嗰條位，下面所有嘢順住落 —— **所以佢冇可能壓住任何嘢**，
+      ⛔ 唔使再靠「留返一段 padding」嚟閃避（舊嗰個 `--pending-extra` 已經拆咗）。
+      ⚠️ 但 `.float-cards-scroll` / `.float-pills-layer` 係 `position:absolute`，
+         **佢哋唔識跟 flex 仔落去** ⇒ 要靠 `--pending-top`（由 `PendingBar`
+         度返自己實際幾高）推佢哋落嚟。⛔ 唔准寫死一個數。 */
 .pending-bar {
-  position: absolute;
-  left: 16px;
-  right: 16px;
-  bottom: calc(16px + env(safe-area-inset-bottom, 0px) + var(--pending-bar-lift, 79px));
+  position: relative;
   z-index: 6;
+  flex: 0 0 auto;
 
   display: flex;
   align-items: center;
   gap: 10px;
-  width: auto;
+  width: 100%;
   margin: 0;
-  padding: 11px 14px;
-  border: 1px solid rgba(240, 225, 180, 0.5);
-  border-radius: 14px;
+  /* ⚠️ 上邊要加返 `safe-area-inset-top` —— ⛔ 唔加就會匿咗喺瀏海／狀態列下面。
+     ⭐ 13 / 13 係「盡量細條」同「粒掣至少 44px 高」兩者之間嘅底線：
+        再細落去就跌穿 `measure.mjs` 個 `minSize`（粒掣夠大撳）。
+        ⛔ 想再細，⛔ 唔准調嗰把尺 —— 要先問 Jason 拆唔拆咗粒掣。 */
+  padding: calc(13px + env(safe-area-inset-top, 0px)) 16px 13px;
+  /* ⛔ 冇圓角、冇陰影、左右頂到邊 —— 「細條啲」就係靠呢三樣，
+     ⛔ 唔係靠減高度減到跌穿 44px。 */
+  border: 0;
+  border-bottom: 1px solid rgba(240, 225, 180, 0.5);
+  border-radius: 0;
   /* ⭐ 用返 --q-incomplete（#b68a45）嗰個色系 ——「要人知、但唔係出錯」
      全 app 就係呢隻色。⛔ 唔係另揀一隻金。 */
   background: linear-gradient(160deg, #c29a4e, #8e6b34);
-  box-shadow: 0 10px 24px -12px rgba(0, 0, 0, 0.6);
   color: #0d120e;
   font: inherit;
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 650;
+  line-height: 1.25;
   text-align: left;
   cursor: pointer;
 }
@@ -3111,24 +3127,17 @@ h3 {
   white-space: nowrap;
 }
 
+/* ⚠️ 舊嗰個 `transform: scale(.99)` 喺「浮起嘅圓角卡」度好睇，
+   ⛔ 但條 bar 而家係**左右頂到邊嘅一條**：縮細 1% ＝ 兩邊各露一條底色出嚟，
+   睇落好似成條 bar 甩咗開。⇒ 改為撳落去**沉色**，⭐ 一樣有反應，⛔ 唔會甩位。
+   ⛔ 呢個⛔ 唔係「藍底」——係我哋自己隻金沉一級（Jason 2026-09-15 嗰條只禁藍）。 */
 .pending-bar:active {
-  transform: scale(0.99);
+  background: linear-gradient(160deg, #a8853f, #77592a);
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .pending-bar:active {
-    transform: none;
-  }
-}
-
-/* ⚠️ 條「未上載 N 張」出現嗰陣，捲動區底部要讓返佢嗰個高度，
-   ⛔ 否則最後一張卡會匿咗喺條 bar 後面，戴住手套點都撳唔到。
-
-   ⭐ 做法：`--pending-extra` 由 `PendingBar` 度返實際高度再寫落 `.app--float`。
-   ⛔ 冇條 bar 嗰陣佢係 `0px` —— 即係**計出嚟同以前一個 px 都唔差**，
-      所以 `ui:check` 嗰 90 項唔會郁（已實測：仍然 0 項對唔上）。
-   ⛔ 唔喺各處 padding 度寫死一個新數：三個變體各有一條自己嘅 calc，
-      寫死就一定有一條漏改。 */
+/* ⛔⛔ 舊嗰個 `--pending-extra`（捲動區**底部**讓返條 bar）已經拆咗 ——
+   條 bar 2026-09-16 搬咗去最頂，底部根本冇嘢要讓。
+   ⚠️ 見唔到佢唔係漏改，係特登拎走咗；讓位而家喺 `--pending-top`。 */
 
 /* ⛔⛔ 擋走瀏覽器自己嗰個「下拉整頁 reload」。
    ⚠️ Android Chrome 喺 scrollTop 0 再向下拉會自己 reload 成版 ——
