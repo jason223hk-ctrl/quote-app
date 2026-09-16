@@ -21,8 +21,24 @@ const GAP = 10
  *     撳落去嘅唯一結果係**去同步頁**，⛔ 唔會令佢消失。
  *     個數要跌，⭐ 只有一個方法：張相真係上到。
  */
-export default function PendingBar({ onOpenSync }: { onOpenSync: () => void }) {
-  const { count, celebrating } = usePendingCount()
+export default function PendingBar({
+  onOpenSync,
+  sample,
+}: {
+  onOpenSync: () => void
+  /**
+   * 對數個殼餵入嚟嘅定死數字。**⛔ 真 app 永遠唔傳呢個。**
+   *
+   * ⭐ 點解要開呢個窿：條 bar 個數由 IndexedDB 嚟，而 `ui:check` 個殼冇資料
+   *    ⇒ 唔傳就永遠係零、永遠唔出，**把尺等於量緊一個唔存在嘅嘢**。
+   * ⚠️ 做法跟返 `DeleteRecordDialog` 個 `listLocal` —— ⛔ 唔係俾人換一條
+   *    第二嘅讀取路，淨係為咗餵一批定死嘅資料入嚟量。
+   */
+  sample?: { count: number; celebrating: boolean }
+}) {
+  // ⛔ hook 唔准有條件咁行 —— 所以照 call，之後先揀用邊個。
+  const live = usePendingCount()
+  const { count, celebrating } = sample ?? live
   const barRef = useRef<HTMLElement | null>(null)
 
   /**
