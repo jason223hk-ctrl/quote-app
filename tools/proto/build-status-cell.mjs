@@ -22,6 +22,7 @@
  *    原型係「攞嚟拍板」嘅嘢，拍完板就完，⛔ 唔使維持同步。
  *    要重砌：`node tools/proto/build-status-cell.mjs`
  */
+import crypto from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
 
@@ -301,5 +302,31 @@ apply('A')
 </html>
 `
 
-fs.writeFileSync(path.join(ROOT, 'public/proto-status-cell.html'), html)
-console.log('寫咗 public/proto-status-cell.html', (html.length / 1024).toFixed(1), 'KB')
+/*
+ * ⭐⭐⭐ **版本指紋 —— ⛔ 唔准拆走，呢段解釋點解**
+ *
+ * **2026-09-16 中過**：我 push 咗個修（`1d659ac`），Cloudflare Pages
+ * **完全冇 build 過**（條 GitHub comment 停咗喺上一個 commit `ee352de`，
+ * 14:41:53Z 之後再冇郁）。⇒ **條 preview link 派緊嘅仍然係舊嗰份。**
+ *
+ * ⚠️⚠️ **而舊嗰份喺對方部機上面，症狀正正就係「撳完冇反應」** ——
+ * 即係話：如果我照咁交條 link 出去叫人撳，**佢會撳到舊嗰份、見到個病、
+ * 然後拍板話呢個做法唔得**。⭐ **一個錯嘅理由，一個可能錯嘅決定。**
+ *
+ * ⭐ **「push 咗」⛔ 唔等於「條 link 派緊新嗰份」。** 呢個係
+ * 「Merged badge ≠ 上咗線」嗰條嘅孫。
+ *
+ * ⇒ 所以個原型**自己帶住一個指紋**，印喺最頂條紅帶度：
+ *   · 內容一改，指紋就變（sha256 頭 7 位）
+ *   · **⭐ 用眼就對得到** —— ⛔ 唔使 grep、⛔ 唔使識睇 code，
+ *     Jason 自己都對得返
+ * ⛔ ⛔ 唔用 git SHA：呢個檔係**先砌好、後 commit** 嘅，
+ *    砌嗰陣攞到嘅 SHA 係上一個 commit，對起上嚟只會更亂。
+ */
+const stamp = crypto.createHash('sha256').update(html).digest('hex').slice(0, 7)
+const stamped = html.replace('＿＿＿＿＿＿＿', stamp)
+if (stamped === html) throw new Error('⛔ 指紋位置唔見咗 —— body 檔改壞咗，⛔ 唔准夾硬出檔。')
+
+fs.writeFileSync(path.join(ROOT, 'public/proto-status-cell.html'), stamped)
+console.log('寫咗 public/proto-status-cell.html', (stamped.length / 1024).toFixed(1), 'KB')
+console.log('⭐ 版本指紋:', stamp, '—— 交 link 出去之前，要喺條 link 上面見到呢七個字')
