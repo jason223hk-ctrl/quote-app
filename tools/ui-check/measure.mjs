@@ -1370,18 +1370,82 @@ for (const [name, spec] of Object.entries(SCREENS)) {
     }
   }
 
-  /* ── ⭐ 撳唔到嗰粒，睇落同撳得嗰粒唔同嗎？ ─────────────────────── */
+  /* ── ⭐ 撳唔到嗰粒，睇落真係**暗過**撳得嗰粒嗎？ ───────────────
+
+     ⛔⛔ **點解要「暗過」，⛔ 唔係「唔同」—— 唔准淨係記住結論**
+
+     2026-09-17 第一版呢把尺淨係問「兩隻色同唔同」。
+     ⚠️ 咁樣**一個將 disabled 改到更光、更醒目嘅改動會照樣全綠** ——
+     而嗰種掣**同樣令人分唔出邊粒撳得**，甚至更差（最搶眼嗰粒就係撳唔到嗰粒）。
+
+     ⭐ 同「擋得太少／擋得太多」（`mustLock` ↔ `canStillPick`）係同一個道理：
+     **一把冇方向嘅尺，兩邊都守唔到。**
+
+     ⇒ 所以要量**對比度**，⛔ 唔係量「色碼一唔一樣」：
+       ① 撳唔到嗰粒嘅字**對比度要低過**撳得嗰粒；
+       ② 而且要**低得夠明顯** —— 見下面 `MIN_DIM` 點解係 1.3。
+
+     ⚠️ 量對比度要**同真係畫出嚟嗰隻底色**比，⛔ 唔係同 `background-color` 比：
+       · 粒掣自己可能係 `transparent`，要一路行上去揾第一個唔透明嘅祖先；
+       · 字色可以係 `rgba(…, 0.38)`（我哋而家就係），**要先疊落底色**先算得準。
+       ⛔ 唔疊 alpha 就會當咗 `rgba(241,235,221,0.38)` 係全白 —— 差成三倍。 */
+
+  /* ⭐ 1.3 唔係由而家份 code 度度返嚟嘅 —— ⛔ 唔准為咗就 code 而改佢。
+     佢係一個**睇得出**嘅門檻：WCAG 由「大字合格」(3:1) 去到「正常字合格」(4.5:1)
+     就係 1.5 倍，而現場係戴住手套、太陽底下、螢幕有手指印 ——
+     所以要求至少 1.3 倍，已經係就住咗嘅下限，⛔ 唔係嚴。 */
+  const MIN_DIM = 1.3
   for (const one of spec.disabledLooksDisabled ?? []) {
     lockChecked += 1
     const r = await real.evaluate((scope) => {
+      const parse = (css) => {
+        const m = String(css).match(/[\d.]+/g)
+        if (!m) return null
+        return { r: +m[0], g: +m[1], b: +m[2], a: m.length > 3 ? +m[3] : 1 }
+      }
+      /* 一路行上去，揾第一個真係畫到嘢出嚟嘅底色。 */
+      const paintedBg = (el) => {
+        let node = el
+        while (node) {
+          const c = parse(getComputedStyle(node).backgroundColor)
+          if (c && c.a === 1) return c
+          node = node.parentElement
+        }
+        return { r: 255, g: 255, b: 255, a: 1 }
+      }
+      const over = (fg, bg) => ({
+        r: fg.r * fg.a + bg.r * (1 - fg.a),
+        g: fg.g * fg.a + bg.g * (1 - fg.a),
+        b: fg.b * fg.a + bg.b * (1 - fg.a),
+        a: 1,
+      })
+      const lum = (c) => {
+        const f = (v) => {
+          const x = v / 255
+          return x <= 0.03928 ? x / 12.92 : Math.pow((x + 0.055) / 1.055, 2.4)
+        }
+        return 0.2126 * f(c.r) + 0.7152 * f(c.g) + 0.0722 * f(c.b)
+      }
+      const ratio = (el) => {
+        const bg = paintedBg(el)
+        const own = parse(getComputedStyle(el).backgroundColor)
+        const seat = own && own.a > 0 ? over(own, bg) : bg
+        const ink = over(parse(getComputedStyle(el).color), seat)
+        const a = lum(ink)
+        const b = lum(seat)
+        return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05)
+      }
       const all = [...document.querySelectorAll(`${scope} button`)]
       const off = all.find((b) => b.disabled)
       const on = all.find((b) => !b.disabled)
       if (!off || !on) return null
       return {
         offText: (off.textContent ?? '').trim().slice(0, 12),
+        onText: (on.textContent ?? '').trim().slice(0, 12),
         offColor: getComputedStyle(off).color,
         onColor: getComputedStyle(on).color,
+        offRatio: Math.round(ratio(off) * 100) / 100,
+        onRatio: Math.round(ratio(on) * 100) / 100,
       }
     }, one.scope)
     if (r === null) {
@@ -1391,8 +1455,25 @@ for (const [name, spec] of Object.entries(SCREENS)) {
       lockBad += 1
       console.log(`  ✗ ⛔⛔ [${one.scope}] 「${r.offText}」撳唔到，但個色同撳得嗰粒一樣（${r.offColor}）`)
       console.log('      ⚠️ 一粒撳唔到嘅掣睇落同撳得嘅一樣 ⇒ 人會一路撳一路以為個 app 壞咗。')
+    } else if (r.offRatio >= r.onRatio) {
+      lockBad += 1
+      console.log(
+        `  ✗ ⛔⛔ [${one.scope}] 「${r.offText}」撳唔到，但佢**搶眼過**撳得嗰粒` +
+          `（對比度 ${r.offRatio} vs 「${r.onText}」${r.onRatio}）`,
+      )
+      console.log('      ⚠️ 最搶眼嗰粒就係撳唔到嗰粒 ⇒ 人一定會先撳佢。')
+    } else if (r.onRatio / r.offRatio < MIN_DIM) {
+      lockBad += 1
+      console.log(
+        `  ✗ ⛔⛔ [${one.scope}] 「${r.offText}」暗過「${r.onText}」，但⛔ 唔夠明顯` +
+          `（對比度 ${r.offRatio} vs ${r.onRatio}，得 ${Math.round((r.onRatio / r.offRatio) * 100) / 100} 倍，要 ${MIN_DIM} 倍）`,
+      )
+      console.log('      ⚠️ 戴住手套、太陽底下，差咁少睇唔出。')
     } else {
-      console.log(`  ✓ [${one.scope}] 「${r.offText}」撳唔到，個色同撳得嗰粒唔同（${r.offColor} vs ${r.onColor}）`)
+      console.log(
+        `  ✓ [${one.scope}] 「${r.offText}」撳唔到，而且暗過「${r.onText}」` +
+          `（對比度 ${r.offRatio} vs ${r.onRatio}，暗咗 ${Math.round((r.onRatio / r.offRatio) * 100) / 100} 倍）`,
+      )
     }
   }
 

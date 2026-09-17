@@ -31,6 +31,7 @@ export default defineConfig({
     environment: 'node',
     // Worker 嗰邊嘅純函數（檔名規則）都要測 —— 佢係 .mjs，唔喺 src/ 入面。
     // ⚠️ 呢一行淨係屬於呢條 branch。`main` 冇 worker/，所以 main 唔應該有佢。
-    include: ['src/**/*.test.ts', 'worker/**/*.test.mjs'],
+    // 書面語掃描器嘅純函數測試 —— 佢自己就係一把尺，⛔ 佢寫錯咗冇人會知。
+    include: ['src/**/*.test.ts', 'worker/**/*.test.mjs', 'tools/**/*.test.mjs'],
   },
 })
