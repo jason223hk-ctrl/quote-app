@@ -80,6 +80,22 @@ const SCREENS = {
     noBlue: [{ testid: 'hub-client' }, { testid: 'hub-record-form' }],
     /* ⭐ 同一版順手驗返另一半：鍵盤 Tab 仲要見到自己停喺邊。 */
     keyboardRing: true,
+    /* ⭐⭐ 加成打錯字 ⇒ ⛔ 唔出價；空格 ⇒ 照出成本價。**兩樣都要量。**
+       ⚠️ 只量一樣嘅話：只量「abc 唔出價」⇒ 一個「乜都唔出」嘅 code 會全綠；
+          只量「空格出成本價」⇒ 今日呢個病本身就全綠。 */
+    askingWhenTyped: [
+      {
+        type: 'abc',
+        wantMoney: false,
+        why: '計唔到就⛔ 唔准出價（Jason 2026-09-16 拍板）—— ⛔ 唔准出一個似層層但錯嘅成本價。',
+      },
+      {
+        type: '',
+        wantMoney: true,
+        why: '⭐ 空格 ＝ 真係未填，係**合法狀態**（CLAUDE.md §2.3 null ≠ 0）⇒ 要照出成本價。',
+      },
+      { type: '50', wantMoney: true, why: '有加成就梗係要出價。' },
+    ],
     pairs: [
       ['頭部', '.bheader', '#screenProject header', 'anchor'],
       // ⚠️ 呢兩項唔量闊度：`.head-title` 係「有幾闊算幾闊」，量到嘅闊其實係
@@ -361,6 +377,44 @@ const SCREENS = {
       { testid: 'pending-bar', why: '條 bar 自己俾人坐住 ⇒ 撳極都入唔到同步頁。' },
       { sel: '.chip-btn', why: '返回掣俾條 bar 坐住 ＝ 出唔返去，戴住手套更加試唔到第二下。' },
       { sel: '.head-name', why: '工程名俾條 bar 坐住 ＝ 唔知自己開緊邊一單。' },
+    ],
+  },
+
+  /* ⭐⭐ 「移除」同「修剪／拉索加固」互斥 —— 剔唔到嗰啲要**講到出點解**。
+
+     ⛔⛔ **點解要一把尺 —— ⛔ 唔准淨係記住結論**
+
+     呢條規矩 **2026-08-24 拍咗板，22 日冇入過真 code**
+     （同「封存」同「藍底色」一樣，見附錄 B「原型拍咗板 ≠ 入咗真 code」）。
+     ⚠️ 而佢⛔ 唔係「靚唔靚」：兩樣都剔咗 ＝ **一棵已經冇咗嘅樹，
+     報價單上面照計埋修剪錢** —— 係**出咗去俾客人嘅價錢**。
+
+     ⭐ 量嘅⛔ 唔止「灰咗」，係「灰咗**而且講到出點解**」：
+     ⚠️ 「一粒灰咗嘅掣係一個冇答案嘅問題」—— `StatusCard` 同 `PhotoSlot`
+        兩個檔為咗同一件事寫過同一句。 */
+  treeremoval: {
+    query: '',
+    mustLock: [
+      { testid: 'pick-crown_cleaning', needs: 'blocked-crown_cleaning' },
+      { testid: 'pick-cabling', needs: 'blocked-cabling' },
+    ],
+    /* ⭐⭐ 「起樹頭」⛔ 唔准俾擋 —— P3f 明文「✅ 移除 ＋ 起樹頭 係正常組合」。
+       ⚠️ 冇呢一項，一把「擋得太多」嘅尺會照樣全綠。 */
+    canStillPick: [{ testid: 'pick-stump_removal', why: '移除 ＋ 起樹頭 係正常組合' }],
+  },
+
+  /* ⭐⭐ 舊單：兩樣都已經剔咗。**量嘅係出口。**
+
+     ⛔⛔ 連「剔走其中一樣」都俾人擋住，佢就**永遠卡死喺一個違規狀態**，
+     ⛔ 連修都修唔到 —— 附錄 B 嗰條「一條規矩啱、但冇出口」。
+
+     ⚠️ Jason 2026-09-16：「唔理舊樹，我會刪除舊工程」⇒ ⛔ 冇遷移、⛔ 冇提示。
+     ⭐ **但呢條出口規矩照留** —— 唔然佢刪之前嗰幾日就卡死。 */
+  treeboth: {
+    query: '',
+    canStillPick: [
+      { testid: 'pick-crown_cleaning', why: '舊單兩樣都有 ⇒ 剔走修剪嗰樣要仲得' },
+      { testid: 'pick-removal', why: '舊單兩樣都有 ⇒ 剔走移除嗰樣要仲得' },
     ],
   },
 
@@ -1227,6 +1281,81 @@ for (const [name, spec] of Object.entries(SCREENS)) {
       console.log(`      ⚠️ ${one.why ?? '個正中央俾人坐住 ⇒ 用嘅人淨係覺得「撳極冇反應」。'}`)
     } else {
       console.log(`  ✓ [${who}] 個中心 (${r.x}, ${r.y}) 打中自己`)
+    }
+  }
+
+  /* ── ⛔ 計唔到嗰陣，⛔ 唔准出一個似層層但錯嘅價 ────────────────
+
+     ⛔⛔ **點解要一把尺 —— ⛔ 唔准淨係記住結論**
+
+     2026-09-16 實測：加成格打咗 `abc`，**報價價錢照出 `$43,400`**（成本價）。
+     ⚠️ 而「**真係未填加成**」出嘅都係 `$43,400` —— **兩種一模一樣**。
+     ⇒ 打錯一個字母，張單就**靜靜咁變成蝕本價**，⭐ 而嗰個係報俾客人嘅數。
+
+     ⭐ Jason 2026-09-16 拍板：**計唔到就⛔ 唔出價。**
+     ⚠️ 但⛔ 唔准一竹篙打一船 —— **空格係合法狀態**（CLAUDE.md §2.3 `null ≠ 0`），
+        空格要**照出成本價**。⇒ 所以呢把尺要量**兩樣**，缺一不可。 */
+  for (const one of spec.askingWhenTyped ?? []) {
+    typedChecked += 1
+    await real.locator('[data-testid="markup-input"]').click()
+    /* ⛔ 先剷清 —— 同 `typeThenSee` 一樣嘅理由（個格本來有「50」）。 */
+    await real.keyboard.press('Control+a')
+    await real.keyboard.press('Backspace')
+    await real.waitForTimeout(200)
+    if (one.type) await real.keyboard.type(one.type, { delay: 60 })
+    await real.waitForTimeout(600)
+    const r = await real.evaluate(() => {
+      const price = document.querySelector('[data-testid="asking-price"]')
+      const why = document.querySelector('[data-testid="asking-why"]')
+      const box = document.querySelector('[data-testid="markup-input"]')
+      return {
+        price: (price?.textContent ?? '').trim(),
+        why: why ? (why.textContent ?? '').trim() : null,
+        typedStill: box?.value ?? null,
+      }
+    })
+    const showsMoney = r.price.includes('$')
+    const ok = one.wantMoney ? showsMoney && r.why === null : !showsMoney && r.why !== null
+    if (ok) {
+      console.log(
+        `  ✓ 加成打「${one.type || '（空）'}」⇒ 報價價錢「${r.price}」` +
+          (r.why ? `，而且有講點解` : ''),
+      )
+    } else {
+      typedBad += 1
+      console.log(`  ✗ ⛔⛔ 加成打「${one.type || '（空）'}」⇒ 報價價錢「${r.price}」`)
+      console.log(`      ⚠️ ${one.why}`)
+      if (!one.wantMoney && showsMoney)
+        console.log('      ⛔⛔ 呢個數會報俾客人 —— 而佢係我哋幫佢答咗一個佢冇答過嘅問題。')
+    }
+    /* ⭐ 順手守住：人打咗嘅嘢⛔ 唔准俾人食咗（`NaN` 死循環嗰條）。 */
+    if (one.type && r.typedStill !== one.type) {
+      typedBad += 1
+      console.log(`  ✗ ⛔⛔ 人打嘅「${one.type}」變咗「${r.typedStill}」`)
+    }
+  }
+
+  /* ── ⭐ 呢個仲剔得返轉頭嗎？ ───────────────────────────────────
+
+     ⛔⛔ **同上面「數唔到就鎖住」係一對，⛔ 唔可以淨係要一半。**
+     ⚠️ 一把只量「擋唔擋到」嘅尺，喺一個**乜都擋晒**嘅 code 上面會**全綠** ——
+        而嗰種 code 會令人**卡死喺一個佢改唔到嘅狀態**。
+     ⭐ 所以每擋一樣，就要有一項講明「呢樣⛔ 唔准擋」。 */
+  for (const one of spec.canStillPick ?? []) {
+    lockChecked += 1
+    const r = await real.evaluate((id) => {
+      const el = document.querySelector(`[data-testid="${id}"]`)
+      if (!el) return null
+      return { disabled: el.disabled === true }
+    }, one.testid)
+    if (r === null) {
+      lockBad += 1
+      console.log(`  ✗ [${one.testid}] 揾唔到 —— ⛔ 量唔到就當唔合格`)
+    } else if (r.disabled) {
+      lockBad += 1
+      console.log(`  ✗ ⛔⛔ [${one.testid}] 剔唔到 —— 但 ${one.why}`)
+    } else {
+      console.log(`  ✓ [${one.testid}] 仲剔得（${one.why}）`)
     }
   }
 

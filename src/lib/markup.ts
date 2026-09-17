@@ -44,15 +44,18 @@ export function markupToSave(typed: string): number | null | undefined {
   return n
 }
 
-/**
- * 人打咗嗰串字 ⇒ 計價錢用嗰個數。
+/*
+ * ⚠️ 2026-09-17：本來呢度有個 `markupToPct()`（回 `number | null`）。**拆咗。**
  *
- * ⛔⛔ **永遠唔會回 `NaN`。** ⚠️ 一個 `NaN` 漏落去，報價價錢就會變 `$NaN`。
+ * ⛔⛔ **點解要拆走一個「行得好地地」嘅 function：**
+ * 佢對「**空格**」同「**打咗 `abc`**」**兩樣都回 `null`** ——
+ * ⭐ 而嗰兩樣嘅答案**完全相反**：空格照出成本價，`abc` ⛔ 唔准出價。
+ * ⇒ 佢**由設計上就分唔開**今次要分嗰兩樣。
+ *
+ * ⚠️ 留住佢就係留住一個陷阱：下一個人見到有個現成嘅「攞個 pct」就會用，
+ *    而**個窿會靜靜咁返嚟**。⇒ 用 `askingState()`。
  */
-export function markupToPct(typed: string): number | null {
-  const n = markupToSave(typed)
-  return typeof n === 'number' ? n : null
-}
+
 
 /**
  * 存唔到嗰陣講嘅話。
@@ -65,3 +68,58 @@ export function markupToPct(typed: string): number | null {
 export function markupSaveFailed(reason: string): string {
   return `加成 ％ 存唔到：${reason.trim()} ⚠️ 你打咗嘅數仲喺格入面，⛔ 未存到入去。`
 }
+
+/**
+ * 報價價錢出唔出得 —— ⭐⭐ **三個狀態，⛔ 唔係兩個。**
+ *
+ * **Jason 2026-09-16 拍板**（原型 #35 第 7 條，「跟你建議」）：
+ * **加成打咗啲唔係數字嘅嘢 ⇒ 計唔到 ⇒ ⛔ 唔出價。**
+ * ⛔ **唔准出一個似層層但錯嘅成本價。**
+ *
+ * ⚠️⚠️ **但⛔ 唔准一竹篙打一船 —— 兩種「冇加成」要分得開：**
+ *
+ * | 個格打咗乜 | 係咩 | 出唔出價 |
+ * | --- | --- | --- |
+ * | `50` | 有加成 | ✅ 成本 × 1.5 |
+ * | 空 | **真係未填 —— ⭐ 呢個係合法狀態**（CLAUDE.md §2.3：`null ≠ 0`） | ✅ **照出成本價** |
+ * | `abc` / `-5` | **計唔到** | ⛔ **唔出價** |
+ *
+ * ⭐ 點解「空」要照出成本價：**未填加成⛔ 唔係一個錯** ——
+ *   佢就係「我未加成」，而成本價係一個真嘅數。
+ * ⭐ 點解 `abc` 唔出：**佢想講一個數，而我哋讀唔到嗰個數。**
+ *   出成本價就等於**幫佢答咗一個佢冇答過嘅問題**，
+ *   ⚠️ 而嗰個答案會變成報俾客人嘅價錢。
+ *
+ * ⚠️⚠️ **今日（未修之前）兩種喺畫面上面一模一樣**，而且**兩種都出成本價** ——
+ *    即係打錯一個字母，張單就靜靜咁變成蝕本價。
+ */
+export type AskingState =
+  /** 出得，而且有加成。 */
+  | { kind: 'ok'; pct: number }
+  /** 出得 —— 成本價。⭐ 空格係合法狀態，⛔ 唔係錯。 */
+  | { kind: 'cost' }
+  /** ⛔ 出唔到。`why` 係要出畫面嗰句中文。 */
+  | { kind: 'cannot'; why: string }
+
+/**
+ * ⛔ **呢句係報價價錢嗰格會出嘅字，⛔ 唔係一句 alert。**
+ * ⭐ 佢要答到兩樣：**而家係點**、**點樣先出得返個價**。
+ */
+export const MARKUP_UNREADABLE =
+  '加成嗰格讀唔到，⛔ 計唔到報價價錢。請喺加成格淨係填數字（想冇加成就清空佢）。'
+
+export function askingState(typed: string): AskingState {
+  const saved = markupToSave(typed)
+  if (saved === undefined) return { kind: 'cannot', why: MARKUP_UNREADABLE }
+  if (saved === null) return { kind: 'cost' }
+  return { kind: 'ok', pct: saved }
+}
+
+/**
+ * 出唔到價嗰陣，**報價價錢嗰格寫乜**。
+ *
+ * ⛔⛔ **⛔ 唔准寫 `$0`、⛔ 唔准寫 `—`、⛔ 唔准留空。**
+ * ⚠️ 三樣都會俾人當成「個價係零／未計」，而真相係
+ * **「我哋計唔到，而你打咗啲嘢喺度」** —— 完全唔同嘅兩件事。
+ */
+export const ASKING_CANNOT = '計唔到'

@@ -1,9 +1,15 @@
+import { ASKING_CANNOT, askingState } from '../lib/markup'
 import type { Quote } from '../lib/pricing'
 
 type Props = {
   quote: Quote
   /**
-   * 人**打咗乜**（原文）。⛔ 個格顯示呢個，⛔ 唔准倒返轉由 `markupPct` 砌返個字串。
+   * 人**打咗乜**（原文）。⛔ 個格顯示呢個，⛔ 唔准倒返轉由一個數字砌返個字串。
+   *
+   * ⭐⭐ **2026-09-17 起，呢個係加成嘅唯一來源。**
+   * ⚠️ 本來仲有個 `markupPct` prop（同一個 `markupInput` 算出嚟）——
+   *    ⛔ 拆咗佢。**兩個來源講同一件事，就一定有一日佢哋唔同意**，
+   *    ⭐ 而「分唔開兩種 null」正正就係今次要修嗰個病。
    *
    * ⚠️⚠️ 2026-09-16 實測到嘅死循環：舊寫法個格出 `String(Number(typed))`，
    *    打 `abc` ⇒ 格變 `NaN` ⇒ 跟住打乜都接落 `"NaN"` 後面 ⇒ **永遠打唔返出嚟**，
@@ -11,7 +17,6 @@ type Props = {
    */
   typedMarkup: string
   /** 計價用嗰個數。⛔ 永遠唔會係 `NaN`（見 `src/lib/markup.ts`）。 */
-  markupPct: number | null
   /** 淨係辦公室改得（Jason 2026-08-30）。⛔ 唔准收埋 —— 要見到但改唔到。 */
   canEditMarkup: boolean
   onMarkupChange: (value: string) => void
@@ -37,14 +42,22 @@ const money = (n: number) => '$' + Math.round(n).toLocaleString('en-US')
 export default function CostCard({
   quote,
   typedMarkup,
-  markupPct,
   canEditMarkup,
   onMarkupChange,
   loading,
 }: Props) {
   const { lines, ask, total } = quote
-  // ⛔ `markupPct` 永遠唔會係 NaN，所以 `asking` 亦都唔會。
-  const pct = markupPct ?? 0
+  /*
+   * ⭐⭐ **三個狀態，⛔ 唔係兩個** —— 見 `src/lib/markup.ts` 個 `askingState()`。
+   *   · 有加成            ⇒ 出價
+   *   · **空格**          ⇒ ⭐ 照出成本價（合法狀態，CLAUDE.md §2.3 `null ≠ 0`）
+   *   · **讀唔到**（`abc`）⇒ ⛔ **唔出價**（Jason 2026-09-16 拍板）
+   *
+   * ⛔⛔ **⛔ 唔准由 `markupPct` 推返「係咪讀唔到」** —— 佢兩種情況都係 `null`，
+   *    ⚠️ 而「分唔開」正正就係今次要修嗰個病。⇒ 一定要睇返人**打咗乜**。
+   */
+  const state = askingState(typedMarkup)
+  const pct = state.kind === 'ok' ? state.pct : 0
   const asking = Math.round(total * (1 + pct / 100))
 
   return (
@@ -104,10 +117,25 @@ export default function CostCard({
 
             <div className="cost-field">
               <span className="cost-field-label">報價價錢</span>
-              <div className="cost-asking" data-testid="asking-price">
-                {money(asking)}
-              </div>
-              {pct <= 0 && <div className="cost-how">未設加成，等於成本價</div>}
+              {state.kind === 'cannot' ? (
+                /* ⛔ ⛔ 唔准寫 `$0`、⛔ 唔准寫 `—`、⛔ 唔准留空 ——
+                   三樣都會俾人當成「個價係零／未計」，而真相係
+                   **「我哋計唔到，而你打咗啲嘢喺度」**。 */
+                <div className="cost-asking cost-asking--cannot" data-testid="asking-price">
+                  {ASKING_CANNOT}
+                </div>
+              ) : (
+                <div className="cost-asking" data-testid="asking-price">
+                  {money(asking)}
+                </div>
+              )}
+              {state.kind === 'cannot' ? (
+                <div className="cost-how cost-how--warn" role="alert" data-testid="asking-why">
+                  {state.why}
+                </div>
+              ) : (
+                state.kind === 'cost' && <div className="cost-how">未設加成，等於成本價</div>
+              )}
             </div>
           </div>
         </>

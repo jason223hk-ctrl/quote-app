@@ -1074,6 +1074,34 @@ select.field__input {
   accent-color: var(--q-header);
 }
 
+/* ── 剔唔到嗰啲（「移除」同「修剪／拉索加固」互斥）────────────────
+
+   ⛔⛔ **淨係變灰係唔夠嘅。**
+   ⚠️ 「一粒灰咗嘅掣係一個冇答案嘅問題」—— `StatusCard` 同 `PhotoSlot`
+      兩個檔都為咗同一件事寫過同一句：人會一路撳一路以為個 app 壞咗。
+   ⇒ 所以灰嗰陣**一定有句字喺隔籬**，講返點解（`.option__blocked`）。
+
+   ⭐ 個字用返 `--q-text-2`（第二層），⛔ 唔用紅 ——
+      佢⛔ 唔係一個錯誤，係一個**解釋**。 */
+.option--blocked {
+  cursor: default;
+}
+
+.option--blocked > span:first-of-type {
+  /* ⚠️ 第三層叫 `--q-text-secondary`（⛔ 唔係 `--q-text-3` —— 冇呢個變數，
+     2026-09-17 寫錯過一次，而 CSS 引錯變數係**靜靜咁冇效**，⛔ 唔會報錯）。 */
+  color: var(--q-text-secondary);
+}
+
+.option__blocked {
+  margin-left: auto;
+  padding-left: var(--q-space-3);
+  color: var(--q-text-2);
+  font-size: 12.5px;
+  line-height: 1.3;
+  text-align: right;
+}
+
 .option__extra {
   margin: 0 0 var(--q-space-2) 34px;
   width: calc(100% - 34px);
