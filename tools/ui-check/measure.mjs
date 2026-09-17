@@ -95,6 +95,22 @@ const SCREENS = {
         why: '⭐ 空格 ＝ 真係未填，係**合法狀態**（CLAUDE.md §2.3 null ≠ 0）⇒ 要照出成本價。',
       },
       { type: '50', wantMoney: true, why: '有加成就梗係要出價。' },
+      /*
+       * ⭐⭐ **打一個真嘅 `0` —— ⛔ 佢同「清空」⛔ 唔係同一件事。**
+       *
+       * ⚠️ 2026-09-17 呢個係一個**冇寫入 PR #47 嘅行為變化**，要釘死免得俾人「修返」：
+       *   舊：`pct <= 0` ⇒ **兩樣都**出「未設加成，等於成本價」
+       *   新：`askingState('0')` ＝ `{ kind: 'ok', pct: 0 }`
+       *        ⇒ **出價，而嗰句「未設加成」⛔ 唔再出**（佢而家綁 `kind === 'cost'`）
+       *
+       * ⭐ **呢個係有意嘅**：佢**自己打咗 `0`**，⛔ 唔係未填 ——
+       *   兩樣喺畫面上面**應該分得開**。
+       * ⚠️ 而「報價 ＝ 成本」呢件事⛔ 唔使再寫一句：總成本同報價價錢兩個數
+       *   就喺隔籬、一樣大，⭐ **睇得到嘅嘢⛔ 唔使再講一次**。
+       *
+       * ⛔⛔ **下一個人見到「打 0 冇咗嗰句字」⛔ 唔准當 regression 去修返。**
+       */
+      { type: '0', wantMoney: true, why: '⭐ 自己打咗 0 ＝ 明確講「冇加成」⇒ 要出價（成本價）。' },
     ],
     pairs: [
       ['頭部', '.bheader', '#screenProject header', 'anchor'],
@@ -378,6 +394,25 @@ const SCREENS = {
       { sel: '.chip-btn', why: '返回掣俾條 bar 坐住 ＝ 出唔返去，戴住手套更加試唔到第二下。' },
       { sel: '.head-name', why: '工程名俾條 bar 坐住 ＝ 唔知自己開緊邊一單。' },
     ],
+  },
+
+  /* ⭐⭐ 一粒撳唔到嘅掣，睇落一定要同撳得嘅唔同。
+
+     ⛔⛔ **點解要一把尺 —— ⛔ 唔准淨係記住結論**
+
+     2026-09-17：`.export-bar .button:disabled` 個字色寫住 `var(--q-text-3)`，
+     ⚠️ **而嗰個變數由頭到尾冇定義過**（第三層叫 `--q-text-secondary`）。
+     ⇒ 個色**靜靜咁冇暗到** —— ⭐ 而 CSS 引錯變數係 **⛔ 唔報錯、⛔ build 唔紅、
+     ⛔ lint 唔出聲** 嘅，所以佢可以就咁擺喺度好耐冇人知。
+
+     ⚠️ 後果⛔ 唔係「靚唔靚」：**一粒撳唔到嘅掣睇落同撳得嘅一樣** ——
+     ⭐ 同「灰咗嘅掣係一個冇答案嘅問題」（`StatusCard` / `PhotoSlot`）同一個家族。
+
+     ⇒ 呢把尺⛔ 唔對死一個色碼（色會改），佢問嘅係
+     **「撳唔到嗰粒同撳得嗰粒，色係咪真係唔同」**。 */
+  exportnone: {
+    query: '',
+    disabledLooksDisabled: [{ scope: '.export-bar' }],
   },
 
   /* ⭐⭐ 「移除」同「修剪／拉索加固」互斥 —— 剔唔到嗰啲要**講到出點解**。
@@ -1332,6 +1367,32 @@ for (const [name, spec] of Object.entries(SCREENS)) {
     if (one.type && r.typedStill !== one.type) {
       typedBad += 1
       console.log(`  ✗ ⛔⛔ 人打嘅「${one.type}」變咗「${r.typedStill}」`)
+    }
+  }
+
+  /* ── ⭐ 撳唔到嗰粒，睇落同撳得嗰粒唔同嗎？ ─────────────────────── */
+  for (const one of spec.disabledLooksDisabled ?? []) {
+    lockChecked += 1
+    const r = await real.evaluate((scope) => {
+      const all = [...document.querySelectorAll(`${scope} button`)]
+      const off = all.find((b) => b.disabled)
+      const on = all.find((b) => !b.disabled)
+      if (!off || !on) return null
+      return {
+        offText: (off.textContent ?? '').trim().slice(0, 12),
+        offColor: getComputedStyle(off).color,
+        onColor: getComputedStyle(on).color,
+      }
+    }, one.scope)
+    if (r === null) {
+      lockBad += 1
+      console.log(`  ✗ [${one.scope}] 揾唔到「一粒 disabled ＋ 一粒唔係」—— ⛔ 量唔到就當唔合格`)
+    } else if (r.offColor === r.onColor) {
+      lockBad += 1
+      console.log(`  ✗ ⛔⛔ [${one.scope}] 「${r.offText}」撳唔到，但個色同撳得嗰粒一樣（${r.offColor}）`)
+      console.log('      ⚠️ 一粒撳唔到嘅掣睇落同撳得嘅一樣 ⇒ 人會一路撳一路以為個 app 壞咗。')
+    } else {
+      console.log(`  ✓ [${one.scope}] 「${r.offText}」撳唔到，個色同撳得嗰粒唔同（${r.offColor} vs ${r.onColor}）`)
     }
   }
 
