@@ -12,11 +12,20 @@
 
 ⭐⭐ **報價 app ⛔ 冇 service worker。**
 ⇒ **⛔ 冇任何一個「設計上保證離線開得到」嘅機制。**
-今日開唔開得到，**淨係睇 Cloudflare 派咩 `cache-control` 俾 `index.html`** ——
-⚠️ 而嗰樣**⛔ 唔喺我哋 code 入面**。
 
-⇒ **`docs/上線清單.md` 第 1 條嗰個五步驗收，今日大有可能喺第 4 步「再開」就過唔到**，
-而**冇人試過**。
+⭐⭐ **2026-09-16 補：喺線上真網站量咗，已經⛔ 唔使再估。**
+
+```
+https://sylvan-quote.pages.dev/
+  cache-control: public, max-age=0, must-revalidate      （/ 同 /manifest.webmanifest 兩個都係）
+  navigator.serviceWorker.getRegistrations()  →  0
+  caches.keys()                               →  []
+```
+
+⭐ **`must-revalidate` 即係：冇網嗰陣瀏覽器 ⛔ 唔准攞舊嗰份出嚟頂。**
+
+⇒ **`docs/上線清單.md` 第 1 條第 4 步「再開」，⛔ 唔係「未驗」，係「今日實測過唔到」** ——
+⭐ 而且**過唔到係設計上嘅，⛔ 唔係行運唔行運**。
 
 ---
 
@@ -125,23 +134,26 @@ HTTP cache 係**會過期、會俾人清、會喺部機夠位嗰陣俾瀏覽器�
 
 ---
 
-## 五、🧑‍💻 要 Jason 跑一句（⭐ 一句就分得出）
+## 五、✅ 已經量咗（⛔ 唔使再跑 curl）
 
-```
-curl -sI https://sylvan-quote.pages.dev/ | grep -i cache-control
-```
+**2026-09-16，喺線上真網站量返嚟：**
 
-⭐ **睇 `index.html` 派緊咩：**
-
-| 見到 | 即係 |
+| 量咗乜 | 結果 |
 | --- | --- |
-| `max-age=0` / `no-cache` / `must-revalidate` | ⇒ **離線⛔ 開唔到**。表格第一行嗰個 |
-| `max-age=` 一個大過 0 嘅數 | ⇒ **可能開得到**，但⚠️ 過咗期就開唔到 |
+| `/` 嘅 `cache-control` | **`public, max-age=0, must-revalidate`** |
+| `/manifest.webmanifest` 嘅 `cache-control` | **一樣** |
+| `navigator.serviceWorker.getRegistrations()` | **0** |
+| `caches.keys()` | **`[]`** |
 
-⚠️ ⛔ **無論邊個答案，「有冇 SW」呢件事都唔變** —— 冇 SW 就係冇一個**設計上**嘅保證。
-⭐ 呢句 `curl` 係用嚟知**今日實際幾差**，⛔ 唔係用嚟決定使唔使做 SW。
+⭐ 對返第三節張表：**第一行嗰個就係今日線上嘅情況** ⇒ **⛔ 開唔到。**
 
----
+⚠️ **`must-revalidate` 呢個字特別要記住**：佢⛔ 唔係「盡量問下伺服器」，
+係「**冇問到就⛔ 唔准出舊嗰份**」。⇒ 飛航模式之下瀏覽器**連試都唔會試**。
+
+⇒ 所以第三節嗰個「睇 Cloudflare 派咩 header」已經有答案：
+**佢派嘅就係最差嗰個。** ⭐ 而呢個⛔ 唔係 Cloudflare 做錯 ——
+**對一個冇 SW 嘅網站嚟講，佢派呢個 header 係啱嘅**（唔好派舊 HTML）。
+問題喺我哋**冇 SW**。
 
 ## 六、如果要做 SW —— ⛔ 伏喺邊（Jason 嗰句驚嘅嘢係真嘅）
 
@@ -178,8 +190,20 @@ short SHA 要同最新 commit 對得返。
 | | 做乜 | 代價 |
 | --- | --- | --- |
 | **甲** | ⛔ 乜都唔做 | ⚠️ **上線清單第 1 條過唔到**，而第 1 條係「三樣冇咗就唔准上線」嗰三樣之一 |
-| **乙** | 只加 `_headers` 令 `index.html` 畀 cache（⛔ 唔寫 SW） | ⭐ 改一個檔、⛔ 冇「拍舊 code」嘅風險。⚠️ 但**⛔ 唔係保證** —— cache 會過期、會俾清、會俾踢走。而且會拖慢「新版幾時見到」 |
+| **乙** | 只加 `_headers` 令 `index.html` 畀 cache（⛔ 唔寫 SW） | ⛔⛔ **見下面「（乙）真正嘅代價」—— 佢⛔ 唔係「細一啲嘅丙」** |
 | **丙** | 寫一個最細嘅 SW（HTML network-first ＋ asset cache-first） | ⭐ **唯一一個設計上嘅保證**。⚠️ 代價：多咗一層要維護嘅嘢，而且**寫錯就係 Jason 驚嗰樣** |
+
+### ⛔⛔ （乙）真正嘅代價 —— ⭐ 呢段⛔ 唔准略過
+
+要離線開得到，（乙）就要俾 `index.html` 一個 `max-age=N`。
+⚠️⚠️ **而喺嗰 N 秒之內，部機⛔ 一定係派舊 code。**
+
+⭐⭐ **即係（乙）正正攞 Jason 最驚嗰樣去換** ——
+佢原話：「一個寫得差嘅 SW 會**永遠拍舊版 code 出來**，比冇更差。」
+**（乙）⛔ 唔係避開咗嗰個交易，佢就係嗰個交易**，只不過由「永遠」縮成「N 秒」。
+
+⇒ ⭐ **（丙）HTML network-first ⛔ 冇呢個交易**：有網一定攞新嗰份，冇網先出 cache。
+**「永遠拍舊 code」喺設計上就不可能發生** —— ⛔ 唔係靠小心。
 
 ⛔ **我⛔ 唔會替你揀。**
 ⭐ 但有一樣係唔理揀邊條都成立嘅：**第 1 條而家嗰個「⛔ 未驗」要改成講明
