@@ -202,6 +202,16 @@ const body =
       record={fx.RECORD}
       onBack={() => {}}
     />
+  ) : screen === 'exportnone' ? (
+    /* ⭐ 一張相都冇 ⇒ 粒「匯出」掣 disabled。⛔ 要有呢個樣本先量得到
+       「一粒撳唔到嘅掣，睇落係咪真係同撳得嘅唔同」。 */
+    <ExportPdfScreen
+      trees={fx.trees}
+      photos={fx.emptyExportPhotosApi}
+      accessToken=""
+      record={fx.RECORD}
+      onBack={() => {}}
+    />
   ) : screen === 'export' ? (
     <ExportPdfScreen
       trees={fx.trees}

@@ -270,3 +270,14 @@ export const exportPhotosApi = {
     photo('x3', '1', '2', null, 1, 'synced'),
   ],
 } as unknown as import('../../src/lib/photos').PhotosApi
+
+/**
+ * 匯出頁「一張相都冇」⇒ 粒「匯出」掣 `disabled`。
+ *
+ * ⭐ 開呢個⛔ 唔係為咗多一個畫面：**2026-09-17 揾到嗰粒 disabled 掣嘅字色
+ * 引緊一個唔存在嘅 CSS 變數** ⇒ 佢**靜靜咁冇暗到**，睇落同撳得嘅一樣。
+ * ⇒ 要有一個「真係 disabled」嘅樣本先量得到。
+ */
+export const emptyExportPhotosApi = {
+  listByRecord: async () => [],
+} as unknown as import('../../src/lib/photos').PhotosApi

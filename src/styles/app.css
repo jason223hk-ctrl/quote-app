@@ -3015,10 +3015,30 @@ h3 {
   -webkit-backdrop-filter: blur(8px);
 }
 
+/* ⛔⛔ **一粒撳唔到嘅掣，一定要睇落就係撳唔到。**
+
+   ⚠️ 2026-09-17 揾到：呢度本來寫 `var(--q-text-3)` —— **而嗰個變數
+   由頭到尾冇定義過**（第三層叫 `--q-text-secondary`，見 `tokens.css`）。
+   ⇒ 個字色**靜靜咁冇暗到**，一粒 disabled 掣睇落同撳得嘅一樣。
+
+   ⭐ 呢個⛔ 唔係「靚唔靚」，係同「灰咗嘅掣係一個冇答案嘅問題」同一個家族：
+      人會一路撳一路以為個 app 壞咗（`StatusCard` / `PhotoSlot` 都中過）。
+
+   ⚠️⚠️ **而且淨係「換返一個存在嘅變數」⛔ 唔夠 —— 呢點要記住。**
+   第一次修我寫咗 `--q-text-secondary`，睇落好合理。
+   ⭐ 但把新尺（`measure.mjs` 個 `disabledLooksDisabled`）即刻捉到：
+   隔籬粒「返回」（`.button--secondary`）**用緊同一隻色** `rgb(150,151,142)`
+   ⇒ **兩粒一模一樣，個問題原封不動。**
+
+   ⭐⭐ **「修咗個變數」⛔ 唔等於「修好咗個問題」** —— 把尺問嘅⛔ 唔係
+   「你用咗邊個 token」，係「**撳唔到嗰粒同撳得嗰粒，色係咪真係唔同**」。
+
+   ⇒ 用一隻**明顯暗過兩粒**嘅色。⛔ 特登⛔ 唔開新 token：佢淨係呢一個位用，
+      開個 token 就要諗佢喺第二度點用，而佢根本冇第二度用。 */
 .export-bar .button:disabled {
   background: linear-gradient(180deg, rgba(28, 36, 29, 0.96), rgba(19, 26, 20, 0.96));
   border: 1px solid var(--q-border);
-  color: var(--q-text-3);
+  color: rgba(241, 235, 221, 0.38);
 }
 
 /* 內容要留返個位畀嗰條掣，⛔ 否則最後一棵樹會俾佢遮住。 */
