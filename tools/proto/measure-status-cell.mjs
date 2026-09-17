@@ -51,6 +51,61 @@ const srv = http
  */
 const HEIGHTS = [1328, 844, 727]
 
+/**
+ * ⭐⭐⭐ **⛔ 三種跑法，⛔ 一種都唔可以慳 —— 呢段⛔ 唔准淨係記住結論**
+ *
+ * 2026-09-16：個原型喺我部量度機**三個視窗高度全綠**，
+ * 但喺一部**開咗「減少動態效果」**嘅真瀏覽器上面，撳「甲」個頂格
+ * **一個像素都唔郁**。實測（同一部機，反覆三次）：
+ *
+ *     smooth → 0      auto → 450      smooth → 0
+ *     scrollIntoView({behavior:'smooth'}) → 0
+ *
+ * ⚠️ ⛔ **唔係「瞬間跳到」，係完全冇反應** ——
+ *    而嗰個症狀**逐隻字就係 Jason 當日嗰句「我撳狀態無反應」**。
+ *
+ * ⛔⛔ **而且要老實講一樣**：`reducedMotion: 'reduce'` 呢一趟，
+ *    **喺呢部 headless Chromium 度捉唔到** —— 佢照樣捲到 566。
+ *    ⇒ 嗰一趟**⛔ 唔算證據**，佢係留俾第二個引擎／將來版本捉。
+ *
+ * ⭐ 真正捉得到嘅係第三趟 `smoothDead`：**直接把 smooth 整成冇效**，
+ *    即係**照抄嗰部真機量到嘅行為**。⛔ 佢⛔ 唔係一個假嘅輸入事件
+ *    （嗰種喺 `swipeDelete` 檔頭已經禁咗）—— 佢係**平台行為**，
+ *    而我哋要驗嘅正正就係「平台唔幫手嗰陣，我哋自己頂唔頂得住」。
+ */
+const MODES = [
+  { key: 'normal', label: '平時', reducedMotion: 'no-preference', killSmooth: false },
+  {
+    key: 'reduce',
+    label: '開咗「減少動態效果」',
+    reducedMotion: 'reduce',
+    killSmooth: false,
+  },
+  {
+    key: 'smoothDead',
+    label: '⭐ smooth 完全唔做嘢（照抄真機量到嗰個行為）',
+    reducedMotion: 'no-preference',
+    killSmooth: true,
+  },
+]
+
+/**
+ * 把 `scrollTo` / `scrollIntoView` 入面帶 `behavior: 'smooth'` 嗰啲**變成冇效**。
+ * ⛔ 其餘（`auto`、直接 set `scrollTop`）照行 —— 咁先分得出
+ * 「靠動畫」同「自己到位」。
+ */
+const KILL_SMOOTH = `
+  (() => {
+    const smooth = (a) => a && typeof a === 'object' && a.behavior === 'smooth'
+    for (const proto of [Element.prototype, Window.prototype]) {
+      const orig = proto.scrollTo
+      if (orig) proto.scrollTo = function (...a) { if (smooth(a[0])) return; return orig.apply(this, a) }
+    }
+    const into = Element.prototype.scrollIntoView
+    Element.prototype.scrollIntoView = function (...a) { if (smooth(a[0])) return; return into.apply(this, a) }
+  })()
+`
+
 const browser = await chromium.launch(
   process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {},
 )
@@ -179,6 +234,52 @@ for (const height of HEIGHTS) {
   )
   say(c.chipHit === 'chip2 on', `丙：「待報價」掣中心撳落去 → ${c.chipHit}（要係佢自己）`)
 
+  await page.close()
+}
+
+/* ────────────────────────────────────────────────────────────────
+   ⭐⭐ 同一套驗收，再跑多兩趟：開咗「減少動態效果」、同埋 smooth 冇效。
+   ⛔ 動畫係裝飾 —— **佢⛔ 唔可以係「做到件事」嘅唯一途徑。**
+   ──────────────────────────────────────────────────────────────── */
+for (const mode of MODES) {
+  console.log(`\n══ 甲：撳頂格（390 × 727，${mode.label}）══`)
+  const page = await browser.newPage({
+    viewport: { width: 390, height: 727 },
+    reducedMotion: mode.reducedMotion,
+  })
+  if (mode.killSmooth) await page.addInitScript(KILL_SMOOTH)
+  await page.goto(`http://localhost:${PORT}/proto-status-cell.html`)
+  await page.waitForTimeout(500)
+
+  await page.click('#segs button[data-v="A"]')
+  await page.waitForTimeout(700)
+  await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }))
+  await page.waitForTimeout(200)
+
+  const before = await page.evaluate(() => Math.round(document.getElementById('scroll').scrollTop))
+  await page.click('#statStatus')
+  /* ⚠️ 等夠 —— 個 fallback 係 600ms 之後先出手。⛔ 等唔夠就會報一個假紅。 */
+  await page.waitForTimeout(1600)
+
+  const r = await page.evaluate(() => {
+    const sc = document.getElementById('scroll')
+    const chip = document.querySelector('.chip2').getBoundingClientRect()
+    const nav = document.querySelector('.bottom-nav').getBoundingClientRect()
+    const hit = document.elementFromPoint(chip.x + chip.width / 2, chip.y + chip.height / 2)
+    return {
+      scrollTop: Math.round(sc.scrollTop),
+      chipTop: Math.round(chip.top),
+      navTop: Math.round(nav.top),
+      visible: chip.bottom <= nav.top && chip.top >= 0,
+      hit: hit ? (hit.closest('button')?.className ?? hit.tagName) : 'null',
+      mm: matchMedia('(prefers-reduced-motion: reduce)').matches,
+    }
+  })
+
+  console.log(`    matchMedia(reduce) = ${r.mm}`)
+  say(r.scrollTop - before > 100, `撳完捲咗 ${r.scrollTop - before}px（⛔ 要大過 100）`)
+  say(r.visible, `「待報價」掣 top ${r.chipTop}，nav top ${r.navTop} ⇒ ${r.visible ? '睇得到' : '⛔ 睇唔到'}`)
+  say(r.hit === 'chip2 on', `中心撳到「${r.hit}」（要係佢自己）`)
   await page.close()
 }
 

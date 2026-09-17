@@ -233,11 +233,40 @@ function apply(v) {
  * ⭐⭐ 甲 ＝ 撳頂格**真係捲落去**（有動畫，睇到佢捲），⛔ 唔係出句字話你知會捲。
  *    ⚠️ 要留返底 nav 嗰條位：捲到張卡頂喺三格下面少少，
  *       ⛔ 唔准捲到張卡匿咗喺底 nav 後面（嗰個正正就係今日個病）。
+ *
+ * ⛔⛔⛔ **動畫係裝飾。⛔ 佢⛔ 唔可以係「做到件事」嘅唯一途徑。**
+ *
+ * ⚠️⚠️ **2026-09-16 實測中過，⛔ 唔准淨係記住結論：**
+ * 第一版淨係寫 \`scrollTo({ behavior: 'smooth' })\`。喺一部**開咗「減少動態效果」**
+ * 嘅瀏覽器上面（Android 協助工具裏面一個好普通嘅掣，\`matchMedia\` 審返 true）：
+ *
+ *     smooth → scrollTop 0     （⛔ 一個像素都唔郁）
+ *     auto   → scrollTop 450   （✅ 郁到）
+ *     smooth → scrollTop 0     （再試，一樣）
+ *     scrollIntoView({behavior:'smooth'}) → 0
+ *
+ * ⭐ 即係**⛔ 唔係「瞬間跳到」，係完全冇反應** ——
+ *   而嗰個症狀，**逐隻字就係 Jason 當日嗰句「我撳狀態無反應」**。
+ *
+ * ⇒ 所以而家分兩條路，⛔ 兩條都要保證到位：
+ *   · 開咗「減少動態」⇒ **直接 \`scrollTop = to\`**，⛔ 唔行動畫
+ *   · 冇開 ⇒ 行 smooth，**但加一張網**：一段時間之後仲未到位就硬推過去
+ *     ⚠️ 張網⛔ 唔係多餘 —— 有啲瀏覽器會**靜靜咁唔做 smooth 而又⛔ 唔報
+ *        reduced-motion**，嗰種上面條 \`if\` 攔唔到。
  */
 statStatus.addEventListener('click', function () {
   if (!app.classList.contains('v-A')) return   // 乙／丙／今日：⛔ 真係冇反應
   var to = scroll.scrollTop + card.getBoundingClientRect().top - scroll.getBoundingClientRect().top - 12
-  scroll.scrollTo({ top: to, behavior: 'smooth' })
+
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    scroll.scrollTop = to
+  } else {
+    scroll.scrollTo({ top: to, behavior: 'smooth' })
+    setTimeout(function () {
+      if (Math.abs(scroll.scrollTop - to) > 4) scroll.scrollTop = to
+    }, 600)
+  }
+
   card.classList.remove('flash')
   void card.offsetWidth
   card.classList.add('flash')
