@@ -171,6 +171,19 @@ const body =
       onDelete={() => {}}
       onBack={() => {}}
     />
+  ) : screen === 'treeremoval' || screen === 'treeboth' ? (
+    /* ⭐⭐ 「移除」同「修剪／拉索加固」互斥。兩個樣本⛔ 唔可以慳一個：
+       · `treeremoval` —— 剔咗移除 ⇒ 其餘要**剔唔到 ＋ 講到出點解**
+       · `treeboth`   —— 舊單兩樣都有 ⇒ **兩樣都仲要剔得走**（出口） */
+    <TreeFormPage
+      tree={screen === 'treeboth' ? fx.BOTH_TREE : fx.REMOVAL_TREE}
+      suggestedTreeNo="9"
+      otherTreeNos={['2', '3']}
+      recordName="彩"
+      onSave={noop}
+      onDelete={noop}
+      onBack={() => {}}
+    />
   ) : screen === 'tree' ? (
     <TreeFormPage
       tree={fx.TREES[0]}

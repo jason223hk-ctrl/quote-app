@@ -5,7 +5,7 @@ import type { TreesApi } from '../lib/trees'
 import type { SiteFormApi, SiteForm } from '../lib/siteForm'
 import type { PriceApi, PriceTable, PriceSnapshot } from '../lib/prices'
 import type { PhotosApi } from '../lib/photos'
-import { markupSaveFailed, markupToPct, markupToSave } from '../lib/markup'
+import { markupSaveFailed, markupToSave } from '../lib/markup'
 import { quoteLines, type Quote, type PricingInput } from '../lib/pricing'
 import type { Nav } from '../ui/routes'
 import { BackChip, BotanicalHeader, FloatBody, HeaderTitle } from '../ui/shell'
@@ -167,12 +167,14 @@ export default function RecordHubScreen({
   )
 
   const line = clientAddressLine(record.client, record.address)
-  /**
-   * ⛔⛔ **永遠唔會係 `NaN`。**
-   * ⚠️ 舊寫法 `Number(markupInput)` 會俾個 `NaN` 漏落 `CostCard`，
-   *    而**報價價錢**就會變 `$NaN`（實測過）—— 嗰個係報俾客人嘅數。
+  /*
+   * ⚠️ 2026-09-17：本來呢度算一個 `markupPct` 餵落 `CostCard`。**拆咗。**
+   * ⭐ `CostCard` 而家自己由 `markupInput`（人打咗乜）算 —— **一個來源。**
+   * ⛔ 點解要拆：`markupToPct()` 對「**空格**」同「**打咗 `abc`**」
+   *    **兩樣都回 `null`** ⇒ 落到 `CostCard` 就**分唔開**，
+   *    而兩樣嘅答案完全相反（一個照出成本價，一個⛔ 唔出價）。
+   *    見 `src/lib/markup.ts` 個 `askingState()`。
    */
-  const markupPct = markupToPct(markupInput)
 
   return (
     <>
@@ -369,7 +371,6 @@ export default function RecordHubScreen({
         <CostCard
           quote={quote}
           typedMarkup={markupInput}
-          markupPct={markupPct}
           canEditMarkup={canEditMarkup}
           onMarkupChange={onMarkupChange}
           loading={costLoading}

@@ -9,6 +9,7 @@ import {
   optionLabel,
   LEGACY_MITIGATION_OPTIONS,
 } from '../lib/options'
+import { blockedReason } from '../lib/removalExclusive'
 import {
   EMPTY_TREE_INPUT,
   treeToInput,
@@ -137,6 +138,9 @@ export default function TreeFormPage({
           values={input.mitigations}
           disabled={busy !== null}
           onToggle={(value) => patch({ mitigations: toggleValue(input.mitigations, value) })}
+          /* ⛔ 規矩喺 `removalExclusive.ts`，⛔ 唔喺呢度。見嗰個檔嘅檔頭：
+             兩樣都剔咗 ＝ 一棵已經冇咗嘅樹照計埋修剪錢。 */
+          blockedReason={(value) => blockedReason(input.mitigations, value)}
         />
 
         {/*
@@ -150,17 +154,34 @@ export default function TreeFormPage({
         <fieldset className="group">
           <div className="group__options">
             <div>
-              <label className="option">
-                <input
-                  type="checkbox"
-                  checked={input.mitigations.includes(REMOVAL_OPTION.value)}
-                  disabled={busy !== null}
-                  onChange={() =>
-                    patch({ mitigations: toggleValue(input.mitigations, REMOVAL_OPTION.value) })
-                  }
-                />
-                <span>{REMOVAL_OPTION.label}</span>
-              </label>
+              {/* ⚠️ 呢粒掣⛔ 唔行 `OptionGroup`（見上面），所以互斥要喺呢度自己接。
+                  ⭐ 但**規矩本身仍然係嗰一條** —— 同上面兩組叫同一個
+                  `blockedReason()`，⛔ 冇第二套判斷。 */}
+              {(() => {
+                const blocked = blockedReason(input.mitigations, REMOVAL_OPTION.value)
+                return (
+                  <label className={`option${blocked ? ' option--blocked' : ''}`}>
+                    <input
+                      type="checkbox"
+                      data-testid={`pick-${REMOVAL_OPTION.value}`}
+                      checked={input.mitigations.includes(REMOVAL_OPTION.value)}
+                      disabled={busy !== null || blocked !== null}
+                      onChange={() =>
+                        patch({ mitigations: toggleValue(input.mitigations, REMOVAL_OPTION.value) })
+                      }
+                    />
+                    <span>{REMOVAL_OPTION.label}</span>
+                    {blocked && (
+                      <span
+                        className="option__blocked"
+                        data-testid={`blocked-${REMOVAL_OPTION.value}`}
+                      >
+                        {blocked}
+                      </span>
+                    )}
+                  </label>
+                )
+              })()}
             </div>
           </div>
         </fieldset>
@@ -172,6 +193,10 @@ export default function TreeFormPage({
           values={input.mitigations}
           disabled={busy !== null}
           onToggle={(value) => patch({ mitigations: toggleValue(input.mitigations, value) })}
+          /* ⚠️ 呢組入面**淨係「拉索加固」**會俾擋。⭐「起樹頭」⛔ 唔會 ——
+             P3f 明文「✅ 移除 ＋ 起樹頭 係正常組合，⛔ 唔准擋」。
+             ⛔ 呢個分別由 `removalExclusive.ts` 揸，⛔ 唔喺呢度寫死。 */
+          blockedReason={(value) => blockedReason(input.mitigations, value)}
           renderExtra={(value) =>
             value === MITIGATION_OTHER ? (
               <input
