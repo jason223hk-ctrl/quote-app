@@ -52,6 +52,25 @@ const DIST = process.env.UI_CHECK_DIST ?? path.join(HERE, 'dist')
 const PORT = 8321
 const W = 390
 const H = 844
+/*
+ * ⛔⛔ **一部真機嘅「可用高度」⛔ 唔係佢個螢幕高度。**
+ *
+ * `H = 844` 係 iPhone 個**螢幕**。⚠️ 但瀏覽器嗰條網址列食咗一截 ——
+ * Jason 2026-09-17 喺自己部機量到嘅真實可用高度係 **727**。
+ * ⭐ 對得返：喺 727 度量到底部 nav 個頂係 **642**，同佢部機報返嚟嗰個數一模一樣。
+ *
+ * ⇒ 即係話 844 係**最好嗰個情況**，727 先係**現場嗰個情況**。差 117px。
+ *   ⚠️ 而（丙）搬位之前嗰個壞法喺 844 度先褪咗 67px —— **少過 117**。
+ *   ⇒ 一個「喺 844 見到、喺 727 褪咗」嘅版面完全存在，
+ *     而且喺一把淨係量 844 嘅尺度會**全綠**。（2026-09-18 真係整咗一個出嚟試過。）
+ *
+ * ⭐⭐ 呢個同 #40 嗰個「原型機殼跟住瀏覽器高度」係同一個家族：
+ *    量度嘅條件比現場鬆 ⇒ 量到嘅「合格」係假嘅。
+ *
+ * ⛔⛔ 所以「一開就見到」呢組**兩個高度都要過**。
+ * ⛔ 唔准因為版面過唔到就調高 727。要調，⛔ 淨係喺 Jason 量到一個更矮嘅數嗰陣調低。
+ */
+const SHORT_H = 727
 
 /** 每項要對嘅嘢：真 app 選擇器 ↔ 原型選擇器。 */
 const SCREENS = {
@@ -911,9 +930,13 @@ for (const [name, spec] of Object.entries(SCREENS)) {
 
      ⚠️ 而嗰 119px 係**靜靜**嘅：畫面冇報錯、冇灰、冇任何提示，
         淨係「見唔到」。Jason 當日嗰句「我撳狀態冇反應」就係咁嚟。 */
-  for (const one of spec.firstSight ?? []) {
-    firstChecked += 1
-    const r = await real.evaluate(([testid, scrollId, navSel]) => {
+  if ((spec.firstSight ?? []).length > 0) {
+    /*
+     * ⛔⛔ **⛔ 唔准開第二版嚟量矮嘅** —— 喺同一版度縮高度、量完即刻縮返。
+     * ⚠️ 縮返之後要等 layout 定，先至輪到下面九把尺；
+     *    ⛔ 唔等就會喺一個中間狀態度量，而嗰種數查極查唔到。
+     */
+    const READ = ([testid, scrollId, navSel]) => {
       const el = document.querySelector(`[data-testid="${testid}"]`)
       const scroller = scrollId ? document.querySelector(`[data-testid="${scrollId}"]`) : null
       const nav = document.querySelector(navSel)
@@ -925,41 +948,66 @@ for (const [name, spec] of Object.entries(SCREENS)) {
         top: Math.round(b.top),
         bottom: Math.round(b.bottom),
         navTop: Math.round(n.top),
-        h: Math.round(b.height),
       }
-    }, [one.testid, one.scroller ?? null, one.nav ?? '.bottom-nav'])
+    }
 
-    if (r === null) {
-      firstBad += 1
-      console.log(`  ✗ [${one.testid}] 揾唔到 —— ⛔ 量唔到就當唔合格`)
-      continue
+    /* ⭐ 兩個高度都要過。⛔ 唔係「揀一個」—— 見上面 `SHORT_H` 嗰段。 */
+    for (const at of [
+      { h: H, tag: `${W}×${H}` },
+      { h: SHORT_H, tag: `${W}×${SHORT_H}（Jason 部機真實可用高度）` },
+    ]) {
+      if (at.h !== H) {
+        await real.setViewportSize({ width: W, height: at.h })
+        await real.waitForTimeout(400)
+      }
+      for (const one of spec.firstSight ?? []) {
+        firstChecked += 1
+        const r = await real.evaluate(READ, [
+          one.testid,
+          one.scroller ?? null,
+          one.nav ?? '.bottom-nav',
+        ])
+        if (r === null) {
+          firstBad += 1
+          console.log(`  ✗ [${one.testid}] ${at.tag}：揾唔到 —— ⛔ 量唔到就當唔合格`)
+          continue
+        }
+        /* ⛔⛔ 呢一句係成把尺嘅前提：如果畫面已經碌咗，
+           下面量到「見到」就係一個**假嘅合格**。 */
+        if (r.scrollTop !== 0) {
+          firstBad += 1
+          console.log(
+            `  ✗ ⛔⛔ [${one.testid}] ${at.tag}：量之前個畫面已經碌咗 ${r.scrollTop}px` +
+              ' —— 呢把尺量嘅係「⛔ 唔使碌」',
+          )
+          continue
+        }
+        const hidden = Math.max(0, r.bottom - r.navTop)
+        if (hidden > 0) {
+          firstBad += 1
+          console.log(
+            `  ✗ ⛔⛔ [${one.testid}] ${at.tag}：一開就褪咗 ${hidden}px 落底部 nav 後面` +
+              `（卡底 ${r.bottom}、nav 頂 ${r.navTop}）`,
+          )
+          console.log(`      ⚠️ ${one.why}`)
+          console.log('      ⛔ 見唔到嘅嘢冇任何提示 —— 人只會以為撳咗冇反應。')
+        } else if (r.top < 0) {
+          firstBad += 1
+          console.log(
+            `  ✗ ⛔⛔ [${one.testid}] ${at.tag}：一開就有 ${-r.top}px 喺畫面上面出咗界（頂 ${r.top}）`,
+          )
+          console.log(`      ⚠️ ${one.why}`)
+        } else {
+          console.log(
+            `  ✓ [${one.testid}] ${at.tag}：完整見到（${r.top}–${r.bottom}，` +
+              `nav 頂 ${r.navTop}，仲爭 ${r.navTop - r.bottom}px）`,
+          )
+        }
+      }
     }
-    /* ⛔⛔ 呢一句係成把尺嘅前提：如果畫面已經碌咗，
-       下面量到「見到」就係一個**假嘅合格**。 */
-    if (r.scrollTop !== 0) {
-      firstBad += 1
-      console.log(`  ✗ ⛔⛔ [${one.testid}] 量之前個畫面已經碌咗 ${r.scrollTop}px —— 呢把尺量嘅係「⛔ 唔使碌」`)
-      continue
-    }
-    const hidden = Math.max(0, r.bottom - r.navTop)
-    if (hidden > 0) {
-      firstBad += 1
-      console.log(
-        `  ✗ ⛔⛔ [${one.testid}] 一開就褪咗 ${hidden}px 落底部 nav 後面` +
-          `（卡底 ${r.bottom}、nav 頂 ${r.navTop}）`,
-      )
-      console.log(`      ⚠️ ${one.why}`)
-      console.log('      ⛔ 見唔到嘅嘢冇任何提示 —— 人只會以為撳咗冇反應。')
-    } else if (r.top < 0) {
-      firstBad += 1
-      console.log(`  ✗ ⛔⛔ [${one.testid}] 一開就有 ${-r.top}px 喺畫面上面出咗界（頂 ${r.top}）`)
-      console.log(`      ⚠️ ${one.why}`)
-    } else {
-      console.log(
-        `  ✓ [${one.testid}] scrollTop 0 就完整見到（${r.top}–${r.bottom}，nav 頂 ${r.navTop}，` +
-          `仲爭 ${r.navTop - r.bottom}px）`,
-      )
-    }
+    /* ⛔ 縮返原本高度 —— 下面九把尺同 90 項對數全部係喺 H 度定嘅。 */
+    await real.setViewportSize({ width: W, height: H })
+    await real.waitForTimeout(400)
   }
 
 
