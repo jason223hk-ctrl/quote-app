@@ -99,3 +99,43 @@ describe('捉得到', () => {
     expect(scanFile(src.join('\n'))).toEqual([])
   })
 })
+
+/*
+ * ⭐⭐ 2026-09-17 CO 審 `BANNED` 補返嘅。
+ * ⚠️ 頭兩隻（啱、諗）係**我自己寫嘢嗰陣都用緊**嘅字 ——
+ *    即係話寫把尺嗰個人，自己就係漏網嘅來源。
+ */
+describe('CO 補返嗰批', () => {
+  it.each(['啱', '諗', '靚', '咪', '喇', '幾時', '邊度', '梗係', '成日', '識得', '企喺', '鍾意'])(
+    '「%s」要捉到',
+    (w) => {
+      expect(hitWords(`一句有${w}嘅嘢`).length).toBeGreaterThan(0)
+      expect(hitWords(w).length).toBeGreaterThan(0)
+    },
+  )
+
+  it.each([
+    ['喇叭', '喇'],
+    ['喇嘛', '喇'],
+    ['咪錶', '咪'],
+    ['咪高峰', '咪'],
+  ])('「%s」係書面語，⛔ 唔准因為有個「%s」就誤報', (word) => {
+    expect(hitWords(word)).toEqual([])
+  })
+
+  it('但語氣詞本身照樣捉到（ALLOW ⛔ 唔准放生佢）', () => {
+    expect(hitWords('好喇')).toContain('喇')
+    expect(hitWords('咪住')).toContain('咪')
+    expect(hitWords('喇叭壞咗，唔好喇')).toContain('喇')
+  })
+
+  /*
+   * ⛔⛔ **「點算」特登冇入 BANNED —— ⛔ 唔係漏咗。**
+   * 書面語嘅「點算」＝ 盤點；而我哋自己譯出嚟嗰句
+   * 「正在點算這個工程有多少棵樹和相片」就係用緊佢。
+   * ⚠️ 禁咗佢，把尺就會告自己嘅定稿。
+   */
+  it('「點算」（＝盤點）⛔ 唔准當廣東話', () => {
+    expect(hitWords('正在點算這個工程有多少棵樹和相片')).toEqual([])
+  })
+})
