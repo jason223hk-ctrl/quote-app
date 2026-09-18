@@ -1801,6 +1801,62 @@ console.log(`中心點撳到自己：量咗 ${centreChecked} 粒掣，中心撳�
 console.log(`一開就見到（⛔ 唔准碌）：量咗 ${firstChecked} 件，褪咗 ${firstBad} 件。`)
 console.log(`睇落撳得就要真撳得：量咗 ${fakeChecked} 格，扮掣 ${fakeBad} 格。`)
 
+/*
+ * ── ⭐⭐ 每組至少要量到幾多（⛔ 「量咗 0」⛔ 唔係合格）─────────────
+ *
+ * ⛔⛔ **點解要呢一段 —— ⛔ 唔准淨係記住結論**
+ *
+ * 2026-09-18：改 `firstSight` 嗰陣，一個切錯範圍嘅 edit **刪咗 640 行** ——
+ * 即係把尺自己俾人剷走咗一大截，剩返個殼。
+ *
+ * ⚠️⚠️ 而個 run **⛔ 冇 throw、exit code 係 0**，佢淨係靜靜咁報：
+ *     量咗 0 項 ／ 中心點撳到自己：量咗 0 粒 ／ ⛔ 冇得撳走：量咗 0 件
+ *
+ * ⇒ **「量咗 0 項」同「量咗 N 項全部過」喺 exit code 度一模一樣。**
+ *
+ * ⭐ 呢個同 `mustLock` ↔ `canStillPick`、同書面語尺嗰條「⛔ 唔准掃空」
+ *   係**同一條規矩**：一把淨係識「數少咗就好」嘅尺，⛔ 守唔住「刪走咗」。
+ *   ⚠️ 只不過今次俾人刪走嘅係**把尺本身**。
+ *
+ * ⇒ 所以每組寫低一個**下限**。少過個下限 ⇒ 紅，而且句錯要講清楚
+ *   **⛔ 唔係「唔合格」，係根本冇量過**。
+ *
+ * ⛔ 呢啲數淨係可以**加**，⛔ 唔准因為一個 run 跌咗就調低 ——
+ *   跌咗就係出咗事。（加尺、加畫面 ⇒ 順手加返個數上去。）
+ */
+const FLOORS = [
+  ['90 項對數', checked, 90],
+  ['撳得到嘅檢查', hitChecked, 294],
+  ['彈窗掣位', sameSpot + sameSpotBad, 2],
+  ['真滑鼠拖', dragChecked, 1],
+  ['訊息睇得到', seenChecked, 1],
+  ['數唔到就鎖住', lockChecked, 7],
+  ['兩件嘢冇疊埋', overlapChecked, 2],
+  ['粒掣夠大撳', sizeChecked, 2],
+  ['撳完⛔ 唔變藍', blueChecked, 4],
+  ['打完字存唔到要出聲', typedChecked, 5],
+  ['⛔ 冇得撳走', escapeChecked, 2],
+  ['中心點撳到自己', centreChecked, 9],
+  ['一開就見到', firstChecked, 8],
+  ['睇落撳得就要真撳得', fakeChecked, 3],
+]
+
+let floorBad = 0
+console.log('\n══ 每組至少要量到幾多（⛔ 「量咗 0」⛔ 唔係合格）══')
+for (const [label, got, min] of FLOORS) {
+  if (got >= min) {
+    console.log(`  ✓ ${label}：量咗 ${got}（至少 ${min}）`)
+  } else {
+    floorBad += 1
+    console.log(`  ✗ ⛔⛔ ${label}：量咗 ${got}，至少要 ${min}`)
+    console.log('      ⚠️ ⛔ 呢個唔係「唔合格」—— 係**根本冇量過**。')
+    console.log('      ⛔ 有嘢令把尺行唔到：可能一個 spec 冇咗、一個畫面爆咗、')
+    console.log('         或者一個 edit 切錯範圍剷走咗 code（2026-09-18 就係咁）。')
+  }
+}
+if (floorBad === 0) console.log(`  ⇒ ${FLOORS.length} 組全部有真係量過。`)
+
+
 if (SELF_TEST) {
   console.log('\n──── 自我測試 ────')
   console.log('整返咗 2026-09-14 嗰個壞法（首頁容器換成 .float-cards-scroll 嘅幾何）。')
@@ -1826,7 +1882,8 @@ process.exit(
     typedBad === 0 &&
     centreBad === 0 &&
     firstBad === 0 &&
-    fakeBad === 0
+    fakeBad === 0 &&
+    floorBad === 0
     ? 0
     : 1,
 )
