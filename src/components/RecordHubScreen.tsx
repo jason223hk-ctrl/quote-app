@@ -264,6 +264,31 @@ export default function RecordHubScreen({
           </div>
         }
       >
+        {/* ⛔⛔ 轉狀態卡擺**最頂**，⛔ 唔准搬落去 —— 呢個係 2026-09-17 Jason 撳過原型之後
+            拍板嘅（丙）。⚠️ 而佢贏嘅理由⛔ 唔係「撳咗有反應」，係**根本唔使撳**。
+
+            ⭐⭐ **點解要釘死 —— ⛔ 唔准淨係記住結論**
+
+            佢本來擺喺「匯出 PDF」之後（即係五行入口之後）。實測：
+                三粒狀態 chip 個頂喺 761px，而底部 nav 個頂喺 642px
+                ⇒ **褪咗 119px 喺 nav 後面** —— 一開個工程頁根本見唔到。
+
+            ⚠️ Jason 當日嗰句「我撳狀態冇反應」就係由呢度嚟：佢見到嘅係
+               上面三粒**唔係掣**嘅頂格（狀態／樹木／地區），真嘅掣喺底下睇唔到。
+
+            ⇒ 所以 `ui:check` 有一把 `firstSight` 尺量住：scrollTop 0、⛔ 冇撳過
+              任何嘢嗰陣，張卡同三粒 chip 要完整見到，而且⛔ 唔准褪落 nav 後面。
+              搬返落去 ⇒ 把尺會紅，而且數得出褪咗幾多 px。 */}
+        <StatusCard
+          record={record}
+          canSetWon={canSetWon}
+          busy={statusBusy}
+          onChange={(to, snapshot) => {
+            setStatusBusy(true)
+            void onStatusChange(to, snapshot).finally(() => setStatusBusy(false))
+          }}
+        />
+
         <button
           className="hub-row"
           data-testid="hub-client"
@@ -352,16 +377,6 @@ export default function RecordHubScreen({
             <Icon name={ICONS.chevron} />
           </span>
         </button>
-
-        <StatusCard
-          record={record}
-          canSetWon={canSetWon}
-          busy={statusBusy}
-          onChange={(to, snapshot) => {
-            setStatusBusy(true)
-            void onStatusChange(to, snapshot).finally(() => setStatusBusy(false))
-          }}
-        />
 
         {/* ⛔ 淨係存唔到先出，平時⛔ 一個 pixel 都冇加。⭐ 用返已批准嗰行紅字。
             ⛔⛔ `inline` 缺唔得：呢格係一路打字一路存，唔開就會搶咗輸入格個

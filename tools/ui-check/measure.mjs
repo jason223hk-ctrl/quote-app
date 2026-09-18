@@ -73,6 +73,24 @@ const SCREENS = {
     ],
   },
   hub: {
+    /* ⭐ （丙）嘅驗收：一開個工程頁就見到轉狀態，⛔ 唔使碌。
+       ⛔ 三粒 chip 逐粒都要量 —— 「張卡見到」⛔ 唔等於「三粒都見到」。 */
+    firstSight: [
+      {
+        testid: 'status-card',
+        scroller: 'hub-scroll',
+        why: '轉狀態係開單之後最常做嘅嘢，⛔ 唔應該要碌落去揾',
+      },
+      { testid: 'status-pending', scroller: 'hub-scroll', why: '「待報價」撳得到先叫見到' },
+      { testid: 'status-quoted', scroller: 'hub-scroll', why: '「已報價」撳得到先叫見到' },
+      { testid: 'status-won', scroller: 'hub-scroll', why: '「已中標」撳得到先叫見到' },
+    ],
+    /* ⛔ 頂部三格（狀態／樹木／地區）淨係顯示，⛔ 唔准扮掣。 */
+    notFakeButton: [
+      { sel: '[data-testid="record-summary"] .stat:nth-child(1)', why: '真嘅轉狀態掣喺下面張卡' },
+      { sel: '[data-testid="record-summary"] .stat:nth-child(2)', why: '入樹木清單用下面「樹木清單」嗰行' },
+      { sel: '[data-testid="record-summary"] .stat:nth-child(3)', why: '改地區用下面「工程資料」嗰行' },
+    ],
     proto: 'showProject',
     /* ⭐⭐ 撳完⛔ 唔准變藍（Jason 2026-08-29 原型拍板，2026-09-15 再講一次）。
        ⛔ 揀嘅係「撳落去唔會去第二版」嗰幾粒 —— ⚠️ 撳咗粒垃圾桶會開彈窗，
@@ -832,6 +850,12 @@ let typedBad = 0
 /** 「中心點撳到自己」嗰組 —— ⛔ 同上面「撳得到」係兩把唔同嘅尺，見下面。 */
 let centreChecked = 0
 let centreBad = 0
+/** 「一開就見到」嗰組 —— ⛔ 唔准撳、⛔ 唔准碌。 */
+let firstChecked = 0
+let firstBad = 0
+/** 「睇落撳得就一定撳得」嗰組。 */
+let fakeChecked = 0
+let fakeBad = 0
 
 /** 「撳完⛔ 唔變藍」同「鍵盤仲睇得到」嗰組。 */
 let blueChecked = 0
@@ -866,6 +890,78 @@ for (const [name, spec] of Object.entries(SCREENS)) {
   if (spec.before) { await spec.before(real); await real.waitForTimeout(500) }
 
   console.log(`\n══ ${name} ══`)
+
+  /* ⛔⛔ **呢一組一定要喺呢度行 —— ⛔ 唔准搬落去。**
+     下面啲尺會撳掣、會碌畫面（`centreHit` 個 `scrollFirst`、`askingWhenTyped` 打字…）。
+     ⚠️ 一碌咗，「一開就見到」就量唔返 —— 而量到嘅「見到」會係一個**假嘅合格**。
+     ⭐ 所以佢擺喺 `goto` 之後、任何人郁過個畫面之前。 */
+  /* ── ⭐⭐ 一開就見到嗎？（⛔ 唔准撳、⛔ 唔准碌） ──────────────
+
+     ⛔⛔ **點解要一把尺 —— ⛔ 唔准淨係記住結論**
+
+     2026-09-17 Jason 撳咗三個做法嘅原型，揀咗（丙）：轉狀態卡搬去最頂。
+     ⚠️⚠️ **佢贏嘅理由⛔ 唔係「撳咗有反應」，係「根本唔使撳」。**
+
+     ⇒ 所以呢把尺⛔ 唔可以量「撳完之後見唔見到」——
+       佢一定要喺 **scrollTop 0、⛔ 一下都未撳過** 嗰個狀態度量。
+
+     原本個排法（張卡喺「匯出 PDF」之後）實測：
+         三粒狀態 chip 頂  761px
+         底部 nav 頂       642px      ⇒ 褪咗 119px
+
+     ⚠️ 而嗰 119px 係**靜靜**嘅：畫面冇報錯、冇灰、冇任何提示，
+        淨係「見唔到」。Jason 當日嗰句「我撳狀態冇反應」就係咁嚟。 */
+  for (const one of spec.firstSight ?? []) {
+    firstChecked += 1
+    const r = await real.evaluate(([testid, scrollId, navSel]) => {
+      const el = document.querySelector(`[data-testid="${testid}"]`)
+      const scroller = scrollId ? document.querySelector(`[data-testid="${scrollId}"]`) : null
+      const nav = document.querySelector(navSel)
+      if (!el || !nav) return null
+      const b = el.getBoundingClientRect()
+      const n = nav.getBoundingClientRect()
+      return {
+        scrollTop: scroller ? Math.round(scroller.scrollTop) : 0,
+        top: Math.round(b.top),
+        bottom: Math.round(b.bottom),
+        navTop: Math.round(n.top),
+        h: Math.round(b.height),
+      }
+    }, [one.testid, one.scroller ?? null, one.nav ?? '.bottom-nav'])
+
+    if (r === null) {
+      firstBad += 1
+      console.log(`  ✗ [${one.testid}] 揾唔到 —— ⛔ 量唔到就當唔合格`)
+      continue
+    }
+    /* ⛔⛔ 呢一句係成把尺嘅前提：如果畫面已經碌咗，
+       下面量到「見到」就係一個**假嘅合格**。 */
+    if (r.scrollTop !== 0) {
+      firstBad += 1
+      console.log(`  ✗ ⛔⛔ [${one.testid}] 量之前個畫面已經碌咗 ${r.scrollTop}px —— 呢把尺量嘅係「⛔ 唔使碌」`)
+      continue
+    }
+    const hidden = Math.max(0, r.bottom - r.navTop)
+    if (hidden > 0) {
+      firstBad += 1
+      console.log(
+        `  ✗ ⛔⛔ [${one.testid}] 一開就褪咗 ${hidden}px 落底部 nav 後面` +
+          `（卡底 ${r.bottom}、nav 頂 ${r.navTop}）`,
+      )
+      console.log(`      ⚠️ ${one.why}`)
+      console.log('      ⛔ 見唔到嘅嘢冇任何提示 —— 人只會以為撳咗冇反應。')
+    } else if (r.top < 0) {
+      firstBad += 1
+      console.log(`  ✗ ⛔⛔ [${one.testid}] 一開就有 ${-r.top}px 喺畫面上面出咗界（頂 ${r.top}）`)
+      console.log(`      ⚠️ ${one.why}`)
+    } else {
+      console.log(
+        `  ✓ [${one.testid}] scrollTop 0 就完整見到（${r.top}–${r.bottom}，nav 頂 ${r.navTop}，` +
+          `仲爭 ${r.navTop - r.bottom}px）`,
+      )
+    }
+  }
+
 
   // ── 真滑鼠拖（⛔ 一定要喺「撳得到」掃描之前 —— 推開咗個垃圾桶掣先露出嚟）──
   if (spec.drag) {
@@ -1477,6 +1573,52 @@ for (const [name, spec] of Object.entries(SCREENS)) {
     }
   }
 
+  /* ── ⭐ 睇落撳得嘅，一定要真係撳得 ──────────────────────────
+
+     ⛔⛔ **同上面嗰把係一對，⛔ 唔可以淨係要一半。**
+
+     ⚠️ 頂部三格（狀態／樹木／地區）**唔係掣**，佢哋淨係顯示。
+        ⇒ 佢哋**⛔ 唔可以睇落似掣** —— 一格睇落撳得而撳落去冇反應，
+          就係 Jason 2026-09-17 嗰句「我撳狀態冇反應」嘅另一半。
+
+     ⭐ 而家個排法解決咗第一半（真掣搬咗上嚟、一開就見到）；
+        呢把尺守住第二半（⛔ 唔准留一格扮掣）。
+
+     量三樣：⛔ 唔係 `<button>`、⛔ 冇 `role="button"`／`tabindex`、
+            ⛔ 個 `cursor` ⛔ 唔係 `pointer`。 */
+  for (const one of spec.notFakeButton ?? []) {
+    fakeChecked += 1
+    const r = await real.evaluate((sel) => {
+      const el = document.querySelector(sel)
+      if (!el) return null
+      const cs = getComputedStyle(el)
+      return {
+        tag: el.tagName.toLowerCase(),
+        role: el.getAttribute('role'),
+        tabindex: el.getAttribute('tabindex'),
+        cursor: cs.cursor,
+        text: (el.textContent ?? '').trim().slice(0, 14),
+      }
+    }, one.sel)
+    if (r === null) {
+      fakeBad += 1
+      console.log(`  ✗ [${one.sel}] 揾唔到 —— ⛔ 量唔到就當唔合格`)
+      continue
+    }
+    const why = []
+    if (r.tag === 'button' || r.tag === 'a') why.push(`佢係 <${r.tag}>`)
+    if (r.role === 'button' || r.role === 'link') why.push(`role="${r.role}"`)
+    if (r.tabindex !== null) why.push(`tabindex="${r.tabindex}"`)
+    if (r.cursor === 'pointer') why.push('cursor: pointer')
+    if (why.length) {
+      fakeBad += 1
+      console.log(`  ✗ ⛔⛔ [${one.sel}]「${r.text}」睇落撳得（${why.join('、')}），但佢⛔ 唔會做嘢`)
+      console.log(`      ⚠️ ${one.why}`)
+    } else {
+      console.log(`  ✓ [${one.sel}]「${r.text}」⛔ 唔係掣，亦都⛔ 唔扮掣（<${r.tag}>, cursor ${r.cursor}）`)
+    }
+  }
+
   /* ── ⭐ 呢個仲剔得返轉頭嗎？ ───────────────────────────────────
 
      ⛔⛔ **同上面「數唔到就鎖住」係一對，⛔ 唔可以淨係要一半。**
@@ -1608,6 +1750,8 @@ console.log(`撳完⛔ 唔變藍 ＋ 鍵盤仲睇得到：量咗 ${blueChecked} 
 console.log(`打完字存唔到要出聲：量咗 ${typedChecked} 格，冇聲 ${typedBad} 格。`)
 console.log(`⛔ 冇得撳走：量咗 ${escapeChecked} 件，走得甩 ${escapeBad} 件。`)
 console.log(`中心點撳到自己：量咗 ${centreChecked} 粒掣，中心撳唔到 ${centreBad} 粒。`)
+console.log(`一開就見到（⛔ 唔准碌）：量咗 ${firstChecked} 件，褪咗 ${firstBad} 件。`)
+console.log(`睇落撳得就要真撳得：量咗 ${fakeChecked} 格，扮掣 ${fakeBad} 格。`)
 
 if (SELF_TEST) {
   console.log('\n──── 自我測試 ────')
@@ -1632,7 +1776,9 @@ process.exit(
     blueBad === 0 &&
     escapeBad === 0 &&
     typedBad === 0 &&
-    centreBad === 0
+    centreBad === 0 &&
+    firstBad === 0 &&
+    fakeBad === 0
     ? 0
     : 1,
 )
