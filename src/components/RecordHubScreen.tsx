@@ -78,6 +78,11 @@ export default function RecordHubScreen({
    *    畫面一個字都冇）。⇒ 同 PR #17「撳咗冇反應」係同一條。
    */
   const [markupError, setMarkupError] = useState<string | null>(null)
+  /*
+   * ⛔⛔ 轉狀態失敗嗰句。⚠️ 2026-09-19 之前**根本冇呢個 state** ——
+   *    即係話伺服器拒絕嗰陣，畫面**一隻字都冇**。
+   */
+  const [statusError, setStatusError] = useState<string | null>(null)
   const [markupInput, setMarkupInput] = useState<string>(
     record.markup_pct === null ? '' : String(record.markup_pct),
   )
@@ -285,9 +290,42 @@ export default function RecordHubScreen({
           busy={statusBusy}
           onChange={(to, snapshot) => {
             setStatusBusy(true)
-            void onStatusChange(to, snapshot).finally(() => setStatusBusy(false))
+            /*
+             * ⛔⛔ **一定要接住。**
+             *
+             * ⚠️ 舊寫法係 `void onStatusChange(to, snapshot).finally(…)` ——
+             *    `.finally()` 淨係熄返個 busy，**⛔ 佢⛔ 唔會處理拒絕**。
+             *    ⇒ 撳落去：「改緊⋯」閃一閃 → promise reject → 冇人接
+             *      → **畫面回復原狀，⛔ 冇字、⛔ 冇紅、⛔ 冇 chip 著**。
+             *    ⭐ 2026-09-19 Jason 真機報「狀態撳唔到」就係呢個。
+             *
+             * ⚠️⚠️ 呢條係**同一條字第二次出事** —— 上面加成嗰格
+             *    （`onMarkupSave`）本來一模一樣，修咗；⛔ 但冇人掃返其餘嗰啲。
+             *    ⭐ 一次係巧合，兩次係圖案。
+             *
+             * ⛔ `void` 喺呢個 repo 由今日起等於「我保證呢條 promise 唔會 reject」——
+             *    `no-floating-promises` 本來嘈得到，`void` 就係叫佢收聲。
+             *    ⇒ 證唔到就⛔ 唔准用 `void`。
+             */
+            void onStatusChange(to, snapshot)
+              .then(() => setStatusError(null))
+              .catch((caught: unknown) => {
+                // ⛔ 英文原文照樣入 console（CLAUDE.md §2.7）。
+                console.error('[quote-app] status change failed:', caught)
+                setStatusError(caught instanceof Error ? caught.message : String(caught))
+              })
+              .finally(() => setStatusBusy(false))
           }}
         />
+
+        {/*
+          ⛔⛔ 呢句一定要**貼住張卡**，⛔ 唔准擺落版尾。
+          ⚠️ 我第一版擺咗喺加成錯誤隔籬（成版落底四百幾 px）——
+             撳咗頂部粒 chip、句錯出咗喺畫面外面，**同冇出冇分別**。
+          ⭐ 同「訊息睇得到」嗰把尺同一個道理：出咗字 ⛔ 唔等於見到。
+          `inline` ⇒ ⛔ 唔搶 focus（同加成嗰句同一個做法）。
+        */}
+        <ErrorNotice message={statusError} testId="status-error" inline />
 
         <button
           className="hub-row"

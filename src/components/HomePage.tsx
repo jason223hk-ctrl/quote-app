@@ -276,7 +276,16 @@ export function RecordsScreen({
               if (snapshot) {
                 snap = await api.prices.list()
               }
-              await api.records.setStatus(record.id, to, snap)
+              /*
+               * ⛔⛔ 行返同一個 `withRefusalReason` —— ⭐ 同刪除、同加成**同一條路**。
+               * ⚠️ 2026-09-19 真機報「狀態撳唔到」：`setStatus` 0 行就 throw
+               *    `NoRowError`，而嗰句係一句通用嘢。`refusalReason()` 嗰三句
+               *    （鎖定／唔係你開／權限設定）**由頭到尾冇人叫過佢** ——
+               *    ⇒ 三句寫得幾好都好，**冇人見到就等於冇寫**。
+               */
+              await withRefusalReason(api.records.setStatus(record.id, to, snap), () =>
+                refusalReason(record, userId),
+              )
               await reload()
             }}
             nav={nav}
