@@ -72,6 +72,22 @@ export const REQUIRED = [
 ]
 
 /** 一句嘅身分 ＝ 邊個檔 ＋ 原文。⭐ 同一句喺兩個檔，係兩件事。 */
+/*
+ * ⛔⛔ **書面語，但特登⛔ 唔准用嘅詞。**
+ *
+ * ⚠️ 同 `BANNED` 兩件事：`BANNED` 攔廣東話，呢度攔**一個拍咗板嘅決定**。
+ *
+ * ⭐ 2026-09-19：「校驗失敗」本來係書面語對照表右欄嗰個，
+ *   但 CO 捉到同一條流程入面 `photos.ts` 用「校驗失敗」、
+ *   `photoUpload.ts` 用「未核對相符」——**同一個人先後見到兩句，
+ *   讀落似係兩件事**。Jason 拍板統一用「核對」。
+ *
+ * ⛔ 冇呢把尺，下一個人照樣會寫返「校驗」，而⛔ 冇嘢會紅。
+ */
+const FORBIDDEN = [
+  { word: '校驗', use: '核對', why: 'Jason 2026-09-19 拍板統一用「核對」——「對數」係呢個 repo 自己嘅語言' },
+]
+
 const keyOf = (file, text) => JSON.stringify([file, text])
 
 function walk(dir) {
@@ -125,6 +141,19 @@ if (gone.length) {
     console.log(`      ${f}  「${short(t)}」`)
   }
   console.log('      ⚠️ 逼你剷，係為咗令「改咗邊幾句」喺 PR diff 度睇得到。')
+}
+
+console.log('\n══ ⛔ 拍咗板⛔ 唔准用嘅詞 ══')
+for (const one of FORBIDDEN) {
+  const hits = [...found.values()].filter((h) => h.text.includes(one.word))
+  if (hits.length === 0) {
+    console.log(`  ✓ 「${one.word}」冇出現過（要用「${one.use}」）`)
+  } else {
+    bad += hits.length
+    console.log(`  ✗ ⛔⛔ 「${one.word}」出現咗 ${hits.length} 次 —— 要用「${one.use}」`)
+    for (const h of hits) console.log(`      ${h.file}:${h.line}  「${short(h.text)}」`)
+    console.log(`      ⚠️ ${one.why}`)
+  }
 }
 
 console.log('\n══ ⛔ 唔准掃空：呢幾句安全訊息一定要仲喺度 ══')

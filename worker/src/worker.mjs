@@ -522,7 +522,7 @@ async function mirror(request, env, origin) {
       // ⛔ 上完即刻讀返出嚟對大細 —— 對唔到就唔准寫「抄咗」。
       const check = await driveFileSize(gtoken, fileId)
       if (check !== null && photo.size_bytes !== null && String(check) !== String(photo.size_bytes)) {
-        const why = `複製上 Drive 之後校驗失敗：R2 ${photo.size_bytes} bytes，Drive ${check} bytes。這張相片未算複製成功。`
+        const why = `複製上 Drive 之後核對不符：R2 ${photo.size_bytes} bytes，Drive ${check} bytes。這張相片未算複製成功。`
         await patchPhoto(env, userToken, photo.id, { drive_error: why })
         return json({ ok: false, message: why }, 502, origin)
       }
