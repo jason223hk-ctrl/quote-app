@@ -122,12 +122,26 @@ cd worker && npx wrangler deploy     # ③
 ⚠️ **⛔ 唔好省第 ① 步。** 寫步驟而唔寫點解，下一個人就會省咗佢 ——
 ⭐ 而個 deploy 會成功，所以⛔ 冇人會即刻知出咗事。
 
+### ⛔⛔ 一句要記住：**改 worker 嘅文案 ＝ 改一個 app 嗰邊可能靠緊嘅嘢**
+
+2026-09-19：worker 四句錯誤訊息由「請截圖搵 Jason」改成「請截圖並聯絡 Jason」，
+deploy 咗之後 —— `src/lib/sync.ts` 嗰句 `message.includes('搵 Jason')` **即刻斷咗**，
+而一個 Drive HTTP 500 由「要人處理」變成「**無需處理，系統會自動再試**」。
+
+⛔ **冇嘢會紅**：worker 嘅 test 綠、app 嘅 test 綠（佢餵嘅係手寫假訊息）、
+書面語尺綠（`'搵 Jason'` 呢個字串仲寫喺 `sync.ts` 度）。
+
+⇒ 而家有一把尺睇住：`src/lib/syncWorkerContract.test.ts` **直接叫真嘅
+`driveFailure()`**，再餵落 `syncAdvice` ——⭐ worker 改一個字，佢即刻跟住變。
+
 ### 記低 Version ID
 
 | 日期 | Version ID | 帶咗乜上線 |
 | --- | --- | --- |
 | 2026-09-17 | `5066c4d1-0760-4de9-aec0-39a0d1f448f1` | ⛔ 冇帶 429 logging（序搞錯咗，提前跑咗） |
 | 2026-09-19 | `77d5eeb9-d5da-40dd-8674-269746c5aa5e` | ✅ `/rename-tree` ＋ Drive 429 logging（等咗兩日） |
+| 2026-09-19 | `81c304b3-2f54-4d57-bed9-50b225dd2576` | ✅ worker 42 句書面語 |
+| ⏳ **待 deploy** | —— | 「複製上 Drive 之後**核對不符**」（Jason 2026-09-19 收返「校驗」） |
 
 ## 部署完之後
 
