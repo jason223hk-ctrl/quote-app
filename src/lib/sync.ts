@@ -148,11 +148,61 @@ export const DRIVE_LOGIN_FAILED_MESSAGE =
   '需要處理：Drive 登入唔到，係設定嗰邊嘅問題，唔係你做錯嘢。' +
   '相已經安全存咗喺雲端（R2），唔會冇咗。請截圖，用 WhatsApp 搵 Jason。'
 
+/**
+ * ⛔ Google 自己個 reason code —— **會自己好返嗰啲**。
+ *
+ * ⚠️ 呢個 list 一定要同 `worker/src/driveError.mjs` 個 `reasonInChinese()`
+ *    「等陣會自己好返」嗰組**對得住**。⛔ 唔准兩邊各寫各。
+ * ⭐ `src/lib/syncWorkerContract.test.ts` 有一把尺睇住兩邊 ——
+ *    佢**直接叫真嘅 worker function**，⛔ 唔係抄一句假嘅訊息落嚟。
+ */
+export const TRANSIENT_DRIVE_REASONS = ['rateLimitExceeded', 'userRateLimitExceeded']
+
+/**
+ * 呢句錯係唔係 worker 個 `driveFailure()` 砌出嚟嘅？
+ *
+ * ⛔ 認嘅係 `HTTP <三位數>` —— ASCII，⛔ 唔係中文。
+ * ⭐ 點解夠：`driveFailure()` **每一句**都由 `${where} 失敗（HTTP ${status}` 開頭。
+ *    ⚠️ 而「失敗」兩個字**改得**，`HTTP 429` 呢個形狀⛔ 改唔到（佢係 HTTP 本身）。
+ */
+export function isWorkerDriveFailure(message: string): boolean {
+  return /HTTP \d{3}/.test(message)
+}
+
 export function syncAdvice(row: QuotePhoto): SyncAdvice {
   const message = row.drive_error.trim() !== '' ? row.drive_error : row.r2_error
 
-  // worker 自己寫嘅永久性錯誤，四句都以「請截圖搵 Jason。」收尾。
-  if (message.includes('搵 Jason')) {
+  /*
+   * ⛔⛔⛔ **呢度⛔ 唔准用中文字串做暗號。**
+   *
+   * ⚠️⚠️ 2026-09-19 真係中過，而且中咗之後上咗線：
+   *   舊寫法係 `if (message.includes('搵 Jason'))`，
+   *   而註解寫住「worker 四句都以『請截圖搵 Jason。』收尾」。
+   *   ⇒ #56 把 worker 四句改成「請截圖並聯絡 Jason」、Jason deploy 咗
+   *     （Version 81c304b3）⇒ **呢條分支一條新 error 都中唔到**。
+   *
+   * ⭐ 後果⛔ 唔係「少咗一句」：佢會跌落下面 `/50\d/` 條，
+   *   於是一個「Drive HTTP 500 ＋ 未見過嘅 reason」由「要人處理」
+   *   變成「**無需處理，系統會自動再試**」。⛔ 而系統⛔ 唔會好返。
+   *
+   * ⭐⭐ `records.ts` 自己個註解早就警告過同一件事：
+   *   「⛔ 唔准用個訊息字串嚟認佢 —— 一改文案就靜靜咁失靈，
+   *     而失靈嗰陣冇人見到。」**呢次就係佢本人。**
+   *
+   * ── 而家改用乜 ────────────────────────────────
+   *
+   * ⭐ 用 **Google 自己個 reason code**（`dailyLimitExceeded` 嗰啲）——
+   *   佢係 API token，⛔ 唔係我哋寫嘅文案，⛔ 改書面語⛔ 唔會郁到佢。
+   *
+   * ⛔ **預設係「要人處理」** —— 同舊行為一樣：
+   *   worker 解釋唔到（未見過嘅 reason／Google 冇講原因）就當永久性。
+   *   ⚠️ 呢個⛔ 唔係保守多餘：講錯「唔使理」嘅代價係**冇人再睇**，
+   *     講錯「要處理」嘅代價淨係麻煩一次。
+   */
+  if (isWorkerDriveFailure(message)) {
+    if (TRANSIENT_DRIVE_REASONS.some((code) => message.includes(code))) {
+      return { permanent: false, text: '無需處理。相片已安全存入雲端，系統會自動再試。' }
+    }
     return {
       permanent: true,
       text: '需要處理：呢個問題唔會自己好返。請截圖，用 WhatsApp 搵 Jason。',
