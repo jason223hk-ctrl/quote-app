@@ -39,7 +39,7 @@ export default function StatusCard({ record, canSetWon, busy, onChange }: Props)
     setAsking(null)
 
     if (to === 'won' && !canSetWon) {
-      setBlocked('「已中標」要辦公室權限先改得。請搵 Jason 或者阿耀喺公司改。')
+      setBlocked('「已中標」需要辦公室權限才能修改。請聯絡 Jason 或阿耀在公司修改。')
       return
     }
 

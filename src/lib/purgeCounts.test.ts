@@ -68,8 +68,8 @@ describe('⛔⛔ 數唔到就唔准出一個數', () => {
   })
 
   it('數唔到嗰句要中文、要講得出下一步', () => {
-    expect(CANNOT_COUNT_MESSAGE).toContain('唔敢刪')
-    expect(CANNOT_COUNT_MESSAGE).toContain('WhatsApp 搵 Jason')
+    expect(CANNOT_COUNT_MESSAGE).toContain('不會冒險刪除')
+    expect(CANNOT_COUNT_MESSAGE).toContain('WhatsApp 聯絡 Jason')
   })
 
   it('數唔到 ⇒ ⛔ 唔出「連帶消失」嗰行', () => {
@@ -110,7 +110,7 @@ describe('數相 —— ⭐ 雲端同部機夾埋，用影相編號去重', () =
   })
 
   it('⭐ 部機有、雲端冇（RLS 拒絕嗰啲）⇒ 一樣要數', () => {
-    // ⚠️ 呢啲正正就係「只剩部機一份」嗰批 —— ⛔ 唔數就等於話俾人聽佢哋唔會冇咗。
+    // ⚠️ 呢啲正正就係「只剩部機一份」嗰批 —— ⛔ 唔數就等於話俾人聽佢哋不會丟失。
     expect(purgeCounts('r1', [], [], [local({ operationId: 'a', status: 'error' })])?.photos).toBe(1)
   })
 
@@ -161,7 +161,7 @@ describe('⚠️ 「只剩部機呢一份」—— ⛔ 同上面兩個 N 係兩�
     expect(onlyOnPhoneCount('r1', items)).toBe(1)
   })
 
-  it('⛔ 讀唔到部機 ⇒ null，⛔ 唔係 0', () => {
+  it('⛔ 無法獲取本裝置 ⇒ null，⛔ 唔係 0', () => {
     expect(onlyOnPhoneCount('r1', null)).toBe(null)
   })
 
@@ -173,10 +173,10 @@ describe('⚠️ 「只剩部機呢一份」—— ⛔ 同上面兩個 N 係兩�
     expect(onlyOnPhoneWarning(null)).toBe(null)
   })
 
-  it('⭐ 有嘢就要講到好重 —— 「真正永遠冇咗」', () => {
+  it('⭐ 有嘢就要講到好重 —— 「真正永遠消失」', () => {
     const text = onlyOnPhoneWarning(4)
-    expect(text).toBe('⚠️ 呢單仲有 4 張相只剩部機呢一份（未傳上雲端）。清咗就真正永遠冇咗。')
-    expect(text).toContain('真正永遠冇咗')
+    expect(text).toBe('⚠️ 此單仍有 4 張相片只剩本裝置這一份（未上傳到雲端）。清除後就真正永遠消失。')
+    expect(text).toContain('真正永遠消失')
   })
 
   it('⭐ 兩句唔准撈埋：呢行⛔ 唔提「無法還原」，嗰句由彈窗自己出', () => {

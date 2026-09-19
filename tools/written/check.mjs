@@ -19,7 +19,7 @@
 import { readFileSync, readdirSync, statSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { scanFile } from './scan.mjs'
+import { scanFile, userText } from './scan.mjs'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const DIRS = ['src', 'worker/src']
@@ -37,12 +37,14 @@ const DIRS = ['src', 'worker/src']
 export const REQUIRED = [
   {
     file: 'src/lib/records.ts',
-    must: '⛔ 唔係你做錯嘢',
+    /* ⚠️ 2026-09-19 書面語（A）：由「⛔ 唔係你做錯嘢」改成呢句。⛔ 改語體，⛔ 唔改意思。 */
+    must: '⛔ 不是你操作錯誤',
     why: '權限設定出錯嗰陣，要同現場同事講明⛔ 唔好怪自己、⛔ 唔好一路再試（CLAUDE.md §2.7）',
   },
   {
     file: 'src/lib/sync.ts',
-    must: '唔係你做錯嘢',
+    /* ⚠️ 2026-09-19 書面語（A）：同上，Drive 登入唔到嗰條路。 */
+    must: '不是你操作錯誤',
     why: '同上，Drive 登入唔到嗰條路',
   },
   {
@@ -56,17 +58,20 @@ export const REQUIRED = [
   },
   {
     file: 'src/lib/records.ts',
-    must: '呢一單已經鎖定咗',
+    /* ⚠️ 2026-09-19 書面語（A）。 */
+    must: '此單已經鎖定',
     why: '三句拒絕原因之一：鎖定。⚠️ RLS 拒絕⛔ 唔會 throw，只會 0 行 ⇒ 冇呢句人就唔知發生咗乜',
   },
   {
     file: 'src/lib/records.ts',
-    must: '呢一單唔係你開嘅',
+    /* ⚠️ 2026-09-19 書面語（A）。 */
+    must: '此單不是你建立的',
     why: '三句拒絕原因之二：唔係自己開嗰單',
   },
   {
     file: 'src/lib/records.ts',
-    must: '伺服器唔俾改呢一單',
+    /* ⚠️ 2026-09-19 書面語（A）。 */
+    must: '伺服器不允許修改此單',
     why: '三句拒絕原因之三：兩邊唔夾（部機話得、伺服器話唔得）',
   },
 ]
@@ -158,8 +163,18 @@ for (const one of FORBIDDEN) {
 
 console.log('\n══ ⛔ 唔准掃空：呢幾句安全訊息一定要仲喺度 ══')
 for (const one of REQUIRED) {
-  const src = readFileSync(path.join(ROOT, one.file), 'utf8')
-  if (src.includes(one.must)) {
+  /*
+   * ⛔⛔ 只查**用家睇得到嘅字**，⛔ 唔查成個檔。
+   *
+   * ⚠️ 2026-09-19 捉到：「伺服器唔俾改呢一單」呢句喺畫面已經改晒，
+   *    但佢**仲喺一段註解入面出現**（records.ts:273 講緊「點解要呢句」）——
+   *    ⇒ 舊版用 `src.includes()` 就**照樣 ✓**，而現場其實已經冇咗嗰句。
+   *
+   * ⭐ 即係話把尺當時守緊嘅係「有冇人提過呢句」，
+   *   ⛔ 唔係「現場同事仲睇唔睇得到呢句」。差好遠。
+   */
+  const seen = userText(readFileSync(path.join(ROOT, one.file), 'utf8'))
+  if (seen.some((t) => t.text.includes(one.must))) {
     console.log(`  ✓ ${one.file}：「${one.must}」`)
   } else {
     bad += 1

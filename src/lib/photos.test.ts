@@ -184,14 +184,14 @@ describe('⛔ 唔准承諾一個我哋量唔到嘅時間（Jason 2026-09-16 第 
 
 describe('⭐ 要講得出「你而家做得到咩」（Jason 2026-09-16 第 ② 條）', () => {
   it('R2 有份 ＝ 張相安全 —— 兩種情況都要寫明，⛔ 唔可以淨係講 Drive 失敗', () => {
-    expect(photoHint({ status: 'r2', r2Done: true, hasLocal: true })).toContain('⛔ 唔會冇咗')
-    expect(photoHint({ status: 'error', r2Done: true, hasLocal: true })).toContain('⛔ 唔會冇咗')
+    expect(photoHint({ status: 'r2', r2Done: true, hasLocal: true })).toContain('⛔ 不會丟失')
+    expect(photoHint({ status: 'error', r2Done: true, hasLocal: true })).toContain('⛔ 不會丟失')
   })
 
-  it('⭐ Drive 試夠三次：老實講「做唔到嘢」，⛔ 唔准再叫人撳「再試一次」', () => {
+  it('⭐ Drive 試夠三次：老實講「無法自行處理」，⛔ 唔准再叫人撳「再試一次」', () => {
     const hint = photoHint({ status: 'error', r2Done: true, hasLocal: true })
-    expect(hint).toContain('做唔到嘢')
-    expect(hint).toContain('搵 Jason')
+    expect(hint).toContain('無法自行處理')
+    expect(hint).toContain('聯絡 Jason')
     // ⛔ 呢個先係重點：粒掣撳落去一個請求都唔發，所以⛔ 唔准叫人撳。
     expect(hint).not.toContain('再試一次')
   })
@@ -199,12 +199,12 @@ describe('⭐ 要講得出「你而家做得到咩」（Jason 2026-09-16 第 ②
   it('R2 都未上到而部機有份：⭐ 撳「再試一次」真係做到嘢 ⇒ 照叫佢撳', () => {
     const hint = photoHint({ status: 'error', r2Done: false, hasLocal: true })
     expect(hint).toContain('再試一次')
-    expect(hint).toContain('唔會影多張相')
+    expect(hint).toContain('不會多拍一張相片')
   })
 
   it('每種處境都要講到張相喺邊，⛔ 唔准淨係話「失敗」', () => {
-    expect(photoHint({ status: 'error', r2Done: false, hasLocal: true })).toContain('仲喺部機')
-    expect(photoHint({ status: 'error', r2Done: false, hasLocal: false })).toContain('呢部機冇')
+    expect(photoHint({ status: 'error', r2Done: false, hasLocal: true })).toContain('仍在本裝置')
+    expect(photoHint({ status: 'error', r2Done: false, hasLocal: false })).toContain('本裝置沒有')
   })
 })
 
@@ -241,9 +241,9 @@ describe('對數', () => {
     expect(digestMatches({ size: 10, sha256: 'a' }, { size: 10, sha256: 'b' })).toBe(false)
   })
 
-  it('對唔上嘅訊息係中文，而且講到明未算上到', () => {
+  it('對唔上嘅訊息係中文，而且講到明未算上傳成功', () => {
     const message = digestMismatchMessage({ size: 10, sha256: 'a' }, { size: 11, sha256: 'a' })
-    expect(message).toContain('未算上到')
+    expect(message).toContain('未算上傳成功')
   })
 })
 
@@ -452,7 +452,7 @@ describe('兩種 23505 要分得開（2026-09-04 真機中過）', () => {
     )
   })
 
-  it('⛔ 同一格撞號唔准出「請截圖搵 Jason」—— 系統自己重試就搞得掂', async () => {
+  it('⛔ 同一格撞號唔准出「請截圖聯絡 Jason」—— 系統自己重試就搞得掂', async () => {
     const { client } = fakeClient({
       insertResult: { data: null, error: slotSeqError },
       existing: null,
@@ -516,14 +516,14 @@ describe('allocateSeq', () => {
     const { client } = rpcClient({ data: null, error: null })
     await expect(
       createPhotosApi(client, 'user-1').allocateSeq('rec', null, null),
-    ).rejects.toThrow(/攞唔到相片編號/)
+    ).rejects.toThrow(/無法獲取相片編號/)
   })
 
   it('⛔ 回 0 都唔准要 —— seq 由 1 數起，0 會計出 -1 個檔名', async () => {
     const { client } = rpcClient({ data: 0, error: null })
     await expect(
       createPhotosApi(client, 'user-1').allocateSeq('rec', null, null),
-    ).rejects.toThrow(/攞唔到相片編號/)
+    ).rejects.toThrow(/無法獲取相片編號/)
   })
 
   it('DB 出錯：出中文，⛔ 唔准彈英文原文', async () => {

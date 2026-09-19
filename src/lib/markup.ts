@@ -66,7 +66,7 @@ export function markupToSave(typed: string): number | null | undefined {
  *    ⛔ 唔准食咗佢換一句通用嘢。
  */
 export function markupSaveFailed(reason: string): string {
-  return `加成 ％ 存唔到：${reason.trim()} ⚠️ 你打咗嘅數仲喺格入面，⛔ 未存到入去。`
+  return `加成 ％ 無法儲存：${reason.trim()} ⚠️ 你輸入的數字仍在欄內，⛔ 尚未儲存。`
 }
 
 /**
@@ -106,7 +106,7 @@ export type AskingState =
  * ⭐ 佢要答到兩樣：**而家係點**、**點樣先出得返個價**。
  */
 export const MARKUP_UNREADABLE =
-  '加成嗰格讀唔到，⛔ 計唔到報價價錢。請喺加成格淨係填數字（想冇加成就清空佢）。'
+  '加成一欄獲取失敗，⛔ 無法計算報價價錢。請在加成欄只填數字（不設加成請清空該欄）。'
 
 export function askingState(typed: string): AskingState {
   const saved = markupToSave(typed)

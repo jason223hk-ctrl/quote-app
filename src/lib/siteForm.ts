@@ -150,7 +150,7 @@ export function createSiteFormApi(client: SupabaseClient, userId: string): SiteF
         .maybeSingle()
 
       if (error) throw reportError(error.message)
-      if (!data) throw new Error('存唔到現場資料表。可能母單已經鎖定，或者唔係你開嘅單。')
+      if (!data) throw new Error('無法儲存現場資料表。可能所屬工程已經鎖定，或者不是你建立的工程。')
       return data as SiteForm
     },
   }

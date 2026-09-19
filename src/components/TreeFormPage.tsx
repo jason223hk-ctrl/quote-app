@@ -76,7 +76,7 @@ export default function TreeFormPage({
     //    ⛔ 唔可以靜靜哋擋住儲存，令人以為撳咗冇反應。
     const errors = validateTree(input)
     if (Object.keys(errors).length > 0) {
-      setError(`舊資料有數字唔啱：${Object.values(errors).join('、')}。請截圖搵 Jason。`)
+      setError(`舊資料有數字不正確：${Object.values(errors).join('、')}。請截圖並聯絡 Jason。`)
       return
     }
 
@@ -220,7 +220,7 @@ export default function TreeFormPage({
         {hasLegacyMitigation(input.mitigations) && (
           <p className="notice notice--warning" role="status">
             呢棵樹記低咗「{optionLabel(LEGACY_MITIGATION_OPTIONS, 'pruning')}」，
-            係舊格式。<strong>照留住，唔會冇咗。</strong>
+            係舊格式。<strong>會保留，不會消失。</strong>
             想寫清楚係邊一種修剪，就喺上面「修剪」揀返一個 ——
             <strong>揀咗之後先影得到嗰個工序嘅相</strong>。
           </p>

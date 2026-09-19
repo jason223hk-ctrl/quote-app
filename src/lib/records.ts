@@ -244,7 +244,7 @@ export function rowToInput(record: QuoteRecord): RecordInput {
  *    ⭐ 叫得出邊個原因嗰陣，用 `refusalReason()` 換走佢（見下面）。
  */
 export const NO_ROW_MESSAGE =
-  '改唔到呢一單。可能已經鎖定（locked），或者唔係你開嘅單。要 admin 幫手先改得。'
+  '無法修改此單。可能已經鎖定（locked），或者不是你建立的工程。需要 admin 協助才能修改。'
 
 /**
  * 「伺服器收咗個請求，但一行都冇改到」。
@@ -291,12 +291,12 @@ export function refusalReason(facts: RefusalFacts, userId: string): string {
   if (facts.locked) {
     // ⛔ 呢句以前寫住「改唔到、封存唔到、亦都刪唔到」。2026-09-15 拆走「封存」——
     //    ⚠️ 封存已經冇咗，⛔ 唔准喺畫面再提（P3f §7 第 2 項）。
-    return '呢一單已經鎖定咗。鎖定咗就改唔到、亦都刪唔到。要解鎖，請截圖，用 WhatsApp 搵 Jason。'
+    return '此單已經鎖定。鎖定後不能修改，亦不能刪除。如要解鎖，請截圖，並用 WhatsApp 聯絡 Jason。'
   }
   if (facts.created_by !== userId) {
-    return '呢一單唔係你開嘅，你只可以改同刪自己開嗰啲單。要處理呢一單，請截圖，用 WhatsApp 搵 Jason。'
+    return '此單不是你建立的，你只可以修改和刪除自己建立的工程。如要處理此單，請截圖，並用 WhatsApp 聯絡 Jason。'
   }
-  return '伺服器唔俾改呢一單，但部機睇落你就係開單嗰個、亦都冇鎖定 —— 即係權限設定嗰邊有嘢唔對，⛔ 唔係你做錯嘢。請截圖，用 WhatsApp 搵 Jason。'
+  return '伺服器不允許修改此單，但本裝置看來你就是建立此單的人，而且並未鎖定 —— 即是權限設定那邊出了問題，⛔ 不是你操作錯誤。請截圖，並用 WhatsApp 聯絡 Jason。'
 }
 
 /**
@@ -333,7 +333,7 @@ export function translateDbError(message: string): string {
   }
 
   if (message.includes('row-level security')) {
-    return '冇權限做呢個動作。你只可以改自己開、而且未鎖定嘅單。'
+    return '沒有權限執行這個動作。你只可以修改自己建立、而且未鎖定的工程。'
   }
 
   if (message.includes('PGRST116') || message.toLowerCase().includes('0 rows')) {
@@ -348,7 +348,7 @@ export function translateDbError(message: string): string {
     return '連唔到伺服器，請check返個網絡再試。'
   }
 
-  return '儲存唔到，請再試一次。如果一直唔得，請截圖搵 Jason。'
+  return '無法儲存，請再試一次。如果一直不成功，請截圖並聯絡 Jason。'
 }
 
 /** 原文英文留喺 console，畫面出中文。 */

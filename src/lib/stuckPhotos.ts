@@ -80,13 +80,13 @@ export function stuckAdvice(item: PendingPhoto): StuckAdvice {
   if (item.error.includes(PHOTO_NO_ROW_MESSAGE)) {
     return {
       permanent: true,
-      text: '需要處理：母單改唔到，所以呢張相寫唔入資料庫 —— 呢個問題唔會自己好返。相仲喺部機度，⛔ 唔會冇咗。請截圖，用 WhatsApp 搵 Jason。',
+      text: '需要處理：所屬工程無法修改，所以這張相片無法寫入資料庫 —— 這個問題不會自行恢復。相片仍在本裝置，⛔ 不會丟失。請截圖，並用 WhatsApp 聯絡 Jason。',
     }
   }
 
   return {
     permanent: false,
-    text: '傳唔到，系統會自己再試。相仲喺部機度，⛔ 唔會冇咗。一直都係咁就截圖，用 WhatsApp 搵 Jason。',
+    text: '無法上傳，系統會自動重試。相片仍在本裝置，⛔ 不會丟失。如果一直這樣，請截圖，並用 WhatsApp 聯絡 Jason。',
   }
 }
 

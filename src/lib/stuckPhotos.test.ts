@@ -77,19 +77,19 @@ describe('stuckAdvice —— 第二行答「你使唔使做嘢」', () => {
   it('⭐ RLS 拒絕（Testing01 嗰單嘢）⇒ 永久性，而且叫得出搵邊個', () => {
     const advice = stuckAdvice(photo({ status: 'error', error: RLS_MESSAGE }))
     expect(advice.permanent).toBe(true)
-    expect(advice.text).toContain('WhatsApp 搵 Jason')
+    expect(advice.text).toContain('WhatsApp 聯絡 Jason')
     // ⛔ 唔准講「會自己好返」—— 母單改唔到，重試一萬次都係同一個答案。
-    expect(advice.text).toContain('唔會自己好返')
+    expect(advice.text).toContain('不會自行恢復')
   })
 
   it('認唔出嘅錯 ⇒ 照出中文，⛔ 唔准彈英文出嚟', () => {
     const advice = stuckAdvice(photo({ status: 'error', error: 'TypeError: fetch failed' }))
     expect(advice.permanent).toBe(false)
-    expect(advice.text).toContain('相仲喺部機度')
+    expect(advice.text).toContain('相片仍在本裝置')
     expect(advice.text).not.toContain('TypeError')
   })
 
-  it('⭐ 四句都要講明張相唔會冇咗', () => {
+  it('⭐ 四句都要講明張相不會丟失', () => {
     const all = [
       stuckAdvice(photo({ status: 'uploading' })),
       stuckAdvice(photo({ status: 'local' })),
@@ -97,8 +97,8 @@ describe('stuckAdvice —— 第二行答「你使唔使做嘢」', () => {
       stuckAdvice(photo({ status: 'error', error: '乜都唔係' })),
     ]
     // 「上緊」同「排緊隊」冇明寫，因為佢哋根本未失敗；另外兩句一定要有。
-    expect(all[2].text).toContain('唔會冇咗')
-    expect(all[3].text).toContain('唔會冇咗')
+    expect(all[2].text).toContain('不會丟失')
+    expect(all[3].text).toContain('不會丟失')
   })
 })
 

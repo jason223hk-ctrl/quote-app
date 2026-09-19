@@ -49,7 +49,7 @@ export function planStatusChange(record: QuoteRecord, to: QuoteStatus): StatusCh
   if (record.status === 'won') {
     return {
       allowed: false,
-      why: '「已中標」之後改唔到 —— 相片資料夾已經搬咗入 Tree App。要改就搵 Jason。',
+      why: '轉為「已中標」之後不能修改 —— 相片資料夾已經搬入 Tree App。如要修改，請聯絡 Jason。',
     }
   }
 
@@ -60,7 +60,7 @@ export function planStatusChange(record: QuoteRecord, to: QuoteStatus): StatusCh
       confirm:
         `將「${record.name}」轉為已中標？` +
         `相片資料夾會搬入 Tree App Photos，同事即刻見到。` +
-        `⛔ 轉咗之後改唔返。`,
+        `⛔ 轉換之後不能還原。`,
       snapshot: needsSnapshot(record),
     }
   }

@@ -236,7 +236,7 @@ export function strandedNote(count: number): string | null {
  *    呢啲相根本冇入過資料庫）—— ⭐ 所以句嘢要嚇得親人，⛔ 唔准客氣。
  */
 export function strandedConfirm(count: number): string {
-  return `呢 ${count} 張相全世界只剩部機呢一份，清咗就真係冇。`
+  return `這 ${count} 張相片全世界只剩本裝置這一份，清除後就真的沒有了。`
 }
 
 /**

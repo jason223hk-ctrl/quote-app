@@ -168,7 +168,7 @@ describe('translateDbError', () => {
   it('RLS 擋住嘅講成權限問題', () => {
     expect(
       translateDbError('new row violates row-level security policy for table "quote_records"'),
-    ).toContain('冇權限')
+    ).toContain('沒有權限')
   })
 
   it('唔識嘅 error 都要出中文，唔可以彈返英文原文', () => {
@@ -269,32 +269,32 @@ describe('todayIso', () => {
 describe('refusalReason —— 伺服器唔俾改，⭐ 講得出邊個原因', () => {
   const ME = 'me-uuid'
 
-  it('鎖定咗 ⇒ 講鎖定，⛔ 唔提「唔係你開嘅」', () => {
+  it('鎖定咗 ⇒ 講鎖定，⛔ 唔提「不是你建立的」', () => {
     const text = refusalReason({ locked: true, created_by: ME }, ME)
     expect(text).toContain('鎖定')
-    expect(text).not.toContain('唔係你開嘅')
+    expect(text).not.toContain('不是你建立的')
   })
 
   it('⭐ 鎖定行先 —— 兩樣都中嗰陣淨係講鎖定（解鎖先係下一步）', () => {
     const text = refusalReason({ locked: true, created_by: '第二個人' }, ME)
     expect(text).toContain('鎖定')
-    expect(text).not.toContain('唔係你開嘅')
+    expect(text).not.toContain('不是你建立的')
   })
 
-  it('唔係你開嘅 ⇒ 講清楚，⛔ 唔提鎖定', () => {
+  it('不是你建立的 ⇒ 講清楚，⛔ 唔提鎖定', () => {
     const text = refusalReason({ locked: false, created_by: '第二個人' }, ME)
-    expect(text).toContain('唔係你開嘅')
+    expect(text).toContain('不是你建立的')
     expect(text).not.toContain('鎖定')
   })
 
   it('⭐⭐ 兩樣都正常但照樣俾人拒 ⇒ 要講明係設定問題，⛔ 唔准話人做錯嘢', () => {
     const text = refusalReason({ locked: false, created_by: ME }, ME)
     expect(text).toContain('權限設定')
-    expect(text).toContain('唔係你做錯嘢')
+    expect(text).toContain('不是你操作錯誤')
   })
 
-  it('created_by 係 null（舊資料）⇒ 當唔係你開嘅，⛔ 唔准當佢正常', () => {
-    expect(refusalReason({ locked: false, created_by: null }, ME)).toContain('唔係你開嘅')
+  it('created_by 係 null（舊資料）⇒ 當不是你建立的，⛔ 唔准當佢正常', () => {
+    expect(refusalReason({ locked: false, created_by: null }, ME)).toContain('不是你建立的')
   })
 
   it('⛔ 三句都要講得出搵邊個、做乜（CLAUDE.md §2.7）', () => {
@@ -305,7 +305,7 @@ describe('refusalReason —— 伺服器唔俾改，⭐ 講得出邊個原因', 
     ]
     for (const text of all) {
       expect(text).toContain('截圖')
-      expect(text).toContain('WhatsApp 搵 Jason')
+      expect(text).toContain('WhatsApp 聯絡 Jason')
     }
   })
 

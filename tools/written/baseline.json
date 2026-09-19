@@ -21,10 +21,6 @@
  },
  {
   "file": "src/components/ExportPdfScreen.tsx",
-  "text": "匯出咗 ${picked.length - failed.length} 張相。⚠️ 攞唔到呢 ${failed.length} 張：${failed.join('、')}。請截圖搵 Jason。"
- },
- {
-  "file": "src/components/ExportPdfScreen.tsx",
   "text": "匯出咗 ${picked.length} 張相。"
  },
  {
@@ -50,22 +46,6 @@
  {
   "file": "src/components/PhotoSlot.tsx",
   "text": "呢格唔使影相。"
- },
- {
-  "file": "src/components/PhotoSlot.tsx",
-  "text": "呢部機嘅瀏覽器唔支援本機儲存，影咗都留唔住。請截圖搵 Jason。"
- },
- {
-  "file": "src/components/PhotoSlot.tsx",
-  "text": "張相存落部機之後對唔返數。請再影一次，或者截圖搵 Jason。"
- },
- {
-  "file": "src/components/PhotoSlot.tsx",
-  "text": "張相寫唔入部機。請再影一次，或者截圖搵 Jason。"
- },
- {
-  "file": "src/components/PhotoSlot.tsx",
-  "text": "而家連唔到伺服器，下面顯示嘅係呢部機記住嘅嘢。影相照影得，有網會自己補返。"
  },
  {
   "file": "src/components/PriceScreen.tsx",
@@ -153,10 +133,6 @@
  },
  {
   "file": "src/components/StatusCard.tsx",
-  "text": "「已中標」要辦公室權限先改得。請搵 Jason 或者阿耀喺公司改。"
- },
- {
-  "file": "src/components/StatusCard.tsx",
   "text": "唔轉住"
  },
  {
@@ -192,14 +168,6 @@
   "text": "揀咗之後先影得到嗰個工序嘅相"
  },
  {
-  "file": "src/components/TreeFormPage.tsx",
-  "text": "照留住，唔會冇咗。"
- },
- {
-  "file": "src/components/TreeFormPage.tsx",
-  "text": "舊資料有數字唔啱：${Object.values(errors).join('、')}。請截圖搵 Jason。"
- },
- {
   "file": "src/components/TreePhotosScreen.tsx",
   "text": "仲未揀工序。撳上面個樹牌號入「改樹」揀返，呢度就會出返格。"
  },
@@ -222,22 +190,6 @@
  {
   "file": "src/lib/autoResume.ts",
   "text": "呢張相而家背景度自動上緊，唔使撳。等佢傳完就得。"
- },
- {
-  "file": "src/lib/clearStranded.ts",
-  "text": "清唔到，部機嘅儲存空間出錯。請截圖，用 WhatsApp 搵 Jason。"
- },
- {
-  "file": "src/lib/clearStranded.ts",
-  "text": "而家問唔到雲端有冇呢啲相，唔肯定得唔得清，所以乜都冇清。請check返個網絡再試。"
- },
- {
-  "file": "src/lib/clearStranded.ts",
-  "text": "而家攞唔到工程清單，唔肯定邊啲工程仲喺度，所以乜都冇清。請check返個網絡再試。"
- },
- {
-  "file": "src/lib/clearStranded.ts",
-  "text": "讀唔到部機嗰批相，所以乜都冇清。請截圖，用 WhatsApp 搵 Jason。"
  },
  {
   "file": "src/lib/clients.ts",
@@ -281,23 +233,11 @@
  },
  {
   "file": "src/lib/markup.ts",
-  "text": "加成 ％ 存唔到：${reason.trim()} ⚠️ 你打咗嘅數仲喺格入面，⛔ 未存到入去。"
- },
- {
-  "file": "src/lib/markup.ts",
-  "text": "加成嗰格讀唔到，⛔ 計唔到報價價錢。請喺加成格淨係填數字（想冇加成就清空佢）。"
- },
- {
-  "file": "src/lib/markup.ts",
   "text": "計唔到"
  },
  {
   "file": "src/lib/office.ts",
   "text": "[quote-app] 查唔到辦公室權限："
- },
- {
-  "file": "src/lib/orphanPhotos.ts",
-  "text": "呢 ${count} 張相全世界只剩部機呢一份，清咗就真係冇。"
  },
  {
   "file": "src/lib/orphanPhotos.ts",
@@ -313,35 +253,7 @@
  },
  {
   "file": "src/lib/photos.ts",
-  "text": "⚠️ 你而家做唔到嘢，請截圖搵 Jason。"
- },
- {
-  "file": "src/lib/photos.ts",
-  "text": "⛔ 喺呢部機做唔到嘢 —— 請喺影嗰部機開一開 app。"
- },
- {
-  "file": "src/lib/photos.ts",
-  "text": "⭐ 張相已經安全入咗雲端，⛔ 唔會冇咗 —— 差嘅淨係 Drive 嗰份副本。"
- },
- {
-  "file": "src/lib/photos.ts",
   "text": "上唔到。"
- },
- {
-  "file": "src/lib/photos.ts",
-  "text": "上唔到雲端，而呢部機冇呢張相嘅副本（喺第二部機影嘅）。"
- },
- {
-  "file": "src/lib/photos.ts",
-  "text": "上唔到雲端。張相仲喺部機度，⛔ 唔會冇咗。撳「再試一次」——⛔ 唔會影多張相。"
- },
- {
-  "file": "src/lib/photos.ts",
-  "text": "上緊，唔好熄咗個 app。"
- },
- {
-  "file": "src/lib/photos.ts",
-  "text": "仲未上到雲端。唔好清瀏覽器資料，返到有網開一開 app。"
  },
  {
   "file": "src/lib/photos.ts",
@@ -357,35 +269,11 @@
  },
  {
   "file": "src/lib/photos.ts",
-  "text": "對唔到數：上傳前 ${expected.size} bytes，讀返出嚟 ${actual.size} bytes。呢張相未算上到，請再試一次。"
- },
- {
-  "file": "src/lib/photos.ts",
-  "text": "對唔到數：讀返出嚟嘅內容同上傳嗰份唔一樣。呢張相未算上到，請再試一次。"
- },
- {
-  "file": "src/lib/photos.ts",
-  "text": "攞唔到相片編號。相仲喺部機度，唔會冇咗。請撳「再試一次」。"
- },
- {
-  "file": "src/lib/photos.ts",
   "text": "有事要人睇"
  },
  {
   "file": "src/lib/photos.ts",
-  "text": "相片記錄寫唔入資料庫。可能母單已經鎖定，或者唔係你開嘅單。相仲喺部機度，唔會冇咗。請截圖，用 WhatsApp 搵 Jason。"
- },
- {
-  "file": "src/lib/photos.ts",
   "text": "試咗三次都唔得，⛔ 唔會再自動試。"
- },
- {
-  "file": "src/lib/photos.ts",
-  "text": "資料庫話呢張相已經有紀錄，但即刻揾返出嚟又揾唔到。相仲喺部機度，唔會冇咗。請截圖搵 Jason。"
- },
- {
-  "file": "src/lib/photos.ts",
-  "text": "雲端（R2）已經有一份，⛔ 唔會冇咗。Drive 嗰份補緊。"
  },
  {
   "file": "src/lib/photoStore.ts",
@@ -401,43 +289,7 @@
  },
  {
   "file": "src/lib/photoTransport.ts",
-  "text": "壓縮相片失敗。請再影一次，或者截圖搵 Jason。"
- },
- {
-  "file": "src/lib/photoTransport.ts",
   "text": "抄唔到去 Drive：${detail}"
- },
- {
-  "file": "src/lib/photoTransport.ts",
-  "text": "抄唔到去 Drive：${detail}。R2 嗰份仲喺，唔會冇咗。"
- },
- {
-  "file": "src/lib/photoTransport.ts",
-  "text": "未設定相片上傳服務（VITE_PHOTO_WORKER_URL）。相會照存喺部機，但上唔到雲端。請截圖搵 Jason。"
- },
- {
-  "file": "src/lib/photoTransport.ts",
-  "text": "部機嘅瀏覽器整唔到縮圖，影唔到相。請截圖搵 Jason。"
- },
- {
-  "file": "src/lib/photoUpload.ts",
-  "text": "上傳中斷：${detail}。相仲喺部機度，撳「再試一次」就得。"
- },
- {
-  "file": "src/lib/photoUpload.ts",
-  "text": "上傳咗但讀唔返出嚟核對：${detail}。未對到數就唔算上到，請再試一次。"
- },
- {
-  "file": "src/lib/photoUpload.ts",
-  "text": "呢張相排唔到號，可能有人同時影緊同一格。相仲喺部機同雲端度，唔會冇咗。請撳「再試一次」，或者截圖搵 Jason。"
- },
- {
-  "file": "src/lib/photoUpload.ts",
-  "text": "攞唔到上傳網址：${detail}。相仲喺部機度，唔會冇咗。"
- },
- {
-  "file": "src/lib/photoUpload.ts",
-  "text": "連唔到伺服器。相仲喺部機度，唔會冇咗。行去有訊號嘅地方，再撳「再試一次」。"
  },
  {
   "file": "src/lib/prices.ts",
@@ -445,15 +297,7 @@
  },
  {
   "file": "src/lib/purgeCounts.ts",
-  "text": "⚠️ 呢單仲有 ${count} 張相只剩部機呢一份（未傳上雲端）。清咗就真正永遠冇咗。"
- },
- {
-  "file": "src/lib/purgeCounts.ts",
   "text": "數緊呢一單有幾多樹同相⋯"
- },
- {
-  "file": "src/lib/purgeCounts.ts",
-  "text": "而家數唔到呢一單有幾多樹同相，⛔ 唔敢刪。請check返個網絡再試；一直都係咁就截圖，用 WhatsApp 搵 Jason。"
  },
  {
   "file": "src/lib/records.ts",
@@ -465,23 +309,7 @@
  },
  {
   "file": "src/lib/records.ts",
-  "text": "伺服器唔俾改呢一單，但部機睇落你就係開單嗰個、亦都冇鎖定 —— 即係權限設定嗰邊有嘢唔對，⛔ 唔係你做錯嘢。請截圖，用 WhatsApp 搵 Jason。"
- },
- {
-  "file": "src/lib/records.ts",
   "text": "做幾多天"
- },
- {
-  "file": "src/lib/records.ts",
-  "text": "儲存唔到，請再試一次。如果一直唔得，請截圖搵 Jason。"
- },
- {
-  "file": "src/lib/records.ts",
-  "text": "冇權限做呢個動作。你只可以改自己開、而且未鎖定嘅單。"
- },
- {
-  "file": "src/lib/records.ts",
-  "text": "呢一單唔係你開嘅，你只可以改同刪自己開嗰啲單。要處理呢一單，請截圖，用 WhatsApp 搵 Jason。"
  },
  {
   "file": "src/lib/records.ts",
@@ -489,15 +317,7 @@
  },
  {
   "file": "src/lib/records.ts",
-  "text": "呢一單已經鎖定咗。鎖定咗就改唔到、亦都刪唔到。要解鎖，請截圖，用 WhatsApp 搵 Jason。"
- },
- {
-  "file": "src/lib/records.ts",
   "text": "呢個帳號未有權限讀寫報價單。資料庫嗰邊未 GRANT 俾 authenticated，要 admin 補返。"
- },
- {
-  "file": "src/lib/records.ts",
-  "text": "改唔到呢一單。可能已經鎖定（locked），或者唔係你開嘅單。要 admin 幫手先改得。"
  },
  {
   "file": "src/lib/records.ts",
@@ -517,27 +337,11 @@
  },
  {
   "file": "src/lib/siteForm.ts",
-  "text": "存唔到現場資料表。可能母單已經鎖定，或者唔係你開嘅單。"
- },
- {
-  "file": "src/lib/siteForm.ts",
   "text": "請至少揀一個垃圾處理方法"
  },
  {
   "file": "src/lib/status.ts",
-  "text": "「已中標」之後改唔到 —— 相片資料夾已經搬咗入 Tree App。要改就搵 Jason。"
- },
- {
-  "file": "src/lib/status.ts",
-  "text": "⛔ 轉咗之後改唔返。"
- },
- {
-  "file": "src/lib/status.ts",
   "text": "報咗 ${days} 日"
- },
- {
-  "file": "src/lib/stuckPhotos.ts",
-  "text": "傳唔到，系統會自己再試。相仲喺部機度，⛔ 唔會冇咗。一直都係咁就截圖，用 WhatsApp 搵 Jason。"
  },
  {
   "file": "src/lib/stuckPhotos.ts",
@@ -546,38 +350,6 @@
  {
   "file": "src/lib/stuckPhotos.ts",
   "text": "而家背景度自動上緊，⛔ 唔使撳。等佢傳完就得。"
- },
- {
-  "file": "src/lib/stuckPhotos.ts",
-  "text": "需要處理：母單改唔到，所以呢張相寫唔入資料庫 —— 呢個問題唔會自己好返。相仲喺部機度，⛔ 唔會冇咗。請截圖，用 WhatsApp 搵 Jason。"
- },
- {
-  "file": "src/lib/sync.ts",
-  "text": "相已經安全存咗喺雲端（R2），唔會冇咗。請截圖，用 WhatsApp 搵 Jason。"
- },
- {
-  "file": "src/lib/sync.ts",
-  "text": "需要處理：Drive 授權過咗期，要重新登入先抄得上 Drive。"
- },
- {
-  "file": "src/lib/sync.ts",
-  "text": "需要處理：Drive 登入唔到，係設定嗰邊嘅問題，唔係你做錯嘢。"
- },
- {
-  "file": "src/lib/sync.ts",
-  "text": "需要處理：Google Drive 嗰邊唔收（額滿或者冇權限）。請截圖，用 WhatsApp 搵 Jason。"
- },
- {
-  "file": "src/lib/sync.ts",
-  "text": "需要處理：呢個問題唔會自己好返。請截圖，用 WhatsApp 搵 Jason。"
- },
- {
-  "file": "src/lib/sync.ts",
-  "text": "需要處理：系統認唔出呢個錯誤。請截圖，用 WhatsApp 搵 Jason。"
- },
- {
-  "file": "src/lib/trees.ts",
-  "text": "改唔到呢棵樹。可能母單已經鎖定，或者唔係你開嘅單。"
  },
  {
   "file": "src/main.tsx",

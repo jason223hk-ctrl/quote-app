@@ -49,12 +49,12 @@ describe('存唔存、存乜', () => {
 
 describe('存唔到嗰句', () => {
   it('⛔ 唔准食咗伺服器嗰句原因', () => {
-    const text = markupSaveFailed('呢一單唔係你開嘅，你只可以改同刪自己開嗰啲單。')
-    expect(text).toContain('呢一單唔係你開嘅')
+    const text = markupSaveFailed('此單不是你建立的，你只可以改同刪自己開嗰啲單。')
+    expect(text).toContain('此單不是你建立的')
   })
 
   it('⭐ 一定要講明打咗嘅嘢仲喺度', () => {
-    expect(markupSaveFailed('冇網')).toContain('仲喺格入面')
+    expect(markupSaveFailed('冇網')).toContain('仍在欄內')
   })
 
   it('⛔ 唔准淨係一句「出錯」', () => {

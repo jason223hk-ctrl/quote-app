@@ -115,7 +115,7 @@ export function canPurge(counts: PurgeCounts | null): boolean {
  * 數唔到嗰陣出嘅話。⛔ 中文、⛔ 講得出下一步（CLAUDE.md §2.7）。
  */
 export const CANNOT_COUNT_MESSAGE =
-  '而家數唔到呢一單有幾多樹同相，⛔ 唔敢刪。請check返個網絡再試；一直都係咁就截圖，用 WhatsApp 搵 Jason。'
+  '現在無法點算此單有多少棵樹和相片，⛔ 不會冒險刪除。請檢查網絡連線後再試；如果一直這樣，請截圖，並用 WhatsApp 聯絡 Jason。'
 
 /**
  * 「只剩部機呢一份」嗰個 N —— **⛔ 同上面兩個 N 係兩件事。**
@@ -146,7 +146,7 @@ export function onlyOnPhoneCount(recordId: string, local: PendingPhoto[] | null)
  */
 export function onlyOnPhoneWarning(count: number | null): string | null {
   if (count === null || count <= 0) return null
-  return `⚠️ 呢單仲有 ${count} 張相只剩部機呢一份（未傳上雲端）。清咗就真正永遠冇咗。`
+  return `⚠️ 此單仍有 ${count} 張相片只剩本裝置這一份（未上傳到雲端）。清除後就真正永遠消失。`
 }
 
 /**
