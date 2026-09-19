@@ -524,6 +524,17 @@ const SCREENS = {
       needs: 'markup-error',
       why: '加成 ％ 存唔到',
     },
+    /* ⭐⭐ 2026-09-19：Jason 真機報「狀態撳唔到」。
+       根因係 `void onStatusChange(…).finally(…)` ⛔ 冇 `.catch` ——
+       ⚠️ 撳落去「改緊⋯」閃一閃就冇咗，**⛔ 一隻字都冇**。
+       ⭐ 同加成嗰格**同一條字、同一個病**；加成嗰個修咗，⛔ 但冇人掃返其餘。
+       ⇒ 呢把尺同 `typeThenSee` 係一對：一個量「打完字存唔到要出聲」，
+         一個量「撳完做唔到要出聲」。 */
+    tapThenSee: {
+      testid: 'status-quoted',
+      needs: 'status-error',
+      why: '轉狀態俾伺服器拒絕',
+    },
   },
 
   /* ⭐⭐ 工程詳情頁頂部：大字工程名 ＋ 右上角粒垃圾桶。
@@ -1166,6 +1177,45 @@ for (const [name, spec] of Object.entries(SCREENS)) {
 
   /* ── 打完字，存唔到有冇出聲？ ────────────────────────────────
      ⭐ **真鍵盤打落去**，⛔ 唔係 `fill()`、⛔ 唔係讀 code。 */
+  /* ── ⭐ 撳完做唔到，畫面一定要出到字 ──────────────────────
+
+     ⛔⛔ 量嘅係**現場見唔見到**，⛔ 唔係「有冇 throw」。
+     ⚠️ 一個 unhandled rejection 喺 console 度好明顯，喺山上面完全睇唔到。 */
+  if (spec.tapThenSee) {
+    const one = spec.tapThenSee
+    typedChecked += 1
+    await real.locator(`[data-testid="${one.testid}"]`).click()
+    await real.waitForTimeout(800)
+    const r = await real.evaluate(([need, btn]) => {
+      const el = document.querySelector(`[data-testid="${need}"]`)
+      const b = document.querySelector(`[data-testid="${btn}"]`)
+      if (!el) return { seen: false }
+      const rect = el.getBoundingClientRect()
+      const br = b ? b.getBoundingClientRect() : null
+      return {
+        seen: true,
+        text: (el.textContent ?? '').trim().slice(0, 30),
+        inView: rect.top >= 0 && rect.bottom <= innerHeight,
+        /* ⭐ 句錯要**貼住**粒掣，⛔ 唔係出咗喺版尾。 */
+        near: br === null ? false : Math.abs(rect.top - br.bottom) < 240,
+        gap: br === null ? null : Math.round(rect.top - br.bottom),
+      }
+    }, [one.needs, one.testid])
+    if (!r.seen) {
+      typedBad += 1
+      console.log(`  ✗ ⛔⛔ ${one.why}，但畫面**一個字都冇** —— 就係「撳咗冇反應」`)
+      console.log('      ⚠️ 現場同事會一路撳一路以為個 app 壞咗。')
+    } else if (!r.inView) {
+      typedBad += 1
+      console.log(`  ✗ ⛔ ${one.why} 有出聲，但嗰句字唔喺畫面入面（要碌先見到）`)
+    } else if (!r.near) {
+      typedBad += 1
+      console.log(`  ✗ ⛔ ${one.why} 出咗聲，但離粒掣 ${r.gap}px —— ⛔ 太遠，等於冇出`)
+    } else {
+      console.log(`  ✓ ${one.why} ⇒ 出咗聲「${r.text}…」，而且貼住粒掣（爭 ${r.gap}px）`)
+    }
+  }
+
   if (spec.typeThenSee) {
     const one = spec.typeThenSee
     typedChecked += 1

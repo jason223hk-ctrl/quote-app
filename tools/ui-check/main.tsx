@@ -243,6 +243,16 @@ const body =
       onMarkupSave={async () => {
         if (screen === 'hubfail') throw new Error('呢一單唔係你開嘅，你只可以改同刪自己開嗰啲單。')
       }}
+      /* ⭐ `?screen=hubfail` ⇒ 轉狀態都拒絕。
+         ⚠️ 2026-09-19 Jason 真機報「狀態撳唔到」：`onStatusChange` 嗰條路
+         本來係 `void … .finally(…)`，⛔ 冇 `.catch` ⇒ 伺服器拒絕嗰陣
+         **畫面一隻字都冇**。⛔ 靜態讀 code 睇得出，但冇人讀 —— 要一把尺。 */
+      onStatusChange={async () => {
+        if (screen === 'hubfail')
+          throw new Error(
+            '此單不是你建立的，你只可以修改和刪除自己建立的工程。如要處理此單，請截圖，並用 WhatsApp 聯絡 Jason。',
+          )
+      }}
       swipeDelete={fx.swipeDelete}
       nav={fx.nav}
     />
