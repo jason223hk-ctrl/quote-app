@@ -49,7 +49,7 @@ README 比冇 README 更差：睇嘅人會以為線上冇嘢，然後放心改�
 - **唔信前端俾嘅檔名** —— 前端只講得出影相編號，講唔到自己係邊個
 - **唔掂 `tree-photos`** —— 只寫 `quote-photos`
 
-## `/rename-tree`（2026-09-16 加，⛔ **未部署**）
+## `/rename-tree`（2026-09-16 加，✅ **2026-09-19 已部署**，Version `77d5eeb9`）
 
 改樹牌 ⇒ 連 Drive 舊檔名一齊改（**Jason 2026-08-24 拍板**，`docs/P3f-全app版面-實作計劃.md` §4）。
 
@@ -93,6 +93,41 @@ wrangler secret put R2_SECRET_ACCESS_KEY
 
 呢兩個係 R2 嘅 **S3 API token**，喺 Cloudflare R2 → Manage API Tokens 開，
 **權限只俾 `quote-photos` 一個 bucket 嘅 Object Read & Write**。
+
+## ⛔ 每次 deploy 之前先做呢四步
+
+```bash
+git checkout main && git pull        # ① ⛔ wrangler 部署嘅係部機嗰份，⛔ 唔係 GitHub 嗰份
+ls worker/src                        # ② 要見到 driveError.mjs 同 rename.mjs 先好行落去
+cd worker && npx wrangler deploy     # ③
+# ④ 記低 Version ID
+```
+
+### ⛔⛔ 點解要第 ① 同第 ② 步 —— ⛔ 唔准淨係記住結論
+
+**2026-09-19 實測**：Jason 部機嗰份 clone **落後 `origin/main` 101 個 commit**，
+而且 checkout 緊 `feat/pricing` —— `worker/src` 入面**根本冇 `driveError.mjs`
+同 `rename.mjs`**。
+
+⇒ 如果佢照「就咁 `npx wrangler deploy`」跑，佢會將**兩個禮拜前嗰個 worker
+推上線** —— 一次過抹走 `/rename-tree` 同 Drive 429 logging。
+
+⚠️⚠️ **而 `wrangler` 會照樣報「Deploy successful」。**
+佢⛔ 唔會問你 branch、⛔ 唔會問你落後幾多個 commit、⛔ 唔會知你想部署邊一版。
+**佢淨係將你部機嗰個資料夾嘅嘢推上去。**
+
+⭐ 所以第 ② 步（`ls worker/src`）⛔ 唔係多餘：佢係**唯一**喺 deploy 之前
+睇得出「我部機嗰份係咪真係新嗰份」嘅方法。
+
+⚠️ **⛔ 唔好省第 ① 步。** 寫步驟而唔寫點解，下一個人就會省咗佢 ——
+⭐ 而個 deploy 會成功，所以⛔ 冇人會即刻知出咗事。
+
+### 記低 Version ID
+
+| 日期 | Version ID | 帶咗乜上線 |
+| --- | --- | --- |
+| 2026-09-17 | `5066c4d1-0760-4de9-aec0-39a0d1f448f1` | ⛔ 冇帶 429 logging（序搞錯咗，提前跑咗） |
+| 2026-09-19 | `77d5eeb9-d5da-40dd-8674-269746c5aa5e` | ✅ `/rename-tree` ＋ Drive 429 logging（等咗兩日） |
 
 ## 部署完之後
 

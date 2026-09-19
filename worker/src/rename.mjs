@@ -61,8 +61,8 @@ export function renamePlan(treeNo, photos) {
         photoId: photo.id,
         why:
           !Number.isFinite(photo.seq) || photo.seq < 1
-            ? `呢張相嘅次序係 ${photo.seq}，唔啱（要由 1 數起），砌唔到新檔名。請截圖搵 Jason。`
-            : '呢個工序冇對應嘅類別名，砌唔到新檔名。請喺「修剪」揀返一個細項。',
+            ? `這張相片的次序是 ${photo.seq}，並不正確（要由 1 開始數），無法組合新檔名。請截圖並聯絡 Jason。`
+            : '這個工序沒有對應的類別名，無法組合新檔名。請在「修剪」勾選一個細項。',
       })
       continue
     }
@@ -112,15 +112,15 @@ export const RENAME_BATCH_MAX = 12
 export function renameSummary({ renamed, failed, cannot, hitLimit }) {
   if (failed === 0 && cannot === 0 && !hitLimit) {
     return renamed === 0
-      ? 'Drive 嗰邊冇嘢要改（啲相仲未抄上去，佢哋之後會直接用新樹牌）。'
-      : `Drive 嗰邊 ${renamed} 張相嘅檔名已經跟住改咗。`
+      ? 'Drive 那邊沒有需要修改（相片尚未複製上去，之後會直接使用新樹牌）。'
+      : `Drive 那邊 ${renamed} 張相片的檔名已經一併修改。`
   }
 
   const bits = []
-  if (renamed > 0) bits.push(`已經改咗 ${renamed} 張`)
-  if (failed > 0) bits.push(`${failed} 張改唔到`)
-  if (cannot > 0) bits.push(`${cannot} 張砌唔到新檔名`)
-  if (hitLimit) bits.push('仲有未輪到嘅')
+  if (renamed > 0) bits.push(`已修改 ${renamed} 張`)
+  if (failed > 0) bits.push(`${failed} 張無法修改`)
+  if (cannot > 0) bits.push(`${cannot} 張無法組合新檔名`)
+  if (hitLimit) bits.push('尚有未處理的')
 
-  return `⚠️ Drive 檔名改到一半：${bits.join('、')}。Drive 度仲係舊樹牌，請再撳一次「再試」。`
+  return `⚠️ Drive 檔名只修改了一部分：${bits.join('、')}。Drive 上仍然是舊樹牌，請再點擊一次「再試」。`
 }
