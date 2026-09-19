@@ -117,7 +117,7 @@ describe('uploadPending 出事嗰陣', () => {
 
     expect(result.ok).toBe(false)
     if (result.ok) return
-    expect(result.message).toContain('校驗失敗')
+    expect(result.message).toContain('核對不符')
     expect(d.saveRow).not.toHaveBeenCalled()
   })
 

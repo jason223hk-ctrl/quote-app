@@ -221,9 +221,9 @@ export function digestMatches(expected: Digest, actual: Digest): boolean {
 
 export function digestMismatchMessage(expected: Digest, actual: Digest): string {
   if (expected.size !== actual.size) {
-    return `校驗失敗：上傳前 ${expected.size} bytes，讀取回來 ${actual.size} bytes。這張相片未算上傳成功，請再試一次。`
+    return `核對不符：上傳前 ${expected.size} bytes，讀取回來 ${actual.size} bytes。這張相片未算上傳成功，請再試一次。`
   }
-  return '校驗失敗：讀取回來的內容與上傳的一份不相同。這張相片未算上傳成功，請再試一次。'
+  return '核對不符：讀取回來的內容與上傳的一份不相同。這張相片未算上傳成功，請再試一次。'
 }
 
 export function bytesToHex(buffer: ArrayBuffer): string {

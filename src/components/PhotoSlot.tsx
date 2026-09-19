@@ -343,7 +343,12 @@ export default function PhotoSlot({
     setError(null)
     try {
       if (!storeReady) {
-        throw new Error('本裝置的瀏覽器不支援本裝置儲存，拍攝後無法保留。請截圖並聯絡 Jason。')
+        /* ⛔⛔ 「**本機儲存**」係個**術語**（瀏覽器嗰個 local storage），
+           ⛔ 唔准跟住書面語詞彙表換成「本裝置儲存」。
+           ⚠️ 2026-09-19 中過：一句入面出咗兩次「本裝置」——
+           「本裝置的瀏覽器不支援本裝置儲存」。
+           ⭐ 詞彙表換嘅係「**你部機**」嗰個意思，⛔ 唔係所有寫住「機」嘅詞。 */
+        throw new Error('本裝置的瀏覽器不支援本機儲存，拍攝後無法保留。請截圖並聯絡 Jason。')
       }
 
       const blob = await compressToJpeg(file)
@@ -368,7 +373,7 @@ export default function PhotoSlot({
       if (!saved) throw new Error('相片無法寫入本裝置。請重新拍攝，或截圖並聯絡 Jason。')
       const savedBytes = await saved.blob.arrayBuffer()
       if (savedBytes.byteLength !== item.size || (await sha256Hex(savedBytes)) !== item.sha256) {
-        throw new Error('相片存入本裝置後校驗失敗。請重新拍攝，或截圖並聯絡 Jason。')
+        throw new Error('相片存入本裝置後核對不符。請重新拍攝，或截圖並聯絡 Jason。')
       }
 
       await reload()
