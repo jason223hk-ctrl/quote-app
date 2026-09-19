@@ -52,35 +52,42 @@ react  react-dom  typescript  typescript-eslint  vite  vitest
 
 ---
 
-## 二、tree app 有冇 SW —— ⛔ 我查唔到，⛔ 唔會估
+## 二、tree app 有冇 SW —— ✅ **2026-09-19 量咗：⛔ 一樣冇**
 
-兩條路都行唔通：
+⚠️ 呢一節本來寫住「⛔ 我查唔到，⛔ 唔會估」。**而家有人喺有網嘅瀏覽器量咗。**
 
-- `tree-app-v7` ⛔ **唔喺我可以讀嘅範圍**（`CLAUDE.md` §3：只可以讀嚟參考，而今次
-  連 repo 都冇喺 session 入面）
-- 出唔到外網：`curl https://tree-app-v7.pages.dev/manifest.webmanifest`
-  → **`CONNECT tunnel failed, 403`**
+**點解要量**：Jason 最初答呢條嗰陣講「**跟 tree app 做法**」。
+⭐⭐ 但嗰句話有一個**冇人驗過嘅前提** ——「tree app 有一套做法」。
 
-### ⚠️ 而且有一樣⛔ 唔可以假設
+實測 `tree-app-v7.pages.dev`：
 
-**tree app 有 manifest ≠ tree app 離線開得到。**
-⭐ **manifest 只係令佢「裝到做 app、冇網址列」；離線開唔開得到係 service worker 嘅事。**
-⇒ ⛔ **唔好因為 tree app 冇網址列，就當佢離線冇問題。** 佢可能**中緊同一個窿**。
-
-### 要點樣先查得到（⛔ 要人喺有網嘅機上面做）
-
-喺 Chrome 開 `https://tree-app-v7.pages.dev`，F12 → Console 打：
-
-```js
-navigator.serviceWorker.getRegistrations().then(r => console.log('SW 數量', r.length, r))
+```
+navigator.serviceWorker.getRegistrations()   → 0
+caches.keys()                                → []
+cache-control                                → public, max-age=0, must-revalidate
+index.html 入面 serviceWorker.register       → 冇
 ```
 
-⚠️ **一開就即刻問會唔準** —— 第一次到訪嗰陣個 SW 可能仲喺度裝。
-⭐ **要開兩次**：第一次開完閂咗，第二次再開先問。
+⚠️ **`/sw.js` 回 200，⛔ 但嗰個⛔ 唔係一個 service worker** ——
+佢係 SPA fallback：內容同 `index.html` 一模一樣，
+而且**求其亂打一個路徑一樣回 200**。⭐ 所以「200」喺呢度⛔ 唔係證據。
 
-⭐ 更直接：**F12 → Application → Service Workers**，睇有冇一個 activated 嘅。
+### ⇒ 結論：**tree app 離線一樣開唔到。同一個病，⛔ 唔係 quote app 獨有。**
 
----
+⭐⭐ 呢個對得返報價 app 嗰組數**一模一樣**（見 §五）——
+即係話「跟 tree app 做法」呢條路**根本冇嘢可以跟**。
+
+### ✅ Jason 2026-09-19 拍板：（甲）⛔ 不做
+
+⚠️⚠️ **要記住呢個決定係點樣做出嚟嘅**：
+
+佢**先答「跟 tree app」**，我哋**查咗個前提**，把數（上面呢組）攞返俾佢睇，
+**佢知道咗 tree app 一樣開唔到之後，照樣揀（甲）**。
+
+⭐ **即係話佢揀嘅係「接受呢個風險」，⛔ 唔係「以為 tree app 搞掂咗」。**
+
+⛔ 呢兩樣喺結果上面一模一樣（都係「唔做」），
+**但將來有人問「點解上線清單第 1 條過唔到都照上」，答案完全唔同。**
 
 ## 三、冇 SW 嘅真後果 —— ⭐ 實測，⛔ 唔係推論
 
