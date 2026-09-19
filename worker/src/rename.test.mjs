@@ -38,12 +38,12 @@ describe('⛔ 三種唔會出現喺 plan 入面', () => {
   it('⛔ 砌唔到新名 ⇒ 入 cannot，⛔ 唔准靠估砌一個', () => {
     const { todo, cannot } = renamePlan('T-07', [photo({ seq: 0 })])
     expect(todo).toEqual([])
-    expect(cannot[0].why).toContain('次序係 0')
+    expect(cannot[0].why).toContain('次序是 0')
   })
 
   it('⛔ 唔識嘅工序 ⇒ 都係 cannot，⛔ 唔會出一個 untitled', () => {
     const { cannot } = renamePlan('T-07', [photo({ mitigation: '唔識呢個' })])
-    expect(cannot[0].why).toContain('冇對應嘅類別名')
+    expect(cannot[0].why).toContain('沒有對應的類別名')
   })
 })
 
@@ -68,29 +68,29 @@ describe('⭐ 一半一半', () => {
 describe('⛔⛔ 「改咗一半」唔准講成「改好咗」', () => {
   it('全部改晒 ⇒ 講返實數', () => {
     expect(renameSummary({ renamed: 6, failed: 0, cannot: 0, hitLimit: false })).toBe(
-      'Drive 嗰邊 6 張相嘅檔名已經跟住改咗。',
+      'Drive 那邊 6 張相片的檔名已經一併修改。',
     )
   })
 
   it('⭐ 一張都唔使改 ⇒ 講明點解，⛔ 唔係一句「改好咗」', () => {
     const text = renameSummary({ renamed: 0, failed: 0, cannot: 0, hitLimit: false })
-    expect(text).toContain('仲未抄上去')
+    expect(text).toContain('尚未複製上去')
   })
 
   it.each([
     [{ renamed: 3, failed: 3, cannot: 0, hitLimit: false }],
     [{ renamed: 3, failed: 0, cannot: 1, hitLimit: false }],
     [{ renamed: 12, failed: 0, cannot: 0, hitLimit: true }],
-  ])('有嘢未搞掂 ⇒ 一定要講「改到一半」＋ 叫人再試', (input) => {
+  ])('有嘢未搞掂 ⇒ 一定要講「只修改了一部分」＋ 叫人再試', (input) => {
     const text = renameSummary(input)
-    expect(text).toContain('改到一半')
+    expect(text).toContain('只修改了一部分')
     expect(text).toContain('再試')
     expect(text).not.toContain('已經跟住改咗')
   })
 
   it('⭐ 改咗幾多都要寫出嚟，⛔ 唔准淨係講失敗', () => {
     expect(renameSummary({ renamed: 3, failed: 3, cannot: 0, hitLimit: false })).toContain(
-      '已經改咗 3 張',
+      '已修改 3 張',
     )
   })
 })

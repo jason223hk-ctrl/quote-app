@@ -10,10 +10,10 @@ const googleBody = (reason, message = 'Rate Limit Exceeded') =>
 describe('⛔ 唔准淨係記一句 429 —— reason ＋ status ＋ 邊一個呼叫，三樣都要有', () => {
   it('三樣齊', () => {
     const { message, log } = driveFailure(WHERE.listClash, 429, googleBody('rateLimitExceeded'))
-    expect(message).toContain('files.list（揾同名檔）')
+    expect(message).toContain('files.list（檢索同名檔案）')
     expect(message).toContain('429')
     expect(message).toContain('rateLimitExceeded')
-    expect(log).toContain('files.list（揾同名檔）')
+    expect(log).toContain('files.list（檢索同名檔案）')
     expect(log).toContain('HTTP 429')
     expect(log).toContain('reason=rateLimitExceeded')
   })
@@ -21,23 +21,23 @@ describe('⛔ 唔准淨係記一句 429 —— reason ＋ status ＋ 邊一個�
   it('⭐ 「打得太密」同「額度用晒」要出兩句唔同嘅中文 —— 呢兩樣嘅修法相反', () => {
     const tooFast = driveFailure(WHERE.listFolder, 429, googleBody('userRateLimitExceeded')).message
     const noQuota = driveFailure(WHERE.listFolder, 429, googleBody('dailyLimitExceeded')).message
-    expect(tooFast).toContain('等陣會自己好返')
-    expect(noQuota).toContain('⛔ 唔會自己好返')
+    expect(tooFast).toContain('稍後會自行恢復')
+    expect(noQuota).toContain('⛔ 不會自行恢復')
     expect(tooFast).not.toBe(noQuota)
   })
 
   it('⛔ 未見過嘅 reason ⛔ 唔准估 —— 照出原文，並且叫人搵 Jason', () => {
     const { message } = driveFailure(WHERE.upload, 403, googleBody('someBrandNewReason'))
     expect(message).toContain('someBrandNewReason')
-    expect(message).toContain('⛔ 我唔會估佢係乜')
-    expect(message).toContain('請截圖搵 Jason')
+    expect(message).toContain('⛔ 系統不會猜測它的意思')
+    expect(message).toContain('請截圖並聯絡 Jason')
   })
 
   it('Google 乜都冇講（body 唔係 JSON）都要出一句中文，⛔ 唔准彈英文', () => {
     const { message } = driveFailure(WHERE.getSize, 500, '<html>Server Error</html>')
     expect(message).toContain('HTTP 500')
-    expect(message).toContain('Google 冇講原因')
-    expect(message).toContain('請截圖搵 Jason')
+    expect(message).toContain('Google 沒有說明原因')
+    expect(message).toContain('請截圖並聯絡 Jason')
   })
 
   it('有 Retry-After 就要講埋等幾耐（⭐ 佢係分「太密」定「額度」嘅另一條線索）', () => {
@@ -65,7 +65,7 @@ describe('⛔ token、refresh token、帶 query 嘅完整 URL —— 一個字�
       "https://www.googleapis.com/drive/v3/files?q=name%3D'2026-08-22%20彩霞邨'&spaces=drive",
     )
     expect(clean).not.toContain('彩霞邨')
-    expect(clean).toContain('⟨網址拎走咗⟩')
+    expect(clean).toContain('⟨網址已移除⟩')
   })
 
   it('⭐ 就算 Google 有日真係喺 error body 度回個 token，都出唔到街', () => {

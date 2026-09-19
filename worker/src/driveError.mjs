@@ -48,14 +48,14 @@
  * 由 URL 砌就一定會有一日把 query 帶埋出去（規矩②）。
  */
 export const WHERE = {
-  listFolder: 'files.list（揾資料夾）',
+  listFolder: 'files.list（檢索資料夾）',
   createFolder: 'files.create（開資料夾）',
-  listMirrored: 'files.list（揾呢張相上次抄咗嗰個檔）',
-  listClash: 'files.list（揾同名檔）',
+  listMirrored: 'files.list（檢索這張相片上次複製的檔案）',
+  listClash: 'files.list（檢索同名檔案）',
   upload: 'files.create（上載相片）',
-  getSize: 'files.get（上完對大細）',
-  getQuota: 'about.get（睇仲剩幾多空間）',
-  getName: 'files.get（攞檔名同資料夾）',
+  getSize: 'files.get（上載後核對大小）',
+  getQuota: 'about.get（查看剩餘空間）',
+  getName: 'files.get（取得檔名和資料夾）',
   rename: 'files.update（改檔名）',
 }
 
@@ -66,11 +66,11 @@ export const WHERE = {
  */
 export function redact(text) {
   return String(text)
-    .replace(/Bearer\s+[\w.\-~+/]+=*/gi, 'Bearer ⟨拎走咗⟩')
+    .replace(/Bearer\s+[\w.\-~+/]+=*/gi, 'Bearer ⟨已移除⟩')
     .replace(/(access_token|refresh_token|id_token|client_secret)"?\s*[:=]\s*"?[\w.\-~+/]+=*/gi,
-      '$1=⟨拎走咗⟩')
+      '$1=⟨已移除⟩')
     // 帶 query 嘅 URL ——「⛔ 唔准記完整 URL」嗰條（個 q 入面有工程名同檔名）。
-    .replace(/https?:\/\/\S*\?\S*/gi, '⟨網址拎走咗⟩')
+    .replace(/https?:\/\/\S*\?\S*/gi, '⟨網址已移除⟩')
     /* ⭐⭐ Google 個 token 就算**淨係赤裸裸咁出現喺一句英文裡面**都要拎走。
        ⚠️ 2026-09-16 呢個檔自己個測試捉到：上面兩條只捉到
        `Bearer xxx` 同 `access_token=xxx`，但 Google 回過
@@ -79,9 +79,9 @@ export function redact(text) {
          · `ya29.` ＝ Google access token
          · `1//`   ＝ Google refresh token
          · `GOCSPX-` ＝ OAuth client secret */
-    .replace(/\bya29\.[\w.\-~+/]+=*/g, '⟨access token 拎走咗⟩')
-    .replace(/\b1\/\/[\w.\-~+/]{10,}=*/g, '⟨refresh token 拎走咗⟩')
-    .replace(/\bGOCSPX-[\w.\-~+/]+=*/g, '⟨client secret 拎走咗⟩')
+    .replace(/\bya29\.[\w.\-~+/]+=*/g, '⟨access token 已移除⟩')
+    .replace(/\b1\/\/[\w.\-~+/]{10,}=*/g, '⟨refresh token 已移除⟩')
+    .replace(/\bGOCSPX-[\w.\-~+/]+=*/g, '⟨client secret 已移除⟩')
 }
 
 /**
@@ -94,14 +94,14 @@ export function reasonInChinese(reason) {
   switch (reason) {
     case 'rateLimitExceeded':
     case 'userRateLimitExceeded':
-      return 'Google 嫌我哋一時間打得太密。⭐ 呢種係等陣會自己好返嘅。'
+      return 'Google 認為我們短時間內請求太密。⭐ 這一種稍後會自行恢復。'
     case 'dailyLimitExceeded':
     case 'quotaExceeded':
-      return '今日呢個 Google 帳號嘅額度用晒。⚠️ 呢種⛔ 唔會自己好返，要等過咗一日。'
+      return '今日這個 Google 帳號的額度已用完。⚠️ 這一種⛔ 不會自行恢復，要等到明日。'
     case 'sharingRateLimitExceeded':
-      return 'Google 嫌我哋改權限改得太密。'
+      return 'Google 認為我們修改權限太頻密。'
     case 'storageQuotaExceeded':
-      return 'Google Drive 個空間爆咗。⚠️ 要清位先再抄得到。'
+      return 'Google Drive 的空間已滿。⚠️ 要先清出空間才可以複製。'
     default:
       return null
   }
@@ -150,8 +150,8 @@ export function driveFailure(where, status, raw = '', retryAfter = null) {
   let message = bits.join('')
 
   if (plain) message += ` ${plain}`
-  else if (reason) message += ` ⚠️ 呢個原因未見過，⛔ 我唔會估佢係乜。請截圖搵 Jason。`
-  else message += ` ⚠️ Google 冇講原因。請截圖搵 Jason。`
+  else if (reason) message += ` ⚠️ 這個原因未曾出現過，⛔ 系統不會猜測它的意思。請截圖並聯絡 Jason。`
+  else message += ` ⚠️ Google 沒有說明原因。請截圖並聯絡 Jason。`
 
   if (retryAfter) message += `（Google 叫等 ${retryAfter} 秒）`
 
@@ -160,7 +160,7 @@ export function driveFailure(where, status, raw = '', retryAfter = null) {
   const rawShort = redact(said || raw).slice(0, MAX_RAW)
   const log =
     `[quote-app worker] Drive ${where} → HTTP ${status}` +
-    ` reason=${reason || '（冇）'}` +
+    ` reason=${reason || '（無）'}` +
     (retryAfter ? ` retryAfter=${retryAfter}` : '') +
     (rawShort ? ` said=${rawShort}` : '')
 

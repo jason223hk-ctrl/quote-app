@@ -414,7 +414,7 @@ async function readUrl(request, env, origin) {
 
     // ⛔ 未上到 R2 就冇 bytes 可以讀。⛔ 唔准出條網址扮有 —— 出嚟會係一個 404 圖。
     if (!photo.r2_synced_at || !photo.r2_key) {
-      return json({ ok: false, message: '呢張相仲未上到雲端，未讀得。' }, 409, origin)
+      return json({ ok: false, message: '這張相片尚未上傳到雲端，未能讀取。' }, 409, origin)
     }
 
     return json({ ok: true, get: await presign('GET', env, photo.r2_key) }, 200, origin)
@@ -451,7 +451,7 @@ async function mirror(request, env, origin) {
       return json({ ok: true, alreadyDone: true, driveFileId: photo.drive_file_id }, 200, origin)
     }
     if (!photo.r2_synced_at) {
-      return json({ ok: false, message: '呢張相仲未上到 R2，未輪到抄去 Drive。' }, 409, origin)
+      return json({ ok: false, message: '這張相片尚未上傳到 R2，未輪到複製去 Drive。' }, 409, origin)
     }
 
     const records = await pg(
@@ -461,7 +461,7 @@ async function mirror(request, env, origin) {
     )
     const record = records[0]
     if (!record) {
-      return json({ ok: false, message: '揾唔到呢張相屬邊一單，或者你冇權睇。' }, 403, origin)
+      return json({ ok: false, message: '無法檢索這張相片屬於哪個工程，或者你沒有查看權限。' }, 403, origin)
     }
 
     // ⭐ 冇樹 ＝ 環境相（成個工程一份）。檔名另一套：`Site_01.jpg`（Jason 2026-08-24 拍板）。
@@ -481,8 +481,8 @@ async function mirror(request, env, origin) {
       // 砌唔到檔名有兩個原因，兩個都要講到明，⛔ 唔好靜靜跳過、更加唔准靠估。
       const why =
         photo.seq < 1
-          ? `呢張相嘅次序係 ${photo.seq}，唔啱（要由 1 數起），砌唔到 Drive 檔名。請截圖搵 Jason。`
-          : '呢個工序冇對應嘅類別名，砌唔到 Drive 檔名。請喺「修剪」揀返一個細項。'
+          ? `這張相片的次序是 ${photo.seq}，並不正確（要由 1 開始數），無法組合 Drive 檔名。請截圖並聯絡 Jason。`
+          : '這個工序沒有對應的類別名，無法組合 Drive 檔名。請在「修剪」勾選一個細項。'
       await patchPhoto(env, userToken, photo.id, { drive_error: why })
       return json({ ok: false, message: why }, 409, origin)
     }
@@ -504,16 +504,16 @@ async function mirror(request, env, origin) {
       const clash = await findNameClash(gtoken, filename, folderId, photo.id, photo.size_bytes)
       if (clash) {
         const why =
-          `Drive 上面已經有一個叫「${filename}」嘅檔，但佢唔係呢張相` +
-          `（${clash.sameSize ? '大細啱但認唔到係邊張' : '連大細都唔同'}）。` +
-          `唔會覆蓋、亦唔會當佢係同一張。請截圖搵 Jason。`
+          `Drive 上面已經有一個叫「${filename}」的檔案，但它不是這張相片` +
+          `（${clash.sameSize ? '大小相同但無法辨認是哪一張' : '連大小都不同'}）。` +
+          `不會覆蓋，亦不會當作是同一張。請截圖並聯絡 Jason。`
         await patchPhoto(env, userToken, photo.id, { drive_error: why })
         return json({ ok: false, message: why }, 409, origin)
       }
 
       const getUrl = await presign('GET', env, photo.r2_key)
       const r2 = await fetch(getUrl)
-      if (!r2.ok) throw new Error(`R2 讀唔返出嚟（${r2.status}）`)
+      if (!r2.ok) throw new Error(`R2 無法取回（${r2.status}）`)
       const bytes = await r2.arrayBuffer()
       // ⛔ 原封不動上去。唔准喺呢度再壓一次 —— 再壓 sha256 就唔同，
       //    「仲剩幾多份」個契約即刻驗唔到（docs/開發紀錄.md §九）。
@@ -522,7 +522,7 @@ async function mirror(request, env, origin) {
       // ⛔ 上完即刻讀返出嚟對大細 —— 對唔到就唔准寫「抄咗」。
       const check = await driveFileSize(gtoken, fileId)
       if (check !== null && photo.size_bytes !== null && String(check) !== String(photo.size_bytes)) {
-        const why = `抄上 Drive 之後對唔到數：R2 ${photo.size_bytes} bytes，Drive ${check} bytes。呢張相未算抄到。`
+        const why = `複製上 Drive 之後校驗失敗：R2 ${photo.size_bytes} bytes，Drive ${check} bytes。這張相片未算複製成功。`
         await patchPhoto(env, userToken, photo.id, { drive_error: why })
         return json({ ok: false, message: why }, 502, origin)
       }
@@ -571,13 +571,13 @@ async function renameTree(request, env, origin) {
   } catch {
     return json({ error: 'bad json' }, 400, origin)
   }
-  if (!body?.treeId) return json({ error: 'treeId 冇傳' }, 400, origin)
+  if (!body?.treeId) return json({ error: 'treeId 沒有傳入' }, 400, origin)
 
   try {
     // ⛔ 讀返 DB 嗰個新樹牌，⛔ 唔信呼叫者傳入嚟嘅名。
     const trees = await pg(env, userToken, `quote_trees?id=eq.${body.treeId}&select=tree_no`)
     const tree = trees[0]
-    if (!tree) return json({ ok: false, message: '揾唔到呢棵樹，或者你冇權睇。' }, 404, origin)
+    if (!tree) return json({ ok: false, message: '無法檢索這棵樹，或者你沒有查看權限。' }, 404, origin)
 
     const photos = await pg(
       env,
@@ -618,7 +618,7 @@ async function renameTree(request, env, origin) {
             if (clash) {
               failed.push({
                 photoId: item.photoId,
-                why: `Drive 度已經有另一個檔叫「${item.name}」，⛔ 唔敢改（改咗兩個檔就同名）。請截圖搵 Jason。`,
+                why: `Drive 上已經有另一個檔案叫「${item.name}」，⛔ 不會冒險修改（改了兩個檔案就會同名）。請截圖並聯絡 Jason。`,
               })
               continue
             }
@@ -718,7 +718,7 @@ async function patchPhoto(env, token, id, values) {
   if (!res.ok) throw new Error(`寫返資料庫失敗（${res.status}）`)
   const rows = await res.json()
   if (!rows.length) {
-    throw new Error('資料庫唔俾改呢張相嘅紀錄。可能母單已經鎖定，或者唔係你開嘅單。')
+    throw new Error('資料庫不允許修改這張相片的紀錄。可能所屬工程已經鎖定，或者不是你建立的工程。')
   }
   return rows[0]
 }
