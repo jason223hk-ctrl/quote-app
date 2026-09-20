@@ -725,6 +725,60 @@ async function patchPhoto(env, token, id, values) {
 }
 
 /**
+ * 喺一張相度打個「清咗」嘅剔。**⛔ 佢刪唔到任何嘢。**
+ *
+ * ⭐⭐ **Jason 2026-09-20 批嘅就係呢一道門，⛔ 逐字記住：**
+ *   > 「一道好窄嘅後門，得一個用途：喺張相度打個『清咗』嘅剔，⛔ 刪唔到任何嘢。」
+ *   ⛔ 佢批嘅**⛔ 唔係**「一個 `SECURITY DEFINER` 隨便點寫都得」。
+ *   ⚠️⚠️ 將來有人想加第二個 `SECURITY DEFINER`，⛔ 唔准攞今次當先例。
+ *
+ * ⛔⛔ **點解唔可以直接 `PATCH quote_photos`**（我本來就係咁寫）：
+ *   `quote_photos` 條 update policy 係 `can_edit_quote_record(record_id)`，
+ *   而嗰條 function 入面有 `r.deleted_at is null`，**而且喺 OR 括號外面**
+ *   ⇒ 連 `is_quote_admin()` 都繞唔到 ⇒ **一單已刪工程，冇任何人改得到佢啲相**
+ *   ⇒ 直接 PATCH **一定 0 行，而且⛔ 唔會報錯**（CLAUDE.md §2.6）。
+ *   （Jason 2026-09-20 跑只讀查詢攞返原文，見 `docs/P8-purge-權限-選項表.md` §0。）
+ *
+ * ⭐ `dryRun` 就係 CLAUDE.md §2.13 個「問准」：**同一條 function、同一段判斷**，
+ *   ⛔ 唔係第二套「邊個刪得」嘅講法。
+ *
+ * ⛔⛔ 回四個值，⛔ 唔准合埋（`not_found` ⛔ 唔係「拒絕」嘅一種）：
+ *   `ok` / `record_not_deleted` / `not_yours` / `not_found`
+ */
+const PURGE_STAMP_WHY = {
+  record_not_deleted:
+    '這一單工程並未刪除，⛔ 不會清走它的相片。如果確實要刪除，請先在工程頁刪除這一單。',
+  not_yours: '這一單不是你建立的，你不能清走它的相片。請找建立這一單的人，或者截圖聯絡 Jason。',
+  not_found:
+    '⛔ 在資料庫找不到這張相片的紀錄 —— ⛔ 這不應該發生（剛才才從資料庫讀到它）。⛔ 沒有清走任何東西。請截圖並聯絡 Jason。',
+}
+
+async function purgeStamp(env, token, photoId, dryRun) {
+  const res = await fetch(`${env.SUPABASE_URL}/rest/v1/rpc/quote_purge_stamp`, {
+    method: 'POST',
+    headers: {
+      apikey: env.SUPABASE_PUBLISHABLE_KEY,
+      authorization: `Bearer ${token}`,
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({ p_photo_id: photoId, p_dry_run: dryRun }),
+  })
+  if (!res.ok) {
+    /* ⛔ 條 function 未跑（`docs/P8-purged_at-草稿.sql` 第 2 段）就會 404。
+       ⛔ 唔准靜靜當佢係「拒絕」—— 兩件事嘅修法完全唔同。 */
+    if (res.status === 404) {
+      throw new Error(
+        '伺服器還未安裝清走相片的功能（quote_purge_stamp）。⛔ 沒有清走任何東西。請截圖並聯絡 Jason。',
+      )
+    }
+    throw new Error(`資料庫回覆 ${res.status}，未能確認可否清走這張相片。⛔ 沒有清走任何東西。`)
+  }
+  const out = await res.json()
+  if (out === 'ok') return
+  throw new Error(PURGE_STAMP_WHY[out] ?? `資料庫回覆了一個看不懂的結果「${String(out).slice(0, 60)}」。請截圖並聯絡 Jason。`)
+}
+
+/**
  * 掉一個 Drive 檔入垃圾桶。⛔ **唔係真刪**（Jason 2026-09-19 拍板）。
  *
  * ⭐ 多一道 30 日嘅網 —— 而「無法還原」呢句喺 **app 層面**仍然係真嘅：
@@ -756,8 +810,12 @@ async function driveTrash(token, fileId) {
  *     ⭐ 而 `quote_records` 條 select policy 係 `using (true)` ⇒ 人人讀得晒
  *       ⇒ ⛔ 「攞到個 recordId」完全唔係一個權限。
  *
- *   閘二 · **問准**（見 `purge.mjs` 檔頭 ①）—— 一個⛔ 唔改值嘅 PATCH。
- *     0 行 ⇒ RLS 拒絕 ⇒ ⛔ 一個 byte 都唔掂。
+ *   閘二 · **問准**（見 `purge.mjs` 檔頭 ①）—— `quote_purge_stamp(id, true)`。
+ *     ⛔ 唔准就掟錯 ⇒ ⛔ 一個 byte 都唔掂。
+ *
+ * ⚠️ 閘一喺呢度（Worker），閘二喺 DB 條 function 入面 —— ⭐ **兩個地方係特登嘅**：
+ *   Worker 嗰道擋得早（慳 subrequest、出到中文原因），DB 嗰道**繞唔過**
+ *   （就算有人直接叫 RPC 都一樣要過）。⛔ 唔准因為「重複咗」而拆走任何一道。
  *
  * ⛔ 呢條路由頭到尾行**用家自己個 token**，靠 RLS 攔（CLAUDE.md §2.9）。
  *   ⛔ 一個 `service_role` key 都冇。
@@ -828,10 +886,11 @@ async function purgeRecord(request, env, origin) {
     for (const item of batch) {
       try {
         /* ── 閘二：問准 ──────────────────────────────────────────
-           ⛔⛔ 寫 `purged_at = null` —— 即係佢本來嗰個值。**同一行、同一條
-           policy、⛔ 唔改到任何值。** 俾人拒就喺呢度停，bytes 一個都唔掂。
-           ⭐ 用**同一個寫入**去試，⛔ 唔另外寫一套「邊個刪得」嘅判斷。 */
-        await patchPhoto(env, userToken, item.photoId, { purged_at: null })
+           ⛔⛔ 行**同一條 function**，淨係 `dryRun = true` ⇒ 一個字都唔寫。
+           ⭐ 同一段判斷、同一個出口（CLAUDE.md §2.13）——
+              ⛔ 唔另外寫一套「邊個刪得」嘅判斷。
+           俾人拒就喺呢度掟錯，bytes 一個都唔掂。 */
+        await purgeStamp(env, userToken, item.photoId, true)
 
         // ── ② R2 ──────────────────────────────────────────────
         if (item.r2Key) {
@@ -853,7 +912,7 @@ async function purgeRecord(request, env, origin) {
            ⛔⛔ 一定要喺 ②③ 之後。⚠️ 上面任何一步掟錯，就行唔到落嚟
            ⇒ `purged_at` 留空 ⇒ ⭐ 嗰行就係「未清完」呢個狀態本身，
              ⛔ 唔使另開一張表、⛔ 唔使另外記帳，下次撳「繼續清」會再執佢。 */
-        await patchPhoto(env, userToken, item.photoId, { purged_at: new Date().toISOString() })
+        await purgeStamp(env, userToken, item.photoId, false)
         purged += 1
       } catch (err) {
         failed.push({ photoId: item.photoId, why: String(err?.message || err).slice(0, 300) })

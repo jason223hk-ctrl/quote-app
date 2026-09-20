@@ -95,10 +95,41 @@ POST /purge     { "recordId": "…" }      Authorization: Bearer <用家個 toke
 1. **母單一定要真係刪咗**（`quote_records.deleted_at` 有值）⇒ 唔係就 409。
    ⚠️ `quote_records` 條 select policy 係 `using (true)` ⇒ **人人讀得晒**
    ⇒ ⛔「攞到個 recordId」完全唔係一個權限。
-2. **問准** —— 一個⛔ 唔改值嘅 `PATCH`（寫 `purged_at = null`，即係佢本來嗰個值）。
-   ⚠️ 同一行、同一條 policy。0 行 ⇒ RLS 拒絕 ⇒ ⛔ 一個 byte 都唔掂。
-   ⭐ 用**同一個寫入**去試，⛔ 唔另外寫一套「邊個刪得」嘅判斷 ——
-   兩套講法一定會有一日唔一致，而唔一致嗰邊就係漏。
+2. **問准** —— `quote_purge_stamp(photoId, p_dry_run = true)`。
+   ⭐ **同一條 function、同一段判斷、同一個出口**，而⛔ 一個字都唔寫。
+   唔准就掟錯 ⇒ ⛔ 一個 byte 都唔掂。
+   ⛔ 唔另外寫一套「邊個刪得」嘅講法 —— 兩套講法一定會有一日唔一致，
+   而唔一致嗰邊就係漏（CLAUDE.md §2.13）。
+
+⚠️ 閘一喺 Worker、閘二喺 DB 條 function 入面 —— ⭐ **兩個地方係特登嘅**：
+Worker 嗰道擋得早（慳 subrequest、出到中文原因），DB 嗰道**繞唔過**
+（就算有人直接叫 RPC 都一樣要過）。⛔ 唔准因為「重複咗」而拆走任何一道。
+
+### ⛔⛔ 點解要一個 function，⛔ 唔係直接 `PATCH`
+
+我本來就係直接 `PATCH quote_photos`。**⛔ 嗰個做法行唔通。**
+
+`quote_photos` 條 update policy 係 `can_edit_quote_record(record_id)`，
+而嗰條 function 入面有 **`r.deleted_at is null`，仲要喺 OR 括號外面**
+⇒ 連 `is_quote_admin()` 都繞唔到 ⇒ **一單已刪工程，冇任何人改得到佢啲相**
+⇒ 直接 PATCH **一定 0 行，而且⛔ 唔會報錯**（CLAUDE.md §2.6）。
+
+⇒ 改用 `public.quote_purge_stamp(uuid, boolean)`
+（`docs/P8-purged_at-草稿.sql` 第 2 段，⛔ Jason 親手跑）。
+
+⭐⭐ **Jason 2026-09-20 批嘅逐字係**：
+> 「一道好窄嘅後門，得一個用途：喺張相度打個『清咗』嘅剔，⛔ 刪唔到任何嘢。」
+
+⛔ **⛔ 唔係**「一個 `SECURITY DEFINER` 隨便點寫都得」。
+⚠️⚠️ **將來有人想加第二個 `SECURITY DEFINER`，⛔ 唔准攞今次當先例。**
+
+條 function 回**四個值，⛔ 唔准合埋**：
+`ok` / `record_not_deleted` / `not_yours` / `not_found`。
+⚠️ `not_found` ⛔ **唔係「拒絕」嘅一種** —— 佢係一個⛔ 唔應該發生嘅情況
+（Worker 啱啱先由 DB 讀返嗰個 id 出嚟），合埋咗就冇人會再問點解。
+
+⭐ `p_dry_run` 就係上面閘二。⛔ 唔睇 `locked`（Jason 2026-09-20 明文批：
+一單已經刪咗嘅工程，`locked` 冇意思）。
 
 ### ⛔⛔ 次序係定死嘅
 
@@ -126,10 +157,11 @@ POST /purge     { "recordId": "…" }      Authorization: Bearer <用家個 toke
 
 ### ⛔⛔ deploy 之前一定要做嘅兩樣
 
-1. **跑 `docs/P8-purged_at-草稿.sql`** —— `quote_photos` 而家**冇** `purged_at` 呢個欄。
-   ⛔ 冇佢，第 ④ 步一定失敗。
-   ⚠️ 嗰份稿第 0 段有**一條要先答嘅問題**（`can_edit_quote_record()` 入面有冇
-   `deleted_at is null`）—— 答錯嗰邊，`/purge` **一張相都清唔到而且唔會報錯**。
+1. **跑 `docs/P8-purged_at-草稿.sql`** —— 佢做兩件事：
+   加 `quote_photos.purged_at`（而家**冇**呢個欄），同埋建 `quote_purge_stamp()`。
+   ⛔ 兩樣缺一，`/purge` 都係一張相都清唔到 —— 而且**⛔ 唔會報錯**。
+   ⚠️ 未建條 function 就叫 `/purge` 嘅話，PostgREST 回 404，
+   ⭐ Worker 會出「伺服器還未安裝清走相片的功能」，⛔ 唔會當佢係「你冇權」。
 2. **deploy 完當日**改 `src/lib/deleteDialog.ts` 個 `PHOTOS_REALLY_PURGED = true`。
    ⛔ 唔准早過 deploy 改：改咗就變成「畫面講永久刪除，但實物一件都冇清」。
    ⛔ 亦唔准拖過夜。

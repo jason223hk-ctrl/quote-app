@@ -67,12 +67,12 @@ function stub(over = {}) {
         ? over.photos()
         : reply([{ id: PHOTO, r2_key: 'user-1/aaa.jpg', drive_file_id: 'drv-1', purged_at: null }])
     }
-    if (url.includes('/rest/v1/quote_photos') && method === 'PATCH') {
-      const values = JSON.parse(init.body)
-      const isProbe = values.purged_at === null
+    if (url.includes('/rest/v1/rpc/quote_purge_stamp')) {
+      const body = JSON.parse(init.body)
+      const isProbe = body.p_dry_run === true
       calls.push(isProbe ? 'probe' : 'stamp')
       const hook = isProbe ? over.probe : over.stamp
-      return hook ? hook() : reply([{ id: PHOTO }])
+      return hook ? hook() : reply('ok')
     }
     if (url.includes('r2.cloudflarestorage.com')) {
       calls.push('r2-delete')
@@ -136,12 +136,9 @@ describe('⛔⛔ 閘二：RLS 拒絕 ⇒ 一個 byte 都唔准掂', () => {
    * ⚠️ `quote_photos` 條 select policy 係 `using (true)` ⇒ **人人讀得晒** ——
    *    即係「讀到呢行相」⛔ 完全唔代表你有權刪佢。
    * ⇒ 冇「問准」呢一步，就會變成 **bytes 已經冇咗，到 stamp 先俾人拒絕**。
-   *
-   * ⚠️ RLS 拒絕⛔ 唔會 throw，佢淨係令 0 行受影響（CLAUDE.md §2.6）——
-   *    所以個假 fetch 係回 `[]`，⛔ 唔係回一個錯。
    */
-  it('問准嗰下 0 行 ⇒ ⛔ 冇 R2 DELETE、⛔ 冇 Drive trash、⛔ 冇 stamp', async () => {
-    const { body, calls } = await purge({ over: { probe: () => reply([]) } })
+  it('問准俾人拒 ⇒ ⛔ 冇 R2 DELETE、⛔ 冇 Drive trash、⛔ 冇 stamp', async () => {
+    const { body, calls } = await purge({ over: { probe: () => reply('not_yours') } })
     expect(calls).toContain('probe')
     expect(calls).not.toContain('r2-delete')
     expect(calls).not.toContain('drive-trash')
@@ -149,7 +146,32 @@ describe('⛔⛔ 閘二：RLS 拒絕 ⇒ 一個 byte 都唔准掂', () => {
     expect(body.ok).toBe(false)
     expect(body.purged).toBe(0)
     expect(body.failed).toHaveLength(1)
+    expect(body.failed[0].why).toContain('不是你建立的')
     expect(body.message).toContain('只清走了一部分')
+  })
+
+  /*
+   * ⛔⛔ CO 2026-09-20 明文要求：`not_found` ⛔ 唔准同「拒絕」合埋。
+   * ⚠️ 佢係一個**⛔ 唔應該發生**嘅情況（Worker 啱啱先由 DB 讀返嗰個 id 出嚟）
+   *    ⇒ 合埋咗就變成「拒絕」嘅一種，而之後**冇人會再問點解**。
+   */
+  it('⛔ `not_found` 出嘅話⛔ 唔准講成「你冇權」—— 要講明佢唔應該發生', async () => {
+    const { body } = await purge({ over: { probe: () => reply('not_found') } })
+    expect(body.failed[0].why).toContain('不應該發生')
+    expect(body.failed[0].why).not.toContain('不是你建立的')
+  })
+
+  /*
+   * ⛔ 條 function 未跑（SQL 未 deploy）⇒ PostgREST 回 404。
+   * ⚠️ ⛔ 唔准當佢係「拒絕」—— 兩件事嘅修法完全唔同（一個係跑 SQL，一個係搵人）。
+   */
+  it('⛔ 條 function 未安裝（404）⇒ 要講到明，⛔ 唔准當拒絕', async () => {
+    const { body, calls } = await purge({
+      over: { probe: () => new Response('{}', { status: 404 }) },
+    })
+    expect(calls).not.toContain('r2-delete')
+    expect(body.failed[0].why).toContain('還未安裝')
+    expect(body.failed[0].why).toContain('⛔ 沒有清走任何東西')
   })
 })
 
@@ -263,6 +285,22 @@ describe('⛔ 一批做唔晒 ⇒ 要講', () => {
     expect(body.remaining).toBe(1)
     expect(calls.filter((c) => c === 'r2-delete')).toHaveLength(10)
     expect(body.message).toContain('尚有未處理的')
+  })
+
+  /*
+   * ⛔⛔ CO 2026-09-20 明文要求：`patchPhoto` 兩下換成兩下 RPC 之後，
+   *    **要數返**每張相仲係唔係 4 個 subrequest。
+   * ⚠️ ⛔ 唔准假設一換一 —— `PURGE_BATCH_MAX = 10` 係計住 `4 + 10×4 = 44 ≤ 50` 嘅,
+   *    變咗就要重計。
+   */
+  it('⛔ 每張相⛔ 仲係 4 個 subrequest（問准 ＋ R2 ＋ Drive ＋ stamp）', async () => {
+    const { calls } = await purge()
+    const setup = ['whoami', 'read-record', 'read-photos', 'google-token']
+    expect(calls.slice(0, 4)).toEqual(setup)
+    expect(calls.slice(4)).toEqual(['probe', 'r2-delete', 'drive-trash', 'stamp'])
+    expect(calls.length - setup.length).toBe(4)
+    // ⭐ 換算返：setup 4 ＋ 10 張 × 4 ＝ 44 ≤ 50
+    expect(4 + 10 * 4).toBeLessThanOrEqual(50)
   })
 
   /* ⛔ subrequest ⛔ 唔准爆 50（Cloudflare 一個 request 嘅上限）。 */

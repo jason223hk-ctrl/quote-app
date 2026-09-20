@@ -1,5 +1,5 @@
 -- ══════════════════════════════════════════════════════════════════
--- P8 步 3：`quote_photos` 加一個 `purged_at`
+-- P8 步 3：`quote_photos` 加 `purged_at` ＋ 一個**只寫得低佢**嘅 function
 --
 -- ⛔⛔ **草稿。Jason 親手跑。⛔ AI 唔准代跑，亦唔准分段偷步**（CLAUDE.md §3）。
 --
@@ -17,10 +17,35 @@
 
 
 -- ══════════════════════════════════════════════════════════════════
--- 第 0 段：⛔⛔ 只讀。⭐ 一條**會決定成件事成唔成立**嘅問題
+-- ⭐⭐ Jason 2026-09-20 批咗乜 —— ⛔ 逐字記住，⛔ 唔准放大
 -- ══════════════════════════════════════════════════════════════════
 --
--- ⛔⛔ **問題：`can_edit_quote_record()` 入面有冇 `deleted_at is null`？**
+-- CO 問咗三次先問到一個清楚嘅答案（頭兩次係「咁嚟」同「唔明你講咩」，
+-- ⛔ 兩次都冇當佢批咗）。第三次用人話重寫，⛔ **冇用過「SECURITY DEFINER」呢個詞**，
+-- 講嘅係：
+--
+--   > **「一道好窄嘅後門，得一個用途：喺張相度打個『清咗』嘅剔，⛔ 刪唔到任何嘢。」**
+--
+-- 佢答：**「批」**。
+--
+-- ⇒ ⛔⛔ **佢批嘅係「一個只寫得低 `purged_at`、刪唔到任何嘢嘅 function」**，
+--   ⛔ **唔係**「一個 `SECURITY DEFINER` 隨便點寫都得」。
+-- ⚠️⚠️ **將來有人想加第二個 `SECURITY DEFINER`，⛔ 唔准攞今次當先例。**
+--
+-- ⭐ 另外 Jason 2026-09-20 一併批咗：**⛔ 唔睇 `locked`**（見第 2 段）。
+--
+--
+-- ══════════════════════════════════════════════════════════════════
+-- 第 0 段：⛔⛔ 只讀
+-- ══════════════════════════════════════════════════════════════════
+--
+-- ── ⓪ ✅ 已經答咗：`can_edit_quote_record()` 入面有冇 `deleted_at is null`？──
+--
+-- **有，而且喺 OR 括號外面 ⇒ 連 `is_quote_admin()` 都繞唔到。**
+-- Jason 2026-09-20 跑咗，原文喺 `docs/P8-purge-權限-選項表.md` §0。
+-- ⇒ 即係話 `quote_photos` 條現有 update policy **對一單已刪工程永遠 false**
+--   ⇒ ⛔ 直接 `update purged_at` **一定 0 行，而且⛔ 唔會報錯**。
+-- ⇒ 所以要第 2 段嗰個 function。**下面呢句留返做記錄，⛔ 唔使再跑。**
 --
 --   `quote_photos` 條 update policy 係 `can_edit_quote_record(record_id)`。
 --   而 `/purge` **只會清一單已經刪咗嘅工程**（`deleted_at` 有值）——
@@ -40,7 +65,30 @@ select pg_get_functiondef(oid) as 原文
  where proname = 'can_edit_quote_record'
    and pronamespace = 'public'::regnamespace;
 
--- ── 順手睇埋 `quote_photos` 而家有咩欄（⭐ 應該**冇** `purged_at`）──
+-- ── ① ⛔ CO 2026-09-20 明文要求：呢句⛔ 唔准刪 ──────────────────────
+--
+-- **而家 `quote_photos` 上面到底有冇 column-level grant？**
+--
+-- ⚠️⚠️ 要講清楚一樣，⛔ 唔好記錯個理由：
+--   CO 當時寫嘅理由係「如果已經有 column grant 而 `purged_at` 唔喺入面，
+--   `update` 會撞 `42501`」。⛔ **呢個理由對做法 ④ 嚟講唔成立** ——
+--   第 2 段條 function 係 `SECURITY DEFINER`，入面個 `update` 行**owner** 嘅權限,
+--   ⇒ `authenticated` 有冇 column grant ⛔ 撞唔到佢。
+--
+-- ⭐ **但呢句照擺，⛔ 唔准拆走**，兩個真理由：
+--   1. 「而家到底有冇人收窄過」呢件事**本身要知** —— ⛔ 冇人查過。
+--   2. 邊日改用做法 ①（見選項表），呢個數即刻用得着。
+--
+-- ⭐ 預期：**一行都冇**（即係得 table-wide grant，冇人收窄過）。
+--   ⚠️ 有行嘅話⛔ 唔好當冇事，貼返俾我。
+
+select grantee as 邊個, column_name as 邊個欄, privilege_type as 咩權
+  from information_schema.column_privileges
+ where table_schema = 'public' and table_name = 'quote_photos'
+   and grantee not in ('postgres')
+ order by grantee, column_name;
+
+-- ── ② 順手睇埋 `quote_photos` 而家有咩欄（⭐ 應該**冇** `purged_at`）──
 select column_name as 欄名, data_type as 型, is_nullable as 可空
   from information_schema.columns
  where table_schema = 'public' and table_name = 'quote_photos'
@@ -78,7 +126,99 @@ alter table public.quote_photos
 
 
 -- ══════════════════════════════════════════════════════════════════
--- 第 2 段：⛔ 跑完即刻驗（只讀）—— ⭐「冇報錯」⛔ 唔等於「加到咗」
+-- 第 2 段：一個**只寫得低 `purged_at`** 嘅 function
+--
+-- ⛔⛔ 呢個就係 Jason 批嗰道「好窄嘅後門」。⚠️ 跑之前讀清楚下面四段。
+-- ══════════════════════════════════════════════════════════════════
+--
+-- ⛔⛔ **點解一定要一個 function，⛔ 唔係一條新 policy**
+--
+--   PostgreSQL 嘅 RLS policy 係**行**嘅條件（`USING` / `WITH CHECK`），
+--   ⛔ **管唔到「邊個欄」**。⇒「一條淨係俾改 `purged_at` 嘅 UPDATE policy」
+--   呢樣嘢**根本唔存在**。
+--   ⇒ 想真係鎖死「淨係呢一個欄」，唯一嘅方法就係**寫死喺 function 入面**。
+--
+-- ⛔⛔ **佢刪唔到任何嘢 —— 呢個係 Jason 批嗰句嘅核心**
+--
+--   入面得一句 `update ... set purged_at = now()`。
+--   ⛔ 冇 `delete`、⛔ 冇 `drop`、⛔ 改唔到第二個欄、⛔ 掂唔到第二張表。
+--   ⚠️⚠️ **將來有人想加第二個 `SECURITY DEFINER`，⛔ 唔准攞今次當先例。**
+--
+-- ⭐⭐ **⛔ 唔睇 `locked` —— Jason 2026-09-20 明文批**
+--
+--   現有嗰條 `can_edit_quote_record()` 有 `r.locked = false`。
+--   ⛔ 呢度**特登冇**。理由（Jason 收咗）：
+--   **一單已經刪咗嘅工程，`locked` 冇意思** —— 鎖係為咗擋「唔好再改呢單嘢」，
+--   而佢已經俾人刪咗，冇嘢好再改。
+--   ⛔ 呢個⛔ 唔係一個實作細節、⛔ 唔係我順手拆 —— 係一個拍咗板嘅決定。
+--
+-- ⛔⛔ **回四個值，⛔ 唔准合埋（CO 2026-09-20 明文要求）**
+--
+--   `not_found` ⛔ **唔准當成「拒絕」嘅一種** ——
+--   佢係一個**⛔ 唔應該發生**嘅情況（Worker 啱啱先由 DB 讀返嗰個 id 出嚟）。
+--   ⚠️ 合埋咗就變成「拒絕」，而之後**冇人會再問點解**。
+
+create or replace function public.quote_purge_stamp(
+  p_photo_id uuid,
+  p_dry_run  boolean
+)
+  returns text
+  language plpgsql
+  security definer
+  set search_path to 'public'
+as $function$
+declare
+  v_record_deleted boolean;
+  v_mine           boolean;
+begin
+  -- ⛔ 一次讀晒，⛔ 唔分兩句 —— 分開就會有兩個「揾唔到」嘅出口。
+  select (r.deleted_at is not null),
+         (r.created_by = auth.uid())
+    into v_record_deleted, v_mine
+    from public.quote_photos p
+    join public.quote_records r on r.id = p.record_id
+   where p.id = p_photo_id;
+
+  -- ⛔⛔ 一個⛔ 唔應該發生嘅情況。⛔ 唔准同「拒絕」合埋。
+  if not found then
+    return 'not_found';
+  end if;
+
+  -- 閘一：母單一定要真係刪咗。⛔ admin 都繞唔到 —— 呢道閘擋嘅唔係「邊個」，
+  --       係「呢單嘢仲用緊」。
+  if not v_record_deleted then
+    return 'record_not_deleted';
+  end if;
+
+  -- 閘二：開單嗰個，或者 admin。⛔ 冇 `locked`（見上面）。
+  if not (v_mine or public.is_quote_admin()) then
+    return 'not_yours';
+  end if;
+
+  -- ⭐ 試完先做：`p_dry_run` 行到呢度就代表「你做得」，而⛔ 一個字都冇寫。
+  --   ⛔ 呢個⛔ 唔係第二套判斷 —— 上面同一段 code，同一個出口。
+  if p_dry_run then
+    return 'ok';
+  end if;
+
+  -- ⛔ 淨係呢一個欄。⛔ 唔准加第二個。
+  -- ⭐ 已經有值就⛔ 唔覆蓋 —— 保住「第一次清走係幾時」。
+  update public.quote_photos
+     set purged_at = now()
+   where id = p_photo_id
+     and purged_at is null;
+
+  return 'ok';
+end
+$function$;
+
+-- ⛔ `authenticated` 行得。⛔ 唔 grant 俾 `anon`、⛔ 唔 grant 俾 `service_role`。
+revoke all on function public.quote_purge_stamp(uuid, boolean) from public;
+grant execute on function public.quote_purge_stamp(uuid, boolean) to authenticated;
+
+
+-- ══════════════════════════════════════════════════════════════════
+-- 第 3 段：⛔ 跑完即刻驗（只讀）—— ⭐「冇報錯」⛔ 唔等於「加到咗」
 -- ══════════════════════════════════════════════════════════════════
 
 -- ① 個欄喺唔喺度（⭐ 預期：1 行，`timestamptz`，可空 YES，⛔ 冇 default）
@@ -107,10 +247,37 @@ select grantee as 邊個, string_agg(privilege_type, ', ' order by privilege_typ
  order by grantee;
 
 -- ④ policy ⛔ 冇變（⭐ 預期三條，⛔ 一條 DELETE 都冇）
+--    ⚠️ 第 2 段⛔ 冇加過任何 policy —— 加咗就係我寫錯，話我知。
 select policyname as 名, cmd as 乜動作
   from pg_policies
  where schemaname = 'public' and tablename = 'quote_photos'
  order by policyname;
+
+-- ⑤ 條新 function 喺唔喺度，而且係咪 `SECURITY DEFINER`
+--    ⭐ 預期：一行，`security_definer = true`，`回乜 = text`
+select p.proname as 名, p.prosecdef as security_definer,
+       pg_get_function_identity_arguments(p.oid) as 收咩,
+       pg_get_function_result(p.oid) as 回乜
+  from pg_proc p
+ where p.pronamespace = 'public'::regnamespace
+   and p.proname = 'quote_purge_stamp';
+
+-- ⑥ ⛔⛔ 條 function 入面⛔ 唔准有 delete／drop／truncate
+--    ⭐ 預期：三個都係 false。⚠️ 任何一個 true ＝ ⛔ 即刻話我知，⛔ 唔好用。
+select
+  (pg_get_functiondef(p.oid) ilike '%delete%')   as 有冇delete,
+  (pg_get_functiondef(p.oid) ilike '%drop%')     as 有冇drop,
+  (pg_get_functiondef(p.oid) ilike '%truncate%') as 有冇truncate
+  from pg_proc p
+ where p.pronamespace = 'public'::regnamespace
+   and p.proname = 'quote_purge_stamp';
+
+-- ⑦ 邊個行得呢條 function（⭐ 預期：得 `authenticated`）
+select grantee as 邊個, privilege_type as 咩權
+  from information_schema.routine_privileges
+ where routine_schema = 'public' and routine_name = 'quote_purge_stamp'
+   and grantee not in ('postgres')
+ order by grantee;
 
 
 -- ══════════════════════════════════════════════════════════════════
