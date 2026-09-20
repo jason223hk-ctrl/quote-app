@@ -1,0 +1,632 @@
+<!doctype html>
+<html lang="zh-HK">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0D120E">
+<title>原型：相片頁「拍攝」掣擺邊</title>
+<!--
+  ══════════════════════════════════════════════════════════════════
+  ⛔⛔ 呢個係原型。⛔ 唔駁 Supabase、⛔ 唔上載、⛔ 一個字都唔會存。
+
+  ⛔⛔ 呢條分枝（claude/proto-capture）**永遠唔 merge 入 main** ——
+     同 #40、#20、#26 嗰批原型同一條規矩。佢淨係為咗俾 Cloudflare Pages
+     出一條 Branch Preview 網址，等 Jason 喺手機撳得到。
+
+  ⚠️ 點解要搬入 `public/`：Vite 只會把 `public/` 抄入 `dist/` ⇒
+     擺喺 `docs/` 嗰張 Pages **由頭到尾唔會服務**。
+     ⚠️ 而 raw.githubusercontent.com 發 .html 係 `text/plain` ⇒
+     喺手機度會出一堆 HTML 原碼。⭐ 兩條路都唔通，所以要呢一條。
+  ⚠️ 檔名用 ASCII（`proto-capture.html`）—— 中文檔名喺手機瀏覽器
+     有時會出事，⛔ 唔值得賭。
+
+  同一份稿亦都喺 main 嘅 `docs/原型-相片頁拍攝掣.html`（睇歷史用）。
+  ══════════════════════════════════════════════════════════════════
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=Noto+Serif+TC:wght@600;700&display=swap">
+<style>
+  /* ══════════════════════════════════════════════════════════════
+     ⛔⛔ 呢個係原型，⛔ 唔會真係存嘢、⛔ 唔駁真資料、⛔ 唔會真上載。
+     ⭐ 色、字體、卡、底部導航全部**抄返** docs/原型-stage57-autoupload.html
+        同 docs/原型-未上載計數器.html，⛔ 冇自己設計一套。
+
+     ⛔⛔ 機殼**釘死**喺 390×727 或者 390×844，⛔ 唔跟瀏覽器高度。
+        ⚠️ #40 個原型就係跟咗瀏覽器高度 ⇒ 喺電腦度乜都見到 ⇒ 驗咗等於冇驗。
+        ⭐ 727 係 Jason 2026-09-17 喺自己部機量到嘅**真實可用高度**
+          （844 係螢幕高度，網址列食咗 117px）。
+     ══════════════════════════════════════════════════════════════ */
+  :root{
+    --mq-bg:#0D120E; --mq-bg-elevated:#111712;
+    --mq-surface-1:#171E18; --mq-surface-2:#1C241D;
+    --mq-olive:#84945D; --mq-olive-strong:#98A56B; --mq-moss:#68794D;
+    --mq-text:#F1EBDD; --mq-text-2:#BDB6A6; --mq-text-3:#96978E;
+    --mq-border:rgba(190,178,139,.28); --mq-border-strong:rgba(157,169,105,.44);
+    --mq-success:#8FA25D; --mq-warning:#B68A45; --mq-danger:#B35D4A; --mq-info:#6F8FA0;
+    --mq-serif:"Noto Serif TC","Source Han Serif TC","Songti TC","STSong",serif;
+    --mq-sans:"Noto Sans TC","PingFang TC","Microsoft JhengHei",sans-serif;
+    --mq-shadow:inset 0 1px 0 rgba(236,228,205,.05),
+                0 1px 2px rgba(0,0,0,.42),
+                0 12px 26px -14px rgba(0,0,0,.52);
+    --r:18px;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:#0D120E;font-family:var(--mq-sans);color:var(--mq-text)}
+
+  .quote-app-ui{
+    --ground:var(--mq-bg);      --card:var(--mq-surface-1); --card-2:var(--mq-surface-2);
+    --ink:var(--mq-text);       --muted:var(--mq-text-3);   --line:var(--mq-border);
+    --header:var(--mq-bg-elevated);
+    --accent:var(--mq-olive-strong);
+    --ok:var(--mq-success);     --warn:var(--mq-warning);   --danger:var(--mq-danger);
+    --shadow:var(--mq-shadow);
+    color:var(--mq-text);font-family:var(--mq-sans);font-size:16px;line-height:1.5;
+    -webkit-font-smoothing:antialiased;
+  }
+  .quote-app-ui h1,.quote-app-ui h2,.quote-app-ui h3{font-family:var(--mq-serif);letter-spacing:.01em}
+
+  /* ── 頂部：講明佢係樣板 ───────────────────────────────── */
+  .banner{background:#FDF6E3;color:#6B5A34;font-size:13.5px;line-height:1.6;
+    padding:12px 16px;text-align:center;border-bottom:1px solid #E8DCC0}
+  .banner b{color:#4A3E1E}
+  .banner code{background:#EFE4C8;padding:1px 5px;border-radius:5px;font-size:12.5px}
+
+  /* ── 樣板控制台 ─────────────────────────────────────── */
+  .ctl{max-width:430px;margin:0 auto;padding:14px 16px 4px}
+  .ctl .grp{margin-bottom:12px}
+  .ctl .lbl{font-size:12px;color:var(--mq-text-3);margin:0 0 6px;letter-spacing:.03em}
+  .segs{display:flex;gap:6px;flex-wrap:wrap}
+  .segs button{flex:1 1 auto;min-width:56px;padding:9px 8px;border-radius:11px;
+    border:1px solid var(--mq-border);background:rgba(28,36,29,.6);color:var(--mq-text-2);
+    font:inherit;font-size:13.5px;font-weight:600;cursor:pointer}
+  .segs button.on{background:linear-gradient(160deg,#8B9C60,#68794D);color:#0D120E;
+    border-color:var(--mq-border-strong)}
+  .segs button small{display:block;font-weight:400;font-size:11px;opacity:.85}
+
+  /* ── ⭐ 代價：永遠喺畫面上，⛔ 唔准收埋 ───────────────── */
+  .cost{max-width:430px;margin:2px auto 0;padding:11px 14px;border-radius:12px;
+    background:rgba(182,138,69,.14);border:1px solid rgba(182,138,69,.42);
+    font-size:13px;line-height:1.66;color:#E6D2AC}
+  .cost b{color:#F4E3BE}
+  .cost .good{color:#A9BC72}
+  .cost .bad{color:#DB9A86}
+
+  /* ── ⭐⭐ 一開就見到：喺原型度**真係量**，⛔ 唔係我寫死一句 ──
+     ⚠️ 呢格係成份稿最緊要嗰格：佢每次換排法都重新量一次真 DOM。 */
+  .gauge{max-width:430px;margin:10px auto 0;padding:11px 14px;border-radius:12px;
+    background:rgba(20,28,22,.9);border:1px solid var(--mq-border);font-size:13px;line-height:1.7}
+  .gauge h4{margin:0 0 6px;font-size:12px;letter-spacing:.04em;color:var(--mq-text-3);
+    font-family:var(--mq-sans);font-weight:600}
+  .gauge .row{display:flex;gap:8px;align-items:baseline}
+  .gauge .row .k{color:var(--mq-text-2);min-width:96px}
+  .gauge .row .v{font-variant-numeric:tabular-nums;font-weight:650}
+  .gauge .ok{color:#A9BC72}
+  .gauge .no{color:#DB9A86}
+  .gauge ul{margin:6px 0 0;padding-left:18px}
+  .gauge li{font-size:12.5px;color:var(--mq-text-2);margin-bottom:2px}
+
+  /* ── 電話殼：⛔ 釘死，⛔ 唔跟 vh ────────────────────── */
+  .phone{width:390px;max-width:100%;margin:12px auto 0;display:flex;flex-direction:column;
+    position:relative;overflow:hidden;border-radius:22px;border:1px solid var(--mq-border);
+    background:radial-gradient(120% 46% at 78% 0%, #17201A 0%, rgba(23,32,26,0) 58%),
+      linear-gradient(180deg,#131A14 0%,#0E130F 44%,#0C110D 100%)}
+  .phone[data-h="727"]{height:727px}
+  .phone[data-h="844"]{height:844px}
+  .quote-app-ui header{background:var(--header);color:#F6F1E9;padding:16px 18px 30px;flex:none}
+  .quote-app-ui header .back{font-size:12.5px;color:#9FB07A;margin:0 0 6px}
+  .quote-app-ui header h1{margin:0;font-size:21px;font-weight:650}
+  .quote-app-ui header .sub{margin:4px 0 0;font-size:13px;color:#B9AE9C}
+  .curve{height:22px;background:var(--ground);border-radius:22px 22px 0 0;margin:-22px 0 0;flex:none}
+  .scroller{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;position:relative}
+  .quote-app-ui main{padding:4px 16px 128px;display:flex;flex-direction:column;gap:12px}
+  .card{background:var(--card);border-radius:var(--r);box-shadow:var(--shadow);padding:18px 17px}
+
+  /* 底部導航（深色版，抄返原型）*/
+  .quote-app-ui nav{position:absolute;left:0;right:0;bottom:0;display:flex;justify-content:center;
+    padding:0 16px 16px;pointer-events:none;z-index:6}
+  .quote-app-ui nav .bar{max-width:398px;width:100%;
+    background:linear-gradient(180deg,rgba(28,36,29,.96),rgba(19,26,20,.96));
+    border:1px solid var(--mq-border);border-radius:16px;
+    box-shadow:0 12px 30px -12px rgba(0,0,0,.5);padding:11px 0 9px;pointer-events:auto;
+    display:grid;grid-template-columns:repeat(4,1fr);
+    backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+  .quote-app-ui nav .tab{cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:5px;
+    padding:2px 0 0;background:none;border:0;margin:0;font:inherit;text-align:center;line-height:normal}
+  .quote-app-ui nav .ic{display:block;color:var(--mq-text-2);font-size:20px;line-height:1}
+  .quote-app-ui nav b{font-size:13px;font-weight:600;color:var(--mq-text-2);white-space:nowrap;line-height:1}
+  .quote-app-ui nav .tab.on .ic,.quote-app-ui nav .tab.on b{color:var(--mq-olive-strong)}
+
+  /* ⭐ 一條紅線畫住「底 nav 個頂」—— 線以下＝⛔ 要碌先見到。
+     ⛔ 唔係裝飾：冇咗佢，「見唔見到」就淨係靠感覺。 */
+  .fold{position:absolute;left:0;right:0;height:0;border-top:1.5px dashed rgba(219,154,134,.75);
+    z-index:5;pointer-events:none}
+  .fold::after{content:"↑ 一開就見到　｜　↓ 要碌";position:absolute;right:8px;top:-17px;
+    font-size:10.5px;color:#DB9A86;background:rgba(13,18,14,.82);padding:1px 6px;border-radius:5px}
+
+  /* ══ 相片格（照 src/components/PhotoSlot.tsx 嘅結構）══════ */
+  .slot__title{margin:0 0 10px;font-size:17px;font-weight:650}
+  .slot__buttons{display:flex;gap:10px}
+  .btn{flex:1;min-height:48px;border-radius:14px;border:1px solid var(--mq-border-strong);
+    background:linear-gradient(160deg,#8B9C60,#68794D);color:#0D120E;font:inherit;
+    font-size:15px;font-weight:650;cursor:pointer}
+  .btn--2nd{background:rgba(28,36,29,.75);color:var(--mq-text-2);border-color:var(--mq-border)}
+  .btn[disabled]{opacity:.55;cursor:default}
+  .empty{margin:12px 0 0;font-size:13.5px;color:var(--mq-text-3)}
+  .plist{list-style:none;margin:12px 0 0;padding:0;display:flex;flex-direction:column;gap:8px}
+  .plist li{display:flex;gap:10px;align-items:center;font-size:12.5px;color:var(--mq-text-2)}
+  .thumb{width:44px;height:44px;border-radius:10px;flex:none;
+    background:linear-gradient(150deg,#3C4A36,#222C22);border:1px solid var(--mq-border)}
+  .plist .fn{font-size:11.5px;color:var(--mq-text-3);display:block}
+  .plist .st{font-weight:650;color:var(--mq-text-2)}
+  .plist .st.up{color:#A9BC72}
+  .plist .st.wait{color:#D8A55E}
+
+  /* 乙 · 摺埋：一行一格 */
+  .fold-row{display:flex;align-items:center;gap:10px;width:100%;padding:0;margin:0;
+    background:none;border:0;font:inherit;color:inherit;text-align:left;cursor:pointer;min-height:48px}
+  .fold-row .nm{font-size:15.5px;font-weight:650}
+  .fold-row .n{margin-left:auto;font-size:12.5px;color:var(--mq-text-3)}
+  .fold-row .car{font-size:13px;color:var(--mq-text-3);width:14px}
+  .card.collapsed{padding:12px 16px}
+
+  /* 丙 · 工序做 chip，下面一個共用拍攝區 */
+  .chips{display:flex;gap:8px;flex-wrap:wrap}
+  .chip{padding:10px 13px;min-height:48px;border-radius:13px;border:1px solid var(--mq-border);
+    background:rgba(28,36,29,.6);color:var(--mq-text-2);font:inherit;font-size:14px;
+    font-weight:600;cursor:pointer}
+  .chip.on{background:linear-gradient(160deg,#8B9C60,#68794D);color:#0D120E;
+    border-color:var(--mq-border-strong)}
+  .chip .n{font-size:11.5px;opacity:.8;margin-left:5px}
+  .nowbar{margin:0 0 10px;font-size:13.5px;color:#E6D2AC;
+    background:rgba(182,138,69,.16);border:1px solid rgba(182,138,69,.4);
+    border-radius:11px;padding:9px 12px}
+  .nowbar b{color:#F4E3BE}
+
+  /* 丁 · 浮動拍攝掣 */
+  .dock{position:absolute;left:0;right:0;bottom:92px;padding:0 16px;z-index:5;pointer-events:none}
+  .dock .inner{pointer-events:auto;background:linear-gradient(180deg,rgba(28,36,29,.97),rgba(19,26,20,.97));
+    border:1px solid var(--mq-border);border-radius:16px;padding:10px 12px;
+    box-shadow:0 12px 30px -12px rgba(0,0,0,.6)}
+  .dock .who{font-size:12.5px;color:#E6D2AC;margin:0 0 8px}
+  .dock .who b{color:#F4E3BE}
+  .slot.aimed{outline:2px solid rgba(152,165,107,.85);outline-offset:2px;border-radius:var(--r)}
+
+  .hide{display:none !important}
+
+  /* ── 下面問題清單 ───────────────────────────────────── */
+  .qa{max-width:430px;margin:18px auto 70px;padding:0 16px}
+  .qa h2{font-family:var(--mq-serif);font-size:17px;margin:22px 0 6px;color:var(--mq-text)}
+  .qa p,.qa li{font-size:14px;line-height:1.75;color:var(--mq-text-2)}
+  .qa li{margin-bottom:6px}
+  .qa .now{color:var(--mq-olive-strong);font-weight:650}
+  .qa .warn{color:#D8A55E}
+  .qa hr{border:0;border-top:1px solid var(--mq-border);margin:18px 0}
+  .qa code{font-size:13px;background:rgba(28,36,29,.8);padding:1px 5px;border-radius:5px}
+  .qa table{width:100%;border-collapse:collapse;margin:8px 0;font-size:13px}
+  .qa th,.qa td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--mq-border);
+    color:var(--mq-text-2)}
+  .qa th{color:var(--mq-text-3);font-weight:600;font-size:12px}
+</style>
+
+<div class="banner">
+  <b>樣板，唔會真係存嘢。</b><br>
+  撳邊度都<b>⛔ 唔會</b>寫入任何資料、<b>⛔ 唔會</b>真係開相機、<b>⛔ 唔會</b>上載。
+  下面啲相係畫出嚟嘅方格。<br>
+  ⭐ 但<b>代價係真嘅</b>：撳「拍攝」之後真係要等 <code>1.4 秒</code>「處理中…」才出，
+  同真 app 一樣 —— <b>⛔ 唔會即刻變綠。</b>
+</div>
+
+<div class="ctl">
+  <div class="grp">
+    <p class="lbl">① 排法（⭐ 呢條就係要你揀嘅嘢）</p>
+    <div class="segs" id="segMode">
+      <button data-m="A" class="on">甲<small>現狀</small></button>
+      <button data-m="B">乙<small>摺埋</small></button>
+      <button data-m="C">丙<small>工序做掣</small></button>
+      <button data-m="D">丁<small>浮動掣</small></button>
+      <button data-m="E">戊<small>縮細每格</small></button>
+    </div>
+  </div>
+
+  <div class="grp">
+    <p class="lbl">② 呢棵樹剔咗幾多個工序（⚠️ 唔同棵樹差好遠）</p>
+    <div class="segs" id="segN">
+      <button data-n="1">1 個</button>
+      <button data-n="2" class="on">2 個</button>
+      <button data-n="4">4 個</button>
+      <button data-n="9">9 個<small>最盡</small></button>
+    </div>
+  </div>
+
+  <div class="grp">
+    <p class="lbl">③ 機殼高度（⛔ 釘死，⛔ 唔跟你個瀏覽器）</p>
+    <div class="segs" id="segH">
+      <button data-h="727" class="on">727<small>現場真實</small></button>
+      <button data-h="844">844<small>螢幕高度</small></button>
+    </div>
+  </div>
+</div>
+
+<div class="cost" id="cost"></div>
+
+<div class="gauge" id="gauge">
+  <h4>⭐ 要影一張相，實際要做幾多嘢（喺呢個原型度真係量出嚟）</h4>
+  <div id="gaugeBody"></div>
+  <p style="margin:8px 0 0;font-size:11.5px;color:#96978E;line-height:1.6">
+    ⛔ 機殼<b>入面</b>嘅字全部係<b>書面語</b>（同真 app 一樣，⇒ 拍咗板就抄得走）；
+    機殼<b>外面</b>呢啲控制台同說明係寫俾你睇嘅，照舊廣東話。<br>
+    ⚠️ 呢幾個數係<b>原型自己</b>嘅數，⛔ 唔係真 app 嘅數（原型張卡冇相片清單、
+    字體載唔載到都會爭幾 px）。<b>⭐ 佢係用嚟「五個排法互相比較」嘅</b>，
+    真 app 嗰批數喺下面嗰張表。
+  </p>
+</div>
+
+<div class="phone quote-app-ui" id="phone" data-h="727">
+  <header>
+    <p class="back">‹ 返樹木清單</p>
+    <h1 id="hTitle">3</h1>
+    <p class="sub">彩 · 彩霞邨 彩月樓</p>
+  </header>
+  <div class="curve"></div>
+  <div class="scroller" id="scroller">
+    <main id="main"></main>
+  </div>
+  <div class="dock hide" id="dock">
+    <div class="inner">
+      <p class="who">現在拍攝：<b id="dockWho">全景相</b></p>
+      <div class="slot__buttons">
+        <button class="btn" id="dockShoot">拍攝</button>
+        <button class="btn btn--2nd" id="dockAlbum">相簿</button>
+      </div>
+    </div>
+  </div>
+  <div class="fold" id="foldLine"></div>
+  <nav>
+    <div class="bar">
+      <button class="tab"><span class="ic">🏠</span><b>工程</b></button>
+      <button class="tab on"><span class="ic">🌳</span><b>樹木</b></button>
+      <button class="tab"><span class="ic">☁️</span><b>同步</b></button>
+      <button class="tab"><span class="ic">⚙️</span><b>設定</b></button>
+    </div>
+  </nav>
+</div>
+
+<div class="qa">
+  <h2>呢一版要你揀乜</h2>
+  <p>
+    <span class="now">一句講完：</span>相片頁每一格都係一張大卡（真 app 實測
+    <code>212px</code> 高），所以剔咗幾個工序，
+    <b>第三格開始個「拍攝」掣喺 727 度就一開見唔到</b>。
+  </p>
+
+  <h2>⚠️ 先更正一個數：⛔ 唔係 y 885</h2>
+  <p>
+    我之前記低嘅係 <code>y 885</code>。<b>⛔ 嗰個數係錯嘅</b> ——
+    佢係喺一個<b>冇設定相片上載服務</b>嘅版度量嘅，每張卡上面多咗一段
+    <code>102px</code> 嘅黃色警告，所以每格由 <code>212px</code> 發水到
+    <code>328px</code>。
+  </p>
+  <p>
+    <span class="warn">⭐ 呢個係「量度嘅條件同現場唔同」嘅另一面</span> ——
+    上次（#40）係量得<b>太鬆</b>，今次係量得<b>太緊</b>。
+    <b>⛔ 兩邊都係假嘅。</b> 下面全部數字都係補返
+    <code>VITE_PHOTO_WORKER_URL</code> 之後重新量嘅。
+  </p>
+
+  <h2>2026-09-20 實測（390 闊，真 app，⛔ 唔係呢個原型）</h2>
+  <table>
+    <tr><th>項</th><th>727（現場）</th><th>844（螢幕）</th></tr>
+    <tr><td>可以見到嘅高度</td><td>640px</td><td>757px</td></tr>
+    <tr><td>底 nav 個頂</td><td>642px</td><td>759px</td></tr>
+    <tr><td>每格高</td><td colspan="2">212px（格與格之間再隔 12px）</td></tr>
+    <tr><td>第 1 粒拍攝</td><td>y 148–196 ✓</td><td>y 148–196 ✓</td></tr>
+    <tr><td>第 2 粒拍攝</td><td>y 372–420 ✓</td><td>y 372–420 ✓</td></tr>
+    <tr><td>第 3 粒拍攝</td><td>y 595–<b>643</b> ⛔</td><td>y 595–643 ✓</td></tr>
+    <tr><td>第 4 粒拍攝</td><td>y 819–867 ⛔</td><td>y 819–867 ⛔</td></tr>
+  </table>
+  <p>
+    <span class="warn">⚠️ 睇真第 3 粒：643 對 642 —— <b>爭 1px</b>。</span>
+    即係話喺 727 度佢係「差少少就見到」，而喺 844 度佢係「見到」。
+    <b>⭐ 一把淨係量 844 嘅尺喺呢度會全綠。</b>
+  </p>
+
+  <hr>
+
+  <h2>五個排法，同埋各自嘅代價</h2>
+  <p><b>甲 · 現狀</b> —— 每個工序一張大卡，拍攝／相簿兩粒掣喺卡入面。<br>
+    ✅ 邊格係邊格，<b>⛔ 冇可能撈亂</b>。<br>
+    ⛔ 第 3 格起要碌；9 個工序＝要碌 <code>2240px</code>。</p>
+
+  <p><b>乙 · 摺埋</b> —— 未影嘅收成一行，撳一下先張開。<br>
+    ✅ 9 個工序都一眼見晒，<b>⛔ 唔使碌</b>。<br>
+    ⛔ <b>每一格多撳一下</b>。戴手套嗰下就係佢個價錢。</p>
+
+  <p><b>丙 · 工序做掣</b> —— 上面一行工序掣，揀一個，下面一個固定嘅拍攝區。<br>
+    ✅ 拍攝掣<b>永遠喺同一個位</b>，⛔ 永遠唔使碌。<br>
+    ⛔ <b>揀錯工序就影錯格，而且錯咗唔見得會發現</b> —— 甲嗰個排法冇呢個風險。</p>
+
+  <p><b>丁 · 浮動掣</b> —— 卡照舊，但拍攝掣貼住底部浮住，跟住你碌到邊格就影邊格。<br>
+    ✅ ⛔ 唔使碌去揾掣；卡嘅結構⛔ 冇變。<br>
+    ⛔ 「而家影緊邊格」淨係得<b>一行字</b>講 —— 睇漏就影錯格，同丙一樣嘅風險。<br>
+    ⚠️ 而且佢<b>食咗底部一截位</b>（同 #39 條 bar 遮住 FAB 係同一個家族嘅問題）。</p>
+
+  <p><b>戊 · 縮細每格</b> —— 唔改操作，淨係拿走「尚未拍攝相片。」嗰行（<code>64px</code>）。<br>
+    ✅ <b>⛔ 一個操作都冇改過</b>，風險最細。<br>
+    ⛔ 幫得有限：727 度由 2 格變 3 格，<b>9 個工序照樣要碌</b>。<br>
+    ⛔ 而且空格冇咗嗰句字，人會以為<b>載緊</b>。</p>
+
+  <hr>
+  <h2>⚠️ 原型驗唔到嘅嘢（⛔ 唔准當驗完）</h2>
+  <p>
+    呢一版驗嘅係<b>順唔順手</b>。<br>
+    ⛔ 佢驗唔到「相有冇上錯格」、「有冇上兩次」、「Drive 嗰邊有冇」。
+    嗰啲要<b>兩邊對數</b>（Drive <code>files.list</code> 對 DB <code>select</code>，
+    睇 id、size、<code>quotePhotoId</code>）。<br>
+    <span class="warn">⭐ 兩樣都要做，⛔ 唔係二揀一。</span>
+  </p>
+  <p>
+    真檔名格式（原型入面用嘅就係呢個）：<code>1_Whole View_01_Before.jpg</code>、
+    <code>1_Crown Cleaning_03_Before.jpg</code>、環境相 <code>Site_01.jpg</code>。
+  </p>
+</div>
+
+<script>
+/* ════════════════════════════════════════════════════════════
+   ⛔⛔ 呢個 script ⛔ 唔會寫入任何嘢 —— 冇 fetch、冇 localStorage、
+      冇 IndexedDB。所有「相」淨係一個記喺 JS 變數入面嘅數。
+   ⭐ 但「等」係真嘅：撳拍攝之後真係 setTimeout 1400ms 先出 ——
+      §2.11 原話「連代價一齊擺出嚟：要等就真係等，⛔ 唔好即刻變綠」。
+   ════════════════════════════════════════════════════════════ */
+
+/* 真工序名 ＋ 真 Drive 檔名 token（src/lib/options.ts、worker/src/names.mjs）。
+   ⛔ 唔用假名 —— §2.11 寫明要用真資料樣本。 */
+const WORKS = [
+  { label: '清理樹冠', token: 'Crown Cleaning' },
+  { label: '縮減樹冠', token: 'Crown Reduction' },
+  { label: '疏枝',     token: 'Crown Thinning' },
+  { label: '提升樹冠', token: 'Crown Raising' },
+  { label: '起樹頭',   token: 'Stump Removal' },
+  { label: '拉索加固', token: 'Cabling' },
+  { label: '修根',     token: 'Root Pruning' },
+  { label: '近景',     token: 'Close Up' },
+  { label: '其他：樹穴擴闊', token: 'Other' },
+]
+const TREE_NO = '3'
+
+let mode = 'A'
+let nWorks = 2
+let aimed = 0           /* 丙／丁：而家對住邊一格 */
+const open = new Set([0])  /* 乙：張開咗邊幾格 */
+const shots = {}        /* { slotIndex: 張數 } */
+const busy = new Set()
+
+const slots = () => [{ label: '全景相', token: 'Whole View' }, ...WORKS.slice(0, nWorks)]
+
+/** 檔名照 worker/src/names.mjs：seq 1 → `01`，2 → `03`（成對編號）。 */
+const fileName = (token, seq) =>
+  TREE_NO + '_' + token + '_' + String(2 * seq - 1).padStart(2, '0') + '_Before.jpg'
+
+const el = (h) => { const d = document.createElement('div'); d.innerHTML = h.trim(); return d.firstElementChild }
+
+function photoList(i, s) {
+  const n = shots[i] || 0
+  if (n === 0) return mode === 'E' ? '' : '<p class="empty">尚未拍攝相片。</p>'
+  let out = '<ul class="plist">'
+  for (let k = 1; k <= n; k++) {
+    const up = k < n
+    out += '<li><span class="thumb"></span><span>' +
+      '<span class="st ' + (up ? 'up' : 'wait') + '">' + (up ? '已同步，兩份齊' : '上傳中') + '</span>' +
+      '<span class="fn">' + fileName(s.token, k) + '</span></span></li>'
+  }
+  return out + '</ul>'
+}
+
+function buttons(i) {
+  const b = busy.has(i)
+  return '<div class="slot__buttons">' +
+    '<button class="btn" data-shoot="' + i + '"' + (b ? ' disabled' : '') + '>' +
+      (b ? '處理中…' : '拍攝') + '</button>' +
+    '<button class="btn btn--2nd" data-shoot="' + i + '"' + (b ? ' disabled' : '') + '>相簿</button>' +
+    '</div>'
+}
+
+function render() {
+  const main = document.getElementById('main')
+  const dock = document.getElementById('dock')
+  main.innerHTML = ''
+  dock.classList.toggle('hide', mode !== 'D')
+  document.getElementById('hTitle').textContent = TREE_NO
+
+  const S = slots()
+  if (aimed >= S.length) aimed = 0
+
+  if (mode === 'C') {
+    /* 丙：工序做掣，下面一個固定拍攝區 */
+    const chips = S.map((s, i) =>
+      '<button class="chip' + (i === aimed ? ' on' : '') + '" data-aim="' + i + '">' +
+      s.label + '<span class="n">' + (shots[i] || 0) + '</span></button>').join('')
+    main.appendChild(el('<section class="card"><h3 class="slot__title">工序</h3>' +
+      '<div class="chips">' + chips + '</div></section>'))
+    main.appendChild(el('<section class="card"><p class="nowbar">現在拍攝：<b>' +
+      S[aimed].label + '</b></p>' + buttons(aimed) + photoList(aimed, S[aimed]) + '</section>'))
+  } else if (mode === 'B') {
+    /* 乙：摺埋 */
+    S.forEach((s, i) => {
+      const isOpen = open.has(i)
+      if (!isOpen) {
+        main.appendChild(el('<section class="card collapsed"><button class="fold-row" data-open="' + i + '">' +
+          '<span class="car">›</span><span class="nm">' + s.label + '</span>' +
+          '<span class="n">' + (shots[i] || 0) + ' 張</span></button></section>'))
+      } else {
+        main.appendChild(el('<section class="card slot"><button class="fold-row" data-open="' + i + '">' +
+          '<span class="car">⌄</span><span class="nm">' + s.label + '</span>' +
+          '<span class="n">' + (shots[i] || 0) + ' 張</span></button>' +
+          '<div style="height:10px"></div>' + buttons(i) + photoList(i, s) + '</section>'))
+      }
+    })
+  } else {
+    /* 甲（現狀）／丁（浮動掣）／戊（縮細） */
+    S.forEach((s, i) => {
+      const aim = mode === 'D' && i === aimed ? ' aimed' : ''
+      const btns = mode === 'D' ? '' : buttons(i)
+      main.appendChild(el('<section class="card slot' + aim + '" data-slot="' + i + '">' +
+        '<h3 class="slot__title">' + s.label + '</h3>' + btns + photoList(i, s) + '</section>'))
+    })
+    if (mode === 'D') document.getElementById('dockWho').textContent = S[aimed].label
+  }
+  measure()
+}
+
+/* ══ ⭐⭐ 量返「要影最後嗰格，實際要做幾多嘢」════════════════
+   ⛔ 唔係我寫死個數 —— 每次 render 完真係讀 getBoundingClientRect()。
+   ⚠️ 基準係**底 nav 個頂**，⛔ 唔係機殼底 —— 俾 nav 遮住＝見唔到。
+
+   ⛔⛔ **第一版呢把尺係假綠燈，要記低點解**：
+      我本來報「一開就見到幾多粒 / 總共幾多粒」。⚠️ 但乙丙丁三個排法
+      **畫面上本來就淨係得一粒拍攝掣** ⇒ 佢哋永遠報「1 / 1 ✓」，
+      ⭐ 即係話**三個最要比較嘅排法，把尺永遠全綠**，而佢哋真正嘅代價
+      （要多撳一下、要碌到嗰格先對到）⛔ 一格都冇量到。
+   ⇒ 而家分母釘死做**格數**，另外量「要碌幾多 ＋ 要額外撳幾多下」。 */
+function measure() {
+  const phone = document.getElementById('phone')
+  const sc = document.getElementById('scroller')
+  const bar = document.querySelector('nav .bar')
+  const pr = phone.getBoundingClientRect()
+  const sr = sc.getBoundingClientRect()
+  const foldY = bar.getBoundingClientRect().top - pr.top
+  document.getElementById('foldLine').style.top = foldY + 'px'
+
+  const S = slots()
+  const last = S.length - 1
+  /* 捲得到嘅範圍入面，fold 以上仲睇得到幾高。 */
+  const visibleH = foldY - (sr.top - pr.top)
+  const maxScroll = Math.max(0, sc.scrollHeight - sc.clientHeight)
+  /* 一件嘢要碌幾多先入到 fold 以上（⛔ 碌到盡都入唔到就報碌到盡）。 */
+  const needScroll = (elm) => {
+    if (!elm) return null
+    const bottom = elm.getBoundingClientRect().bottom + sc.scrollTop - sr.top
+    return Math.min(maxScroll, Math.max(0, Math.round(bottom - visibleH)))
+  }
+
+  /* ── ① 零碌、零額外撳之下，直接撳得到幾多格 ──
+     ⛔ 分母係**格數**，⛔ 唔係「畫面上有幾多粒掣」。 */
+  let direct = 0
+  const lines = []
+  if (mode === 'A' || mode === 'E') {
+    document.querySelectorAll('.slot').forEach((c, i) => {
+      const b = c.querySelector('[data-shoot]')
+      if (!b) return
+      const bot = b.getBoundingClientRect().bottom - pr.top
+      const ok = bot <= foldY && sc.scrollTop === 0
+      if (ok) direct++
+      if (i < 4) lines.push(S[i].label + '：y ' + Math.round(bot - 48) + '–' + Math.round(bot) +
+        (bot <= foldY ? ' ✓' : ' ⛔ 要碌'))
+    })
+  } else if (mode === 'D') {
+    const d = document.getElementById('dockShoot').getBoundingClientRect()
+    direct = d.bottom - pr.top <= foldY ? 1 : 0
+    lines.push('浮動嗰粒拍攝：永遠喺 y ' + Math.round(d.top - pr.top) + '–' +
+      Math.round(d.bottom - pr.top) + '（⛔ 但一次淨係對住一格）')
+  } else {
+    direct = document.querySelector('[data-shoot]') ? 1 : 0
+    lines.push(mode === 'B' ? '淨係張開咗嗰格撳得到，其餘 ' + (S.length - open.size) + ' 格要先撳開'
+                            : '淨係揀住嗰格撳得到，其餘 ' + (S.length - 1) + ' 格要先撳個工序掣')
+  }
+
+  /* ── ② 要影【最後一格】，要碌幾多 ＋ 要額外撳幾多下 ── */
+  let reach = 0
+  let taps = 0
+  if (mode === 'A' || mode === 'E') {
+    reach = needScroll(document.querySelectorAll('.slot')[last]?.querySelector('[data-shoot]'))
+  } else if (mode === 'B') {
+    reach = needScroll(document.querySelector('[data-open="' + last + '"]'))
+    taps = open.has(last) ? 0 : 1
+  } else if (mode === 'C') {
+    reach = needScroll(document.querySelector('[data-aim="' + last + '"]'))
+    taps = aimed === last ? 0 : 1
+  } else {
+    reach = needScroll(document.querySelectorAll('[data-slot]')[last])
+  }
+
+  const row = (k, v, good) =>
+    '<div class="row"><span class="k">' + k + '</span><span class="v ' +
+    (good ? 'ok' : 'no') + '">' + v + '</span></div>'
+
+  document.getElementById('gaugeBody').innerHTML =
+    row('一開就撳得到', direct + ' / ' + S.length + ' 格', direct === S.length) +
+    '<div class="row"><span class="k" style="min-width:0;color:#96978E;font-size:12px">' +
+      '⇒ 要影最後嗰格「' + S[last].label + '」：</span></div>' +
+    row('　要碌', reach + 'px', reach === 0) +
+    row('　要額外撳', taps + ' 下', taps === 0) +
+    '<ul>' + lines.map((l) => '<li>' + l + '</li>').join('') + '</ul>'
+
+  const COSTS = {
+    A: '<b>甲 · 現狀</b> —— ✅ <span class="good">邊格係邊格，⛔ 冇可能撈亂。</span>　' +
+       '⛔ <span class="bad">第 3 格起要碌落去揾。</span>',
+    B: '<b>乙 · 摺埋</b> —— ✅ <span class="good">要碌嘅距離跌到最短。</span>　' +
+       '⛔ <span class="bad">每一格多撳一下先影到</span>（戴手套嗰下就係佢個價錢）。',
+    C: '<b>丙 · 工序做掣</b> —— ✅ <span class="good">拍攝掣永遠喺同一個位，⛔ 唔使碌。</span>　' +
+       '⛔ <span class="bad">揀錯工序就影錯格，而且唔見得會發現。</span>',
+    D: '<b>丁 · 浮動掣</b> —— ✅ <span class="good">粒掣永遠喺手指位。</span>　' +
+       '⛔ <span class="bad">「影緊邊格」淨係得一行字講</span>，而且食咗底部一截位。',
+    E: '<b>戊 · 縮細每格</b> —— ✅ <span class="good">一個操作都冇改過。</span>　' +
+       '⛔ <span class="bad">幫得有限</span>，而且空格冇咗「尚未拍攝相片。」，人會以為載緊。',
+  }
+  document.getElementById('cost').innerHTML = COSTS[mode]
+}
+
+/* ── 撳嘢 ──────────────────────────────────────────── */
+function shoot(i) {
+  if (busy.has(i)) return
+  busy.add(i)
+  render()
+  /* ⭐ 真係等 —— ⛔ 唔准即刻變綠。 */
+  setTimeout(() => {
+    busy.delete(i)
+    shots[i] = (shots[i] || 0) + 1
+    render()
+  }, 1400)
+}
+
+document.addEventListener('click', (e) => {
+  const s = e.target.closest('[data-shoot]')
+  if (s) return shoot(Number(s.dataset.shoot))
+  const a = e.target.closest('[data-aim]')
+  if (a) { aimed = Number(a.dataset.aim); return render() }
+  const o = e.target.closest('[data-open]')
+  if (o) {
+    const i = Number(o.dataset.open)
+    open.has(i) ? open.delete(i) : open.add(i)
+    return render()
+  }
+})
+document.getElementById('dockShoot').addEventListener('click', () => shoot(aimed))
+document.getElementById('dockAlbum').addEventListener('click', () => shoot(aimed))
+
+/* 丁：碌到邊格就對住邊格 —— ⛔ 呢個就係佢個風險本人，所以原型要真係做出嚟。 */
+document.getElementById('scroller').addEventListener('scroll', () => {
+  if (mode !== 'D') return measure()
+  const pr = document.getElementById('phone').getBoundingClientRect()
+  let best = 0
+  let bestD = Infinity
+  document.querySelectorAll('[data-slot]').forEach((c) => {
+    const d = Math.abs(c.getBoundingClientRect().top - pr.top - 150)
+    if (d < bestD) { bestD = d; best = Number(c.dataset.slot) }
+  })
+  if (best !== aimed) { aimed = best; render() } else measure()
+})
+
+const pick = (id, attr, fn) =>
+  document.getElementById(id).addEventListener('click', (e) => {
+    const b = e.target.closest('button')
+    if (!b) return
+    ;[...e.currentTarget.children].forEach((x) => x.classList.remove('on'))
+    b.classList.add('on')
+    fn(b.dataset[attr])
+  })
+pick('segMode', 'm', (v) => { mode = v; render() })
+pick('segN', 'n', (v) => { nWorks = Number(v); render() })
+pick('segH', 'h', (v) => { document.getElementById('phone').dataset.h = v; render() })
+
+render()
+</script>
