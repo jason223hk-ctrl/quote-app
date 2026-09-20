@@ -554,6 +554,40 @@ const SCREENS = {
     mustLock: [{ testid: 'delete-confirm', needs: 'delete-cannot-count' }],
   },
 
+  /* ⭐⭐ 相片頁第 3 粒「拍攝」掣 —— ⛔ 呢個係一個**量出嚟嘅險位**，⛔ 唔係一個安全數。
+
+     2026-09-20 Jason 撳完原型，揀咗**甲 · 現狀**（⛔ 唔改排法）。
+     ⚠️⚠️ 揀甲 ＝ **兩個真問題佢知情下接受咗**，⛔ 唔係冇咗：
+       (i) 9 個工序要碌 1058px
+       (ii) **727 度第 3 粒「拍攝」已經俾底部 nav 遮咗 1px**
+
+     ⛔⛔ 所以呢把尺⛔ **唔係**量「見唔見到」—— 佢而家就係見唔到。
+        佢量嘅係 **clearance ⛔ 唔准再差**。
+
+     ⚠️⚠️ **點解要有佢**：張卡高咗一次已經出過事。
+        `VITE_PHOTO_WORKER_URL` 未設定嗰陣，卡上面多咗段 102px 黃色警告
+        ⇒ 每格由 **212px 發水到 328px**，第 3 粒由 y 643 跌到 y 943。
+        ⇒ **將來任何令張卡高咗嘅改動（多一行字、多一個 badge、多一段警告），
+          都會靜靜咁將佢推得更出，而⛔ 冇任何一把尺會紅。**
+
+     ⛔ 兩個高度都要量。⭐ 844 度佢仲有 +116px —— 即係話
+       **一把淨係量 844 嘅尺喺呢度會全綠**（同 `SHORT_H` 嗰段同一個道理）。 */
+  treephotos: {
+    screen: 'treephotos',
+    clearance: [
+      {
+        what: '第 3 粒「拍攝」掣',
+        slot: 2,
+        label: '拍攝',
+        /* ⛔⛔ 呢兩個數係 2026-09-20 實測。**⛔ 淨係可以升，⛔ 唔准降。**
+           ⚠️ 降一格 ＝ 「我接受張卡再高啲」，而嗰個決定⛔ 要 Jason 本人講。 */
+        floors: { 727: -1, 844: 116 },
+        why:
+          '張卡一高，佢就推得更出畫面，而⛔ 冇任何提示 —— 人只會以為呢一格影唔到相。',
+      },
+    ],
+  },
+
   dialoglong: {
     // ⚠️ 同上面用同一個畫面，⛔ 唔係另一個 component —— 一模一樣嘅 code，
     //    淨係內容唔同。咁對出嚟嘅先算數。
@@ -898,6 +932,10 @@ let firstBad = 0
 let fakeChecked = 0
 let fakeBad = 0
 
+/** 「拍攝掣離底部 nav 仲有幾遠」嗰組 —— ⛔ 量嘅係「唔准再差」，⛔ 唔係「見唔見到」。 */
+let clearChecked = 0
+let clearBad = 0
+
 /** 「撳完⛔ 唔變藍」同「鍵盤仲睇得到」嗰組。 */
 let blueChecked = 0
 let blueBad = 0
@@ -1028,6 +1066,111 @@ for (const [name, spec] of Object.entries(SCREENS)) {
       }
     }
     /* ⛔ 縮返原本高度 —— 下面九把尺同 90 項對數全部係喺 H 度定嘅。 */
+    await real.setViewportSize({ width: W, height: H })
+    await real.waitForTimeout(400)
+  }
+
+  /* ── ⭐⭐ Clearance：粒掣離底部 nav 仲有幾遠（⛔ 唔准再差）────────
+
+     ⛔⛔ **同上面「一開就見到」係兩把唔同嘅尺，⛔ 唔准撈埋。**
+        「一開就見到」問：**見唔見到**（0 就係唔合格）。
+        呢把問：**同上次比，有冇變差**（而家個數可以係負數，即係已經見唔到）。
+     ⭐ 兩把都要，因為 Jason 2026-09-20 知情下接受咗一個負數 ——
+       ⇒ ⛔ 用「一開就見到」嗰把尺量佢，只會日日紅，而紅咗都改唔到（佢揀咗唔改）
+         ⇒ 結果一定係有人調鬆佢，而嗰下就連「有冇變差」都冇人睇。
+
+     ⚠️ 同上面一樣擺喺呢度：⛔ 任何人郁過個畫面之前。 */
+  if ((spec.clearance ?? []).length > 0) {
+    const CLEAR = ([index, label, navSel, scrollId]) => {
+      const slots = document.querySelectorAll('[data-testid="photo-slot"]')
+      const nav = document.querySelector(navSel)
+      const scroller = scrollId ? document.querySelector(`[data-testid="${scrollId}"]`) : null
+      if (!nav) return null
+      const card = slots[index]
+      if (!card) return { slots: slots.length }
+      const btn = [...card.querySelectorAll('.photo-slot__buttons button')].find(
+        (b) => b.textContent.trim() === label,
+      )
+      if (!btn) return { slots: slots.length }
+      const b = btn.getBoundingClientRect()
+      const navTop = nav.getBoundingClientRect().top
+      return {
+        slots: slots.length,
+        scrollTop: scroller ? Math.round(scroller.scrollTop) : 0,
+        cardHeight: Math.round(card.getBoundingClientRect().height),
+        bottom: Math.round(b.bottom),
+        navTop: Math.round(navTop),
+        clearance: Math.round(navTop - b.bottom),
+      }
+    }
+
+    /* ⭐ 兩個高度都要過。⛔ 唔係「揀一個」—— 844 度佢仲有一百幾十 px，
+       即係話一把淨係量 844 嘅尺喺呢度會全綠。 */
+    for (const at of [
+      { h: H, tag: `${W}×${H}` },
+      { h: SHORT_H, tag: `${W}×${SHORT_H}（Jason 部機真實可用高度）` },
+    ]) {
+      if (at.h !== H) {
+        await real.setViewportSize({ width: W, height: at.h })
+        await real.waitForTimeout(400)
+      }
+      for (const one of spec.clearance ?? []) {
+        clearChecked += 1
+        const floor = one.floors[at.h]
+        if (floor === undefined) {
+          clearBad += 1
+          console.log(`  ✗ ⛔⛔ ${one.what} ${at.tag}：呢個高度冇寫下限 —— ⛔ 冇下限就唔算量過`)
+          continue
+        }
+        const r = await real.evaluate(CLEAR, [
+          one.slot,
+          one.label,
+          one.nav ?? '.bottom-nav',
+          one.scroller ?? 'tree-photos-scroll',
+        ])
+        if (r === null || r.clearance === undefined) {
+          clearBad += 1
+          console.log(
+            `  ✗ ⛔⛔ ${one.what} ${at.tag}：揾唔到（畫面得 ${r?.slots ?? 0} 格相）—— ⛔ 量唔到就當唔合格`,
+          )
+          continue
+        }
+        /* ⛔⛔ 樣本本身變咗（例如 fixture 改咗工序數）就⛔ 唔准靜靜咁量第二格。 */
+        if (r.slots !== 3) {
+          clearBad += 1
+          console.log(
+            `  ✗ ⛔⛔ ${one.what} ${at.tag}：呢版而家有 ${r.slots} 格相，⛔ 唔係 3 格` +
+              ' —— 個樣本變咗，呢個數同舊嗰個⛔ 比唔到',
+          )
+          continue
+        }
+        if (r.scrollTop !== 0) {
+          clearBad += 1
+          console.log(`  ✗ ⛔⛔ ${one.what} ${at.tag}：量之前個畫面已經碌咗 ${r.scrollTop}px`)
+          continue
+        }
+        const sign = (n) => (n >= 0 ? `+${n}` : `${n}`)
+        if (r.clearance < floor) {
+          clearBad += 1
+          console.log(
+            `  ✗ ⛔⛔ ${one.what} ${at.tag}：clearance ${sign(r.clearance)}px，` +
+              `下限係 ${sign(floor)}px —— **差咗 ${floor - r.clearance}px**`,
+          )
+          console.log(`      （卡高 ${r.cardHeight}px，掣底 ${r.bottom}，nav 頂 ${r.navTop}）`)
+          console.log(`      ⚠️ ${one.why}`)
+          console.log(
+            '      ⛔ 呢個⛔ 唔係「調低下限」嘅訊號 —— 係「邊樣嘢令張卡高咗」要查返。',
+          )
+        } else {
+          const extra = r.clearance > floor ? `（⭐ 好過下限 ${r.clearance - floor}px）` : ''
+          console.log(
+            `  ✓ ${one.what} ${at.tag}：clearance ${sign(r.clearance)}px，` +
+              `下限 ${sign(floor)}px${extra}　卡高 ${r.cardHeight}px` +
+              (r.clearance < 0 ? '　⚠️ 負數 ＝ 已經俾 nav 遮咗（Jason 2026-09-20 知情下接受）' : ''),
+          )
+        }
+      }
+    }
     await real.setViewportSize({ width: W, height: H })
     await real.waitForTimeout(400)
   }
@@ -1862,6 +2005,9 @@ console.log(`⛔ 冇得撳走：量咗 ${escapeChecked} 件，走得甩 ${escape
 console.log(`中心點撳到自己：量咗 ${centreChecked} 粒掣，中心撳唔到 ${centreBad} 粒。`)
 console.log(`一開就見到（⛔ 唔准碌）：量咗 ${firstChecked} 件，褪咗 ${firstBad} 件。`)
 console.log(`睇落撳得就要真撳得：量咗 ${fakeChecked} 格，扮掣 ${fakeBad} 格。`)
+console.log(
+  `拍攝掣離 nav 幾遠：量咗 ${clearChecked} 個高度，跌穿下限 ${clearBad} 個。`,
+)
 
 /*
  * ── ⭐⭐ 每組至少要量到幾多（⛔ 「量咗 0」⛔ 唔係合格）─────────────
@@ -1902,6 +2048,7 @@ const FLOORS = [
   ['中心點撳到自己', centreChecked, 9],
   ['一開就見到', firstChecked, 8],
   ['睇落撳得就要真撳得', fakeChecked, 3],
+  ['拍攝掣離 nav 幾遠', clearChecked, 2],
 ]
 
 let floorBad = 0
@@ -1947,6 +2094,7 @@ process.exit(
     centreBad === 0 &&
     firstBad === 0 &&
     fakeBad === 0 &&
+    clearBad === 0 &&
     floorBad === 0
     ? 0
     : 1,
