@@ -18,6 +18,7 @@ import {
   sitePhotoFilename,
 } from './names.mjs'
 import { RENAME_BATCH_MAX, needsRename, renamePlan, renameSummary } from './rename.mjs'
+import { PURGE_BATCH_MAX, driveGone, purgePlan, purgeSummary, r2Gone } from './purge.mjs'
 import { WHERE, driveFailure, redact } from './driveError.mjs'
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -723,6 +724,171 @@ async function patchPhoto(env, token, id, values) {
   return rows[0]
 }
 
+/**
+ * 掉一個 Drive 檔入垃圾桶。⛔ **唔係真刪**（Jason 2026-09-19 拍板）。
+ *
+ * ⭐ 多一道 30 日嘅網 —— 而「無法還原」呢句喺 **app 層面**仍然係真嘅：
+ *   app 攞唔返，⛔ 只有人手入 Drive 垃圾桶先撈得返。
+ *
+ * ⚠️ 對一個**已經喺垃圾桶**嘅檔再 trash 一次會回 200 ⇒ ⭐ 重試係安全嘅。
+ * ⛔ 回個 status 出去，⛔ 唔喺呢度判斷「算唔算掉咗」——
+ *   嗰個判斷喺 `purge.mjs` 個 `driveGone()`，有測試釘住。
+ */
+async function driveTrash(token, fileId) {
+  const res = await fetch(`${DRIVE}/files/${encodeURIComponent(fileId)}?supportsAllDrives=true`, {
+    method: 'PATCH',
+    headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+    body: JSON.stringify({ trashed: true }),
+  })
+  return res.status
+}
+
+/**
+ * P8 步 3：一單工程刪咗之後，**真係清走雲端嗰兩份相**。
+ *
+ * ⛔⛔ 次序、點解、同埋三種相點分，全部喺 `worker/src/purge.mjs` 檔頭。
+ *    ⛔ 唔好喺呢度再寫一次 —— 兩份講法一定會有一日唔一致。
+ *
+ * ⛔⛔ **兩道閘喺掂任何 bytes 之前：**
+ *
+ *   閘一 · **母單一定要真係刪咗**（`quote_records.deleted_at` 有值）。
+ *     ⚠️ 冇呢道閘，一個 `recordId` 就可以清走一單**仲用緊**嘅工程所有相。
+ *     ⭐ 而 `quote_records` 條 select policy 係 `using (true)` ⇒ 人人讀得晒
+ *       ⇒ ⛔ 「攞到個 recordId」完全唔係一個權限。
+ *
+ *   閘二 · **問准**（見 `purge.mjs` 檔頭 ①）—— 一個⛔ 唔改值嘅 PATCH。
+ *     0 行 ⇒ RLS 拒絕 ⇒ ⛔ 一個 byte 都唔掂。
+ *
+ * ⛔ 呢條路由頭到尾行**用家自己個 token**，靠 RLS 攔（CLAUDE.md §2.9）。
+ *   ⛔ 一個 `service_role` key 都冇。
+ */
+async function purgeRecord(request, env, origin) {
+  const auth = request.headers.get('authorization') || ''
+  if (!auth.startsWith('Bearer ')) return json({ error: 'no token' }, 401, origin)
+  const userToken = auth.slice('Bearer '.length)
+
+  const userId = await userIdFrom(request, env)
+  if (!userId) return json({ error: 'unauthorized' }, 401, origin)
+
+  let body
+  try {
+    body = await request.json()
+  } catch {
+    return json({ error: 'bad json' }, 400, origin)
+  }
+  if (typeof body?.recordId !== 'string' || !UUID.test(body.recordId)) {
+    return json({ error: 'bad recordId' }, 400, origin)
+  }
+
+  try {
+    // ── 閘一：母單真係刪咗未 ──────────────────────────────────────
+    const records = await pg(
+      env,
+      userToken,
+      `quote_records?id=eq.${body.recordId}&select=id,deleted_at`,
+    )
+    const record = records[0]
+    if (!record) {
+      return json({ ok: false, message: '找不到這一單工程，或者你沒有查看權限。' }, 404, origin)
+    }
+    if (!record.deleted_at) {
+      /* ⛔⛔ 呢個⛔ 唔係一個「順手檢查」—— 佢係最後一道擋住「清走一單仲用緊嘅工程」
+         嘅嘢。⚠️ 出中文，而且要講得出下一步（CLAUDE.md §2.7）。 */
+      return json(
+        {
+          ok: false,
+          message: '這一單工程並未刪除，⛔ 不會清走它的相片。如果確實要刪除，請先在工程頁刪除這一單。',
+        },
+        409,
+        origin,
+      )
+    }
+
+    const photos = await pg(
+      env,
+      userToken,
+      `quote_photos?record_id=eq.${body.recordId}&select=id,r2_key,drive_file_id,purged_at`,
+    )
+
+    const plan = purgePlan(photos)
+    /* ⭐ `nothing`（雲端兩邊都冇）一樣要 stamp —— ⛔ 唔 stamp 就會永遠留喺
+       「未清完」，設定頁嗰行永遠出一個減唔落嘅數。 */
+    const queue = [...plan.todo, ...plan.nothing.map((id) => ({ photoId: id, r2Key: null, driveFileId: null }))]
+    const batch = queue.slice(0, PURGE_BATCH_MAX)
+    const hitLimit = queue.length > batch.length
+
+    /* ⛔ 冇 Drive 檔要掉就⛔ 唔好攞 token —— 慳一個 subrequest，
+       而且一單全部都係「只剩部機一份」嘅工程唔應該因為 Google 出事而清唔到。 */
+    const needDrive = batch.some((item) => item.driveFileId)
+    const gtoken = needDrive ? await googleToken(env) : null
+
+    let purged = 0
+    const failed = []
+
+    for (const item of batch) {
+      try {
+        /* ── 閘二：問准 ──────────────────────────────────────────
+           ⛔⛔ 寫 `purged_at = null` —— 即係佢本來嗰個值。**同一行、同一條
+           policy、⛔ 唔改到任何值。** 俾人拒就喺呢度停，bytes 一個都唔掂。
+           ⭐ 用**同一個寫入**去試，⛔ 唔另外寫一套「邊個刪得」嘅判斷。 */
+        await patchPhoto(env, userToken, item.photoId, { purged_at: null })
+
+        // ── ② R2 ──────────────────────────────────────────────
+        if (item.r2Key) {
+          const res = await fetch(await presign('DELETE', env, item.r2Key), { method: 'DELETE' })
+          if (!r2Gone(res.status)) {
+            throw new Error(`雲端儲存（R2）回覆 ${res.status}，未能確認相片已經清走。`)
+          }
+        }
+
+        // ── ③ Drive（掉垃圾桶，⛔ 唔係真刪）────────────────────
+        if (item.driveFileId && gtoken) {
+          const status = await driveTrash(gtoken, item.driveFileId)
+          if (!driveGone(status)) {
+            throw new Error(`Google Drive 回覆 ${status}，未能確認相片已經掉進垃圾桶。`)
+          }
+        }
+
+        /* ── ④ stamp ──────────────────────────────────────────
+           ⛔⛔ 一定要喺 ②③ 之後。⚠️ 上面任何一步掟錯，就行唔到落嚟
+           ⇒ `purged_at` 留空 ⇒ ⭐ 嗰行就係「未清完」呢個狀態本身，
+             ⛔ 唔使另開一張表、⛔ 唔使另外記帳，下次撳「繼續清」會再執佢。 */
+        await patchPhoto(env, userToken, item.photoId, { purged_at: new Date().toISOString() })
+        purged += 1
+      } catch (err) {
+        failed.push({ photoId: item.photoId, why: String(err?.message || err).slice(0, 300) })
+      }
+    }
+
+    const message = purgeSummary({
+      purged,
+      alreadyDone: plan.done.length,
+      nothingToClear: plan.nothing.length,
+      failed: failed.length,
+      hitLimit,
+    })
+
+    return json(
+      {
+        // ⛔ 有任何一樣未搞掂就⛔ 唔准回 ok: true —— 前端靠佢決定出唔出「繼續清」。
+        ok: failed.length === 0 && !hitLimit,
+        recordId: body.recordId,
+        purged,
+        alreadyDone: plan.done.length,
+        nothingToClear: plan.nothing.length,
+        remaining: queue.length - batch.length,
+        hitLimit,
+        failed,
+        message,
+      },
+      200,
+      origin,
+    )
+  } catch (err) {
+    return json({ ok: false, message: String(err?.message || err) }, 502, origin)
+  }
+}
+
 export default {
   async fetch(request, env) {
     const origin = allowedOrigin(request, env)
@@ -751,6 +917,10 @@ export default {
 
     if (url.pathname === '/mirror' && request.method === 'POST') {
       return mirror(request, env, origin)
+    }
+
+    if (url.pathname === '/purge' && request.method === 'POST') {
+      return purgeRecord(request, env, origin)
     }
 
     if (url.pathname !== '/sign' || request.method !== 'POST') {

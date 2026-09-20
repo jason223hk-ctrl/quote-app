@@ -14,11 +14,12 @@ README 比冇 README 更差：睇嘅人會以為線上冇嘢，然後放心改�
 
 ⛔ 部署 Worker、改 Cloudflare secrets 一律 Jason 親手做。
 
-## 三條路
+## 四條路
 
 - **`POST /sign`**（P3a）—— 簽 R2 上傳網址
 - **`POST /mirror`**（P3b）—— 抄一份上 Google Drive，寫返 `drive_file_id`
 - **`POST /read`**（P5，匯出 PDF）—— 出一條**淨係讀**嘅簽名網址，攞返張相嘅 bytes
+- **`POST /purge`**（P8 步 3）—— 一單工程刪咗之後，**真係清走**雲端嗰兩份相
 
   ⛔ 點解唔用 `/sign`：`/sign` 個 key 係 `{呼叫者 userId}/{影相編號}.jpg`，
   即係你淨係簽得到**自己**影嗰啲。阿耀影嘅相，Jason 喺辦公室匯出 PDF 就簽唔到，
@@ -72,6 +73,69 @@ POST /rename-tree     { "treeId": "…" }      Authorization: Bearer <用家個 
 ⚠️ **前端仲未接** —— 呢個 endpoint 而家係 inert，⛔ 冇人叫佢。
 P3f §4.6 兩個要出錯嘅位（樹木頁黃橫幅、設定頁診斷）係**新畫面元素**，
 ⇒ `CLAUDE.md` §2.11 要原型先行，⛔ 未做。
+
+## `/purge`（2026-09-20 加，⏳ **未部署**）
+
+一單工程刪咗之後，**真係清走**雲端嗰兩份相（**Jason 2026-09-14 拍板**，
+`docs/P8-真清相-計劃書.md`）。
+
+```
+POST /purge     { "recordId": "…" }      Authorization: Bearer <用家個 token>
+```
+
+⭐⭐ **佢係全個 app 唯一一條救唔返嘅路。** 其餘所有「刪除」都係寫一個
+`deleted_at`，撳錯咗改返個欄就有返；⛔ 呢條唔係。
+
+- ⛔ **由頭到尾用家自己個 token**（`CLAUDE.md` §2.9）—— ⛔ 冇 `service_role`。
+- ⛔ **`quote_records` 嗰行、`quote_photos` 嗰行都⛔ 唔刪**，只 stamp
+  `purged_at`。⭐ 零真刪對 DB row 嚟講仲然成立，變嘅淨係**實物**。
+
+### ⛔⛔ 兩道閘，喺掂任何 bytes 之前
+
+1. **母單一定要真係刪咗**（`quote_records.deleted_at` 有值）⇒ 唔係就 409。
+   ⚠️ `quote_records` 條 select policy 係 `using (true)` ⇒ **人人讀得晒**
+   ⇒ ⛔「攞到個 recordId」完全唔係一個權限。
+2. **問准** —— 一個⛔ 唔改值嘅 `PATCH`（寫 `purged_at = null`，即係佢本來嗰個值）。
+   ⚠️ 同一行、同一條 policy。0 行 ⇒ RLS 拒絕 ⇒ ⛔ 一個 byte 都唔掂。
+   ⭐ 用**同一個寫入**去試，⛔ 唔另外寫一套「邊個刪得」嘅判斷 ——
+   兩套講法一定會有一日唔一致，而唔一致嗰邊就係漏。
+
+### ⛔⛔ 次序係定死嘅
+
+```
+① 問准  →  ② R2 刪 bytes  →  ③ Drive 掉垃圾桶  →  ④ stamp purged_at
+（⑤ 部機 IndexedDB —— ⛔ 唔喺 Worker，前端做，⭐ 一定要最尾）
+```
+
+- ⭐ **R2 行先、Drive 行後**：掉咗入垃圾桶嘅 Drive 檔⛔ 唔算一份生存中嘅副本
+  （30 日就冇）。⇒「R2 最後刪」嗰個次序，喺刪 R2 嗰一刻 R2 係**唯一一份生存中**
+  嘅副本 —— 反而係危險嗰個。
+- ⛔ **④ 一定要最後**：`purged_at` 一寫就冇人再撳得返呢張相；寫咗但實物仲喺，
+  就變成「帳面清咗、實物留住」，而且**永遠冇人會再去清**。
+- ⭐ 中間任何一步掟錯 ⇒ `purged_at` 留空 ⇒ **嗰行就係「未清完」呢個狀態本身**。
+
+### 其餘
+
+- ⛔ Drive 係**掉垃圾桶**，⛔ 唔係真刪（Jason 2026-09-19 拍板）。多一道 30 日嘅網；
+  而「無法還原」呢句喺 **app 層面**仍然係真嘅 —— ⛔ 只有人手入垃圾桶先撈得返。
+- ⭐ **重試係安全嘅**：`purged_at` 已經有值就跳過。
+- ⛔ 一次最多 `PURGE_BATCH_MAX`（10）張，做唔晒回 `hitLimit: true`。
+  ⛔ **唔准靜靜咁清一半就報成功。**（`4 + 10×4 = 44` ≤ Cloudflare 個 50 subrequest 上限。）
+- R2／Drive 回 **404 ＝ 當清咗**（我哋要嘅係「嗰份 bytes 唔喺度」）；
+  ⛔ 403／500 ⛔ 唔算 —— 嗰啲係「我哋唔知佢仲喺唔喺度」。
+
+### ⛔⛔ deploy 之前一定要做嘅兩樣
+
+1. **跑 `docs/P8-purged_at-草稿.sql`** —— `quote_photos` 而家**冇** `purged_at` 呢個欄。
+   ⛔ 冇佢，第 ④ 步一定失敗。
+   ⚠️ 嗰份稿第 0 段有**一條要先答嘅問題**（`can_edit_quote_record()` 入面有冇
+   `deleted_at is null`）—— 答錯嗰邊，`/purge` **一張相都清唔到而且唔會報錯**。
+2. **deploy 完當日**改 `src/lib/deleteDialog.ts` 個 `PHOTOS_REALLY_PURGED = true`。
+   ⛔ 唔准早過 deploy 改：改咗就變成「畫面講永久刪除，但實物一件都冇清」。
+   ⛔ 亦唔准拖過夜。
+
+⚠️ **前端仲未接** —— 同 `/rename-tree` 一樣，呢個 endpoint deploy 咗之後
+仍然係 inert，⛔ 冇人叫佢（計劃書 §7 步 4）。
 
 ## 部署要準備嘅嘢
 
@@ -142,6 +206,7 @@ deploy 咗之後 —— `src/lib/sync.ts` 嗰句 `message.includes('搵 Jason')`
 | 2026-09-19 | `77d5eeb9-d5da-40dd-8674-269746c5aa5e` | ✅ `/rename-tree` ＋ Drive 429 logging（等咗兩日） |
 | 2026-09-19 | `81c304b3-2f54-4d57-bed9-50b225dd2576` | ✅ worker 42 句書面語 |
 | ⏳ **待 deploy** | —— | 「複製上 Drive 之後**核對不符**」（Jason 2026-09-19 收返「校驗」） |
+| ⏳ **待 deploy** | —— | `/purge`（P8 步 3）—— ⛔ **要先跑 `docs/P8-purged_at-草稿.sql`** |
 
 ## 部署完之後
 
