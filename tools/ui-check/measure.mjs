@@ -877,6 +877,17 @@ let overlapBad = 0
 /** 「打完字存唔到要出聲」嗰組。 */
 let typedChecked = 0
 let typedBad = 0
+/*
+ * ⛔⛔ 「撳完做唔到要出聲」**自己一組** —— ⛔ 唔准同上面「打完字」共用。
+ *
+ * ⚠️ 2026-09-19 中過：`tapThenSee` 一開始借咗 `typedChecked`／`typedBad`，
+ *    而 `FLOORS` 有一行 `['打完字存唔到要出聲', typedChecked, 5]`。
+ *    ⇒ **一個「撳」嘅檢查幫「打字」嘅下限頂數** ——
+ *      將來有人剷走一個 `typeThenSee`，個下限照樣過得。
+ * ⭐ 正正就係我哋自己成日講嗰句：**兩件唔同嘅嘢撈埋一齊就等於冇講。**
+ */
+let tapChecked = 0
+let tapBad = 0
 /** 「中心點撳到自己」嗰組 —— ⛔ 同上面「撳得到」係兩把唔同嘅尺，見下面。 */
 let centreChecked = 0
 let centreBad = 0
@@ -1183,7 +1194,7 @@ for (const [name, spec] of Object.entries(SCREENS)) {
      ⚠️ 一個 unhandled rejection 喺 console 度好明顯，喺山上面完全睇唔到。 */
   if (spec.tapThenSee) {
     const one = spec.tapThenSee
-    typedChecked += 1
+    tapChecked += 1
     await real.locator(`[data-testid="${one.testid}"]`).click()
     await real.waitForTimeout(800)
     const r = await real.evaluate(([need, btn]) => {
@@ -1202,14 +1213,14 @@ for (const [name, spec] of Object.entries(SCREENS)) {
       }
     }, [one.needs, one.testid])
     if (!r.seen) {
-      typedBad += 1
+      tapBad += 1
       console.log(`  ✗ ⛔⛔ ${one.why}，但畫面**一個字都冇** —— 就係「撳咗冇反應」`)
       console.log('      ⚠️ 現場同事會一路撳一路以為個 app 壞咗。')
     } else if (!r.inView) {
-      typedBad += 1
+      tapBad += 1
       console.log(`  ✗ ⛔ ${one.why} 有出聲，但嗰句字唔喺畫面入面（要碌先見到）`)
     } else if (!r.near) {
-      typedBad += 1
+      tapBad += 1
       console.log(`  ✗ ⛔ ${one.why} 出咗聲，但離粒掣 ${r.gap}px —— ⛔ 太遠，等於冇出`)
     } else {
       console.log(`  ✓ ${one.why} ⇒ 出咗聲「${r.text}…」，而且貼住粒掣（爭 ${r.gap}px）`)
@@ -1846,6 +1857,7 @@ console.log(`兩件嘢冇疊埋：量咗 ${overlapChecked} 對，疊咗 ${overla
 console.log(`粒掣夠大撳：量咗 ${sizeChecked} 粒，唔夠 ${sizeBad} 粒。`)
 console.log(`撳完⛔ 唔變藍 ＋ 鍵盤仲睇得到：量咗 ${blueChecked} 項，唔啱 ${blueBad} 項。`)
 console.log(`打完字存唔到要出聲：量咗 ${typedChecked} 格，冇聲 ${typedBad} 格。`)
+console.log(`撳完做唔到要出聲：量咗 ${tapChecked} 粒掣，冇聲 ${tapBad} 粒。`)
 console.log(`⛔ 冇得撳走：量咗 ${escapeChecked} 件，走得甩 ${escapeBad} 件。`)
 console.log(`中心點撳到自己：量咗 ${centreChecked} 粒掣，中心撳唔到 ${centreBad} 粒。`)
 console.log(`一開就見到（⛔ 唔准碌）：量咗 ${firstChecked} 件，褪咗 ${firstBad} 件。`)
@@ -1885,6 +1897,7 @@ const FLOORS = [
   ['粒掣夠大撳', sizeChecked, 2],
   ['撳完⛔ 唔變藍', blueChecked, 4],
   ['打完字存唔到要出聲', typedChecked, 5],
+  ['撳完做唔到要出聲', tapChecked, 1],
   ['⛔ 冇得撳走', escapeChecked, 2],
   ['中心點撳到自己', centreChecked, 9],
   ['一開就見到', firstChecked, 8],
@@ -1930,6 +1943,7 @@ process.exit(
     blueBad === 0 &&
     escapeBad === 0 &&
     typedBad === 0 &&
+    tapBad === 0 &&
     centreBad === 0 &&
     firstBad === 0 &&
     fakeBad === 0 &&

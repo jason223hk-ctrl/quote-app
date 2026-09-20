@@ -199,16 +199,6 @@ export function syncAdvice(row: QuotePhoto): SyncAdvice {
    *   ⚠️ 呢個⛔ 唔係保守多餘：講錯「唔使理」嘅代價係**冇人再睇**，
    *     講錯「要處理」嘅代價淨係麻煩一次。
    */
-  if (isWorkerDriveFailure(message)) {
-    if (TRANSIENT_DRIVE_REASONS.some((code) => message.includes(code))) {
-      return { permanent: false, text: '無需處理。相片已安全存入雲端，系統會自動再試。' }
-    }
-    return {
-      permanent: true,
-      text: '需要處理：呢個問題唔會自己好返。請截圖，用 WhatsApp 搵 Jason。',
-    }
-  }
-
   // ⭐⭐ Drive 授權過咗期／俾人收返。**一定要行喺下面 403／401 嗰條之前** ——
   //    Google 呢個錯有陣時帶住 401，撞落嗰條就會出「額滿或者冇權限」，
   //    ⛔ 而嗰句叫唔到人去做啱嗰件事（重新授權）。
@@ -240,6 +230,30 @@ export function syncAdvice(row: QuotePhoto): SyncAdvice {
       text: DRIVE_LOGIN_FAILED_MESSAGE,
     }
   }
+
+  /*
+   * ⛔⛔ **呢一段一定要行喺上面兩條授權條之後** —— ⛔ 唔准搬上去。
+   *
+   * ⚠️ 2026-09-19 CO 捉到：我第一版把佢插咗喺最頂，
+   *    ⇒ 任何一句帶住 `HTTP <三位數>`、而內容其實係
+   *      `Token has been expired or revoked` 嘅訊息，
+   *      會出通用嗰句「呢個問題唔會自己好返」，
+   *      **⛔ 出唔到 `DRIVE_AUTH_EXPIRED_MESSAGE`** ——
+   *      而得嗰句先叫得動人去**重新授權**。
+   * ⭐ 呢個檔上面個註解本來就寫住「一定要行喺 403／401 嗰條之前」。
+   *   ⛔ 舊嗰條中文暗號一樣遮住過佢，所以⛔ 唔係新 regression ——
+   *   但我今次動到呢段，就係修佢嗰陣。
+   */
+  if (isWorkerDriveFailure(message)) {
+    if (TRANSIENT_DRIVE_REASONS.some((code) => message.includes(code))) {
+      return { permanent: false, text: '無需處理。相片已安全存入雲端，系統會自動再試。' }
+    }
+    return {
+      permanent: true,
+      text: '需要處理：呢個問題唔會自己好返。請截圖，用 WhatsApp 搵 Jason。',
+    }
+  }
+
 
   // Google 明講額滿／冇權限 —— 重試幾多次都係一樣。
   if (/storageQuota|quotaExceeded|403|insufficientPermissions|401/i.test(message)) {

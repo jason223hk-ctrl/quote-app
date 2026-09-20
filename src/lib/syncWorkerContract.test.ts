@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 // @ts-expect-error —— worker 係 .mjs，⛔ 冇 type。⭐ 特登直接叫佢，見下面。
-import { driveFailure, WHERE } from '../../worker/src/driveError.mjs'
+import { driveFailure, reasonInChinese, WHERE } from '../../worker/src/driveError.mjs'
 import { syncAdvice, TRANSIENT_DRIVE_REASONS } from './sync'
 import type { QuotePhoto } from './photos'
 
@@ -81,5 +81,78 @@ describe('⛔ worker 改文案，app 嗰邊⛔ 唔准靜靜咁失靈', () => {
       const message = realMessage(WHERE.upload, 429, { error: { errors: [{ reason }] } })
       expect(syncAdvice(photo(message)).permanent).toBe(false)
     }
+  })
+
+
+  /*
+   * ⛔⛔ **反方向** —— CO 2026-09-19 指出上面只驗咗一邊。
+   *
+   * ⚠️ 上面嗰條問：「app 講 transient 嗰啲，worker 認唔認同？」
+   *    ⛔ 但冇問返轉頭：「**worker 新加一個『稍後會自行恢復』嘅 reason，
+   *    app 有冇跟？**」
+   * ⇒ 冇呢條，worker 加一個新 reason 而 app 唔跟 ⇒ 現場見到「需要處理」，
+   *   而其實**等一陣就好** —— ⛔ 而冇嘢會紅。
+   *
+   * ⭐ baseline 嗰把尺就係兩個方向都驗（名單有 code 冇 ／ code 有名單冇）。
+   *   呢把跟返同一個做法。
+   */
+  it('⛔ 反方向：worker 話「會自行恢復」嗰啲 reason，app 一定要跟', () => {
+    /* ⭐ 逐個試 Google 真實會回嘅 reason，睇 worker 點講。
+       ⛔ 呢個 list ⛔ 唔係「worker 支持嘅全部」——
+       佢係一張**已知會出現**嘅 reason 表，加咗新嘅要喺呢度加一行。 */
+    const known = [
+      'rateLimitExceeded',
+      'userRateLimitExceeded',
+      'sharingRateLimitExceeded',
+      'dailyLimitExceeded',
+      'quotaExceeded',
+      'storageQuotaExceeded',
+    ]
+    const workerSaysTransient = known.filter((reason) => {
+      const said = (reasonInChinese as (r: string) => string | null)(reason)
+      return said !== null && said.includes('自行恢復') && !said.includes('不會自行恢復')
+    })
+    /* ⛔ worker 話會自己好返嘅，app 一句都唔准漏。 */
+    for (const reason of workerSaysTransient) {
+      expect(TRANSIENT_DRIVE_REASONS).toContain(reason)
+    }
+    /* ⛔ 反轉都要啱：app 講 transient 嘅，worker ⛔ 唔可以話「不會自行恢復」。 */
+    for (const reason of TRANSIENT_DRIVE_REASONS) {
+      const said = (reasonInChinese as (r: string) => string | null)(reason)
+      expect(said).not.toBeNull()
+      expect(said).not.toContain('不會自行恢復')
+    }
+    /* ⛔ 而且⛔ 唔准兩邊都係空 —— 一把量零樣嘢嘅尺等於冇。 */
+    expect(workerSaysTransient.length).toBeGreaterThan(0)
+  })
+
+  /*
+   * ⛔⛔ CO 2026-09-19 提咗一個次序窿：`isWorkerDriveFailure` 行喺
+   * 授權過期嗰條之前 ⇒ 一句帶住 `HTTP 401`、內容係
+   * `Token has been expired or revoked` 嘅錯，會出通用嗰句，
+   * ⛔ 而得「重新登入」嗰句先叫得動人做啱件事。
+   *
+   * ⭐ 我搬咗個次序（成本係零，而且個檔自己個註解本來就係咁寫）。
+   *
+   * ⚠️⚠️ **但我⛔ 造唔出嗰個失敗個案，要講清楚點解** ——
+   *   授權過期嗰句係 `worker.mjs` 個 `googleToken()` 掟嘅：
+   *       `Drive 登入失敗（400：Token has been expired or revoked.）`
+   *   佢**⛔ 冇 `HTTP` 呢個字**，所以 `isWorkerDriveFailure` 由頭到尾中唔到佢。
+   *
+   *   而 `driveFailure()` 嗰邊 **⛔ 永遠唔會把 Google 原文放入 `message`**
+   *   （原文淨係入 `log`，⛔ 特登嘅 —— 免得漏 token 出畫面）。
+   *   ⇒ 兩個生產者**冇交集**，所以今日撞唔到。
+   *
+   * ⭐ 所以呢條尺守嘅係**令佢撞唔到嗰個性質**：
+   *   `driveFailure()` 個 `message` ⛔ 唔准帶 Google 原文。
+   *   ⚠️ 邊日有人改咗佢，呢度就會紅 —— **而嗰日就係次序開始要緊嗰日**。
+   */
+  it('⛔ driveFailure 個 message 唔准帶 Google 原文（⇒ 次序撞唔到，亦都⛔ 唔會漏 token）', () => {
+    const raw = 'Token has been expired or revoked. bad token ya29.SECRET_VALUE'
+    const message = realMessage(WHERE.upload, 401, { error: { message: raw } })
+    expect(message).not.toContain('Token has been expired')
+    expect(message).not.toContain('ya29.')
+    /* ⛔ 而佢仍然要係「要人處理」—— 解釋唔到就當永久。 */
+    expect(syncAdvice(photo(message)).permanent).toBe(true)
   })
 })
