@@ -152,6 +152,9 @@ if (isNew.length) {
     const h = found.get(k)
     console.log(`      ${h.file}:${h.line}  「${short(h.text)}」`)
     console.log(`         撞到：${h.words.join('、')}`)
+    /* ⛔⛔ 一段中招，就報成個節點 —— ⚠️ 逼人讀成句，⛔ 唔係讀一半。
+       （2026-09-20：`TreesScreen` 嗰句前半轉咗後半冇轉，兩段都綠。） */
+    if (h.node && h.node !== h.text) console.log(`         成句：「${short(h.node)}」`)
   }
   console.log('      ⚠️ 現場同事睇嘅字要書面語。⛔ 唔好喺呢度補返口語。')
 }

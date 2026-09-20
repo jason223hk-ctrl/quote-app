@@ -183,7 +183,7 @@ export default function TreesScreen({ api, photos, accessToken, record, onBack }
       <ScrollBody testid="tree-scroll" compact onRefresh={reload}>
         {duplicates.length > 0 && (
           <p className="notice notice--warning" role="status">
-            有樹木編號重複：{duplicates.join('、')}。照儲存得，記住之後分得返邊棵就得。
+            有樹木編號重複：{duplicates.join('、')}。仍然可以儲存，只要之後分得出是哪一棵即可。
           </p>
         )}
 
