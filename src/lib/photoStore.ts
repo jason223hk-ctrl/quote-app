@@ -24,7 +24,7 @@ function openDb(): Promise<IDBDatabase> {
       }
     }
     request.onsuccess = () => resolve(request.result)
-    request.onerror = () => reject(request.error ?? new Error('開唔到部機嘅相片儲存空間。'))
+    request.onerror = () => reject(request.error ?? new Error('無法開啟本裝置的相片儲存空間。'))
   })
 }
 
@@ -38,7 +38,7 @@ function run<T>(
         const tx = db.transaction(STORE, mode)
         const request = work(tx.objectStore(STORE))
         request.onsuccess = () => resolve(request.result)
-        request.onerror = () => reject(request.error ?? new Error('部機嘅相片儲存空間出錯。'))
+        request.onerror = () => reject(request.error ?? new Error('本裝置的相片儲存空間出錯。'))
         tx.oncomplete = () => db.close()
       }),
   )
@@ -144,7 +144,7 @@ export const photoStore: PhotoStore = {
       }
       tx.onerror = () => {
         db.close()
-        reject(tx.error ?? new Error('部機嘅相片儲存空間出錯。'))
+        reject(tx.error ?? new Error('本裝置的相片儲存空間出錯。'))
       }
     })
     announce()

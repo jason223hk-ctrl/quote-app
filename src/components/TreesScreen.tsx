@@ -46,7 +46,7 @@ function mitigationLine(tree: QuoteTree): string {
  */
 function summaryLine(tree: QuoteTree, counts: Record<string, number> | null): string {
   const works = mitigationLine(tree)
-  const bits = [works === '' ? '未揀工序' : works]
+  const bits = [works === '' ? '未勾選工序' : works]
   if (counts !== null) bits.push(`${counts[tree.id] ?? 0} 張相`)
   return bits.join(' · ')
 }
@@ -152,7 +152,7 @@ export default function TreesScreen({ api, photos, accessToken, record, onBack }
         }
         onDelete={() =>
           afterWrite(() => {
-            if (!editing) throw new Error('搵唔到呢棵樹，請返清單再試。')
+            if (!editing) throw new Error('檢索不到這棵樹，請返回清單再試。')
             return api.softDelete(editing.id)
           })
         }
@@ -183,13 +183,13 @@ export default function TreesScreen({ api, photos, accessToken, record, onBack }
       <ScrollBody testid="tree-scroll" compact onRefresh={reload}>
         {duplicates.length > 0 && (
           <p className="notice notice--warning" role="status">
-            有樹撞咗編號：{duplicates.join('、')}。照儲存得，記住之後分得返邊棵就得。
+            有樹木編號重複：{duplicates.join('、')}。仍然可以儲存，只要之後分得出是哪一棵即可。
           </p>
         )}
 
         {error && (
           <p className="notice notice--error" role="alert">
-            攞唔到樹木清單：{error}{' '}
+            無法獲取樹木清單：{error}{' '}
             <button className="link-button" type="button" onClick={() => void reload()}>
               再試
             </button>
@@ -199,7 +199,7 @@ export default function TreesScreen({ api, photos, accessToken, record, onBack }
         {loading && <p className="loading">載入中…</p>}
 
         {!loading && !error && trees.length === 0 && (
-          <div className="muted empty">仲未加樹。撳右下角「＋ 加樹」開始。</div>
+          <div className="muted empty">尚未加樹。請點擊右下角「＋ 加樹」開始。</div>
         )}
 
         <ul className="list" data-testid="tree-list">

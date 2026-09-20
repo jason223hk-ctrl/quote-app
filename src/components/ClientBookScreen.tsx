@@ -213,7 +213,7 @@ export default function ClientBookScreen({ api, onBack }: Props) {
                 取消
               </button>
               <button className="primary" type="button" disabled={busy} onClick={() => void save()}>
-                {busy ? '存緊⋯' : '儲存'}
+                {busy ? '儲存中⋯' : '儲存'}
               </button>
             </div>
           </div>
@@ -233,7 +233,7 @@ export default function ClientBookScreen({ api, onBack }: Props) {
                 取消
               </button>
               <button className="primary" type="button" disabled={busy} onClick={() => void remove()}>
-                {busy ? '刪緊⋯' : '刪除'}
+                {busy ? '刪除中⋯' : '刪除'}
               </button>
             </div>
           </div>

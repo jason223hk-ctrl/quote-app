@@ -182,7 +182,7 @@ export default function RecordFormPage({
     const errors = validateInput(input)
     if (Object.keys(errors).length > 0) {
       setFieldErrors(errors)
-      setError('有欄位未填好，請檢查返下面紅色嗰幾行。')
+      setError('有欄位未填妥，請檢查下方標示紅色的項目。')
       return
     }
 
@@ -191,7 +191,7 @@ export default function RecordFormPage({
       const siteProblems = validateSiteForm(site)
       if (Object.keys(siteProblems).length > 0) {
         setSiteErrors(siteProblems)
-        setError('有欄位未填好，請檢查返下面紅色嗰幾行。')
+        setError('有欄位未填妥，請檢查下方標示紅色的項目。')
         return
       }
     }
@@ -302,7 +302,7 @@ export default function RecordFormPage({
           )}
           {input.gps_lat !== null && input.gps_lng !== null && (
             <span className="field__hint">
-              已記低座標：{input.gps_lat.toFixed(5)}, {input.gps_lng.toFixed(5)}
+              已記錄座標：{input.gps_lat.toFixed(5)}, {input.gps_lng.toFixed(5)}
             </span>
           )}
           <span className="field__hint">{OSM_ATTRIBUTION}</span>

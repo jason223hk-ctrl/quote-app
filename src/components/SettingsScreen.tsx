@@ -153,7 +153,7 @@ export default function SettingsScreen({
           <h2 className="card__title">帳戶</h2>
           <div className="acct-row">
             <span className="acct-label">登入帳號</span>
-            <span className="acct-val">{user.email || '（冇電郵）'}</span>
+            <span className="acct-val">{user.email || '（沒有電郵）'}</span>
           </div>
           <div className="acct-row">
             <span className="acct-label">User ID</span>
@@ -171,7 +171,7 @@ export default function SettingsScreen({
                   disabled={busy}
                   onClick={handleSignOut}
                 >
-                  {busy ? '登出中…' : '再撳一次確認登出'}
+                  {busy ? '登出中…' : '再點擊一次確認登出'}
                 </button>
                 <button
                   className="button button--secondary"
@@ -201,7 +201,7 @@ export default function SettingsScreen({
           </span>
           <span className="hub-main">
             <span className="hub-title">客戶簿</span>
-            <span className="hub-sub">全公司共用。喺「客戶資料」揀得返</span>
+            <span className="hub-sub">全公司共用。可在「客戶資料」重新選擇</span>
           </span>
           <span className="hub-chev">
             <Icon name={ICONS.chevron} />
@@ -223,7 +223,7 @@ export default function SettingsScreen({
 
         <section className="card">
           <h2 className="card__title">單價設定</h2>
-          <p className="muted soon">P4 先做。呢度將來會放夾車、吊雞、升降台同人手嘅單價。</p>
+          <p className="muted soon">P4 才會做。這裡將來會放夾車、吊雞、升降台和人手的單價。</p>
         </section>
 
         <section className="card">
@@ -251,7 +251,7 @@ export default function SettingsScreen({
           )}
 
           {/*
-            ⭐⭐ 「清掉傳唔到嘅相」。**擺喺呢度係特登嘅**（Jason 2026-09-14 第 3 條）：
+            ⭐⭐ 「清除無法上傳的相片」。**擺喺呢度係特登嘅**（Jason 2026-09-14 第 3 條）：
               · ⛔ 唔准擺喺底 bar 上面 —— 阿耀喺現場順手撞到就死
               · ⛔ 唔准擺喺同步頁 —— 同上
               · ⭐ 擺喺設定頁最底「診斷資料」，同上面甲類嗰行做一對：
@@ -265,7 +265,7 @@ export default function SettingsScreen({
               <p className="note-box note-box--warn" data-testid="stranded-note">
                 {/* ⚠️ 真機量出嚟改咗：本來寫「…工程已經刪咗。佢哋嘅工程冇咗，所以…」
                     —— 同一句嘢講咗兩次。⭐ 後半淨係加後果，⛔ 唔重複前提。 */}
-                {strandedLine}，所以永遠都傳唔上去。
+                {strandedLine}，所以永遠都無法上傳。
               </p>
 
               {clearing === 'confirm' || clearing === 'busy' ? (
@@ -281,7 +281,7 @@ export default function SettingsScreen({
                     disabled={clearing === 'busy'}
                     onClick={() => void handleClearStranded()}
                   >
-                    {clearing === 'busy' ? '清緊⋯' : `再撳一次確認清掉呢 ${stranded} 張`}
+                    {clearing === 'busy' ? '清除中⋯' : `再點擊一次確認清除這 ${stranded} 張`}
                   </button>
                   <button
                     className="button button--secondary"
@@ -302,7 +302,7 @@ export default function SettingsScreen({
                     setClearing('confirm')
                   }}
                 >
-                  清掉傳唔到嘅相
+                  清除無法上傳的相片
                 </button>
               )}
 

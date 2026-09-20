@@ -141,7 +141,7 @@ describe('確認彈窗嘅文字', () => {
     //    今日 `softDelete()` 淨係寫 `deleted_at`，Worker 一行清相 code 都未有。
     expect(PHOTOS_REALLY_PURGED).toBe(false)
     const truth = deleteDialogTruth()
-    expect(truth.strong).toBe('仲攞得返')
+    expect(truth.strong).toBe('仍可取回')
     expect(truth.before + truth.strong + truth.after).not.toContain('無法還原')
     expect(deleteDialogTitle()).toBe('刪除工程？')
     expect(DELETE_DIALOG_CONFIRM).toBe('刪除')

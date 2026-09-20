@@ -47,16 +47,16 @@ export type QuotePhoto = {
 export type PhotoStatus = 'local' | 'uploading' | 'r2' | 'synced' | 'error'
 
 export const PHOTO_STATUS_LABEL: Record<PhotoStatus, string> = {
-  local: '只喺部機',
-  uploading: '上緊',
+  local: '只在本裝置',
+  uploading: '上傳中',
   r2: '已入 R2（Drive 未做）',
   synced: '已同步，兩份齊',
-  error: '有事要人睇',
+  error: '需要人手處理',
 }
 
 /**
  * ⛔ 唔准靜靜降級：每個狀態都要有一句寫得出嘅中文。
- * 「只喺部機」特登講到明張相仲未安全，唔可以令人以為做完。
+ * 「只在本裝置」特登講到明張相仲未安全，唔可以令人以為做完。
  *
  * ⚠️⚠️ **`r2` 同 `error` 兩句已經搬咗落 `photoHint()`，⛔ 唔好喺呢度改返。**
  *    見下面 `photoHint()` 檔頭 —— 一個狀態唔夠講清楚「你而家做得到咩」。
@@ -65,11 +65,11 @@ export const PHOTO_STATUS_HINT: Record<PhotoStatus, string> = {
   local: '尚未上傳到雲端。請不要清除瀏覽器資料，回到有網絡的地方開啟一次 app。',
   uploading: '上傳中，請不要關閉 app。',
   r2: '雲端（R2）已經有一份，⛔ 不會丟失。Drive 那一份正在補上。',
-  synced: '兩份雲端副本齊晒。',
+  synced: '兩份雲端副本齊備。',
   /* ⚠️ `error` 呢句**⛔ 出唔到畫面** —— `photoHint()` 見到 `error` 一定會行
      三條分支其中一條。留喺度淨係為咗 `Record<PhotoStatus, string>` 齊整。
      ⛔ 唔好喺呢度加字期望佢會出 —— 要改就改 `photoHint()`。 */
-  error: '上唔到。',
+  error: '無法上傳。',
 }
 
 /**
@@ -104,7 +104,7 @@ export type PhotoTrouble = {
  *
  * ⚠️⚠️ **點解要拆開 `r2Done` 同 `hasLocal` —— ⛔ 唔准淨係記住結論**
  *
- * 舊版 `error` 得一句「上唔到。撳『再試一次』，唔會影多張相。」，
+ * 舊版 `error` 得一句「無法上傳。撳『再試一次』，唔會影多張相。」，
  * 但 `error` 底下其實有**兩種完全唔同嘅處境**：
  *
  *   · **R2 都未上到**（部機仲有份）⇒ 撳「再試一次」**真係會再上一次**。✅
@@ -126,7 +126,7 @@ export function photoHint(trouble: PhotoTrouble): string {
   if (r2Done) {
     return (
       '⭐ 相片已經安全存入雲端，⛔ 不會丟失 —— 欠缺的只是 Drive 那一份副本。' +
-      '試咗三次都唔得，⛔ 唔會再自動試。' +
+      '已經試過三次都不成功，⛔ 不會再自動重試。' +
       '⚠️ 你現在無法自行處理，請截圖並聯絡 Jason。'
     )
   }
@@ -172,7 +172,7 @@ export function newOperationId(): string {
  * 由 DB 一行推返個狀態出嚟。UI 唔准自己另外記一份。
  *
  * `driveAttempts` 係本機記住嘅「Drive 試咗幾多次」。
- * ⛔ 連續失敗 `MAX_DRIVE_ATTEMPTS` 次之後就唔再自動試，轉「有事要人睇」——
+ * ⛔ 連續失敗 `MAX_DRIVE_ATTEMPTS` 次之後就唔再自動試，轉「需要人手處理」——
  * 每次開 app 都自動試、每次都出聲，人好快唔再理，而唔理就等於個警告冇咗作用
  * （`docs/P3b-計劃書.md` §7.5）。
  */
@@ -317,7 +317,7 @@ export const DUPLICATE_NOT_FOUND_MESSAGE =
  * 句嘢本身冇講錯，但佢叫人截圖搵 Jason，而其實系統自己重試就搞得掂。
  */
 export class SlotSeqTakenError extends Error {
-  constructor(message = '呢個號已經俾同一格另一張相霸咗。') {
+  constructor(message = '這個編號已被同一格的另一張相片佔用。') {
     super(message)
     this.name = 'SlotSeqTakenError'
   }

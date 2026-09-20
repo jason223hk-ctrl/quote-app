@@ -135,7 +135,7 @@ export default function PhotoSlot({
   readOnly = false,
   readOnlyNote,
   title = '全景相（成棵樹）',
-  hint = 'P3a 只做呢一格。近景、工程相、畫線係之後嘅階段。',
+  hint = 'P3a 只做這一格。近景、工程相、畫線屬於之後的階段。',
   refreshToken = 0,
 }: Props) {
   const [pending, setPending] = useState<PendingPhoto[]>([])
@@ -435,7 +435,7 @@ export default function PhotoSlot({
       {/* ⛔ 唔畀影嗰陣連掣都唔出 —— 出咗個灰掣，人會一路撳一路以為壞咗。
           相仲係睇得晒，所以唔係成張卡收埋。 */}
       {readOnly ? (
-        <p className="hint">{readOnlyNote ?? '呢格唔使影相。'}</p>
+        <p className="hint">{readOnlyNote ?? '這一格不需要拍攝。'}</p>
       ) : (
         <div className="photo-slot__buttons">
           <button
@@ -482,7 +482,7 @@ export default function PhotoSlot({
       )}
 
       {items.length === 0 ? (
-        <p className="muted empty">仲未影過相。</p>
+        <p className="muted empty">尚未拍攝相片。</p>
       ) : (
         <ul className="photo-list">
           {items.map((item) => (
@@ -511,7 +511,7 @@ export default function PhotoSlot({
                     onClick={() => void retry(item.operationId)}
                   >
                     {/* ⛔ 唔准淨係變灰 —— 粒掣要自己講返佢做緊嘢。 */}
-                    {retrying === item.operationId ? '上緊⋯' : '再試一次'}
+                    {retrying === item.operationId ? '上傳中⋯' : '再試一次'}
                   </button>
                 )}
               </div>

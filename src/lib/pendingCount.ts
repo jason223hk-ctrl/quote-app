@@ -29,7 +29,7 @@ export function pendingLabel(count: number): string {
 }
 
 /** 上晒之後嗰句。 */
-export const ALL_DONE_LABEL = '✓ 全部上晒'
+export const ALL_DONE_LABEL = '✓ 全部已上傳'
 
 /**
  * 「全部上晒」停幾耐先消失（Jason 2026-09-06 拍板：兩秒）。

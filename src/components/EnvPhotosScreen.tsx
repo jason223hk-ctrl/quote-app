@@ -54,7 +54,7 @@ export default function EnvPhotosScreen({ api, accessToken, record, onBack }: Pr
           treeId={null}
           refreshToken={refreshToken}
           title="環境相"
-          hint="成個工程一份，唔屬於任何一棵樹。想影幾多影幾多。"
+          hint="整個工程共用一組，不屬於任何一棵樹。數量不限。"
         />
       </ScrollBody>
     </>

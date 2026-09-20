@@ -89,7 +89,7 @@ export default function StatusCard({ record, canSetWon, busy, onChange }: Props)
         ))}
       </div>
 
-      {busy && <p className="loading">改緊⋯</p>}
+      {busy && <p className="loading">修改中⋯</p>}
 
       {blocked !== null && (
         <p className="notice notice--warning" role="alert" data-testid="status-blocked">
@@ -109,7 +109,7 @@ export default function StatusCard({ record, canSetWon, busy, onChange }: Props)
               type="button"
               onClick={() => setAsking(null)}
             >
-              唔轉住
+              暫不轉換
             </button>
           </div>
         </div>

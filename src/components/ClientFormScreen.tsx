@@ -119,7 +119,7 @@ export default function ClientFormScreen({
             disabled={busy}
             onClick={() => setPicking(true)}
           >
-            由客戶簿揀
+            由客戶簿選擇
           </button>
 
           {field('client', '客戶')}

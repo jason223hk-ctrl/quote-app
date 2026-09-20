@@ -116,7 +116,7 @@ export default function PendingBar({
     >
       <span className="pending-bar__text">{pendingLabel(count)}</span>
       <span className="pending-bar__go" aria-hidden="true">
-        睇同步 ›
+        查看同步 ›
       </span>
     </button>
   )

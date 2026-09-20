@@ -139,7 +139,7 @@ export default function SyncScreen({
   const counts: SyncCounts = visible ? syncCounts(visible) : { synced: 0, pending: 0, failed: 0 }
   const failed = visible ? visible.filter((row) => photoSyncState(row) === 'failed') : []
   const last = visible ? lastSyncedAt(visible) : null
-  const nameOf = (id: string) => records.find((r) => r.id === id)?.name ?? '（搵唔到工程）'
+  const nameOf = (id: string) => records.find((r) => r.id === id)?.name ?? '（檢索不到工程）'
 
   /**
    * ⭐⭐ 部機有、但**資料庫一行都冇**嗰啲。呢啲相以前喺呢版**完全睇唔到** ——
@@ -160,7 +160,7 @@ export default function SyncScreen({
         {/* Hero：冇卡邊。⛔ 未攞到資料之前唔准講「已自動同步」。 */}
         <div className="sync-hero">
           {rows === null ? (
-            <div className="sync-hero__title">{error === null ? '載入中…' : '攞唔到同步狀態'}</div>
+            <div className="sync-hero__title">{error === null ? '載入中…' : '同步狀態獲取失敗'}</div>
           ) : (
             <>
               <div className="sync-hero__title">
@@ -235,11 +235,11 @@ export default function SyncScreen({
 
         {stuck.length > 0 && (
           <>
-            <div className="sync-sect">仲喺部機、未入到資料庫</div>
+            <div className="sync-sect">仍在本裝置，未寫入資料庫</div>
             <section className="card card--bare">
               <p className="note-box note-box--warn">
-                呢 {stuck.length} 張相仲喺部機度，⛔ 唔會冇咗，但未寫得入資料庫，
-                所以上面三個數唔會計佢哋。逐張嘅原因列咗喺下面。
+                這 {stuck.length} 張相片仍在本裝置，⛔ 不會丟失，但未能寫入資料庫，
+                所以上面三個數字不會計算它們。逐張的原因列在下面。
               </p>
               {stuck.map((item) => {
                 const advice = stuckAdvice(item)

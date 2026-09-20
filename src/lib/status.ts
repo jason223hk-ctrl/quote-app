@@ -104,5 +104,5 @@ export function quotedAgeText(record: QuoteRecord, now: Date): string | null {
   if (record.status !== 'quoted') return null
   const days = daysSinceQuoted(record, now)
   if (days === null) return null
-  return days === 0 ? '今日報' : `報咗 ${days} 日`
+  return days === 0 ? '今日報' : `已報價 ${days} 日`
 }

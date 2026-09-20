@@ -100,7 +100,7 @@ export default function RecordListPage({
       >
         {error && (
           <p className="notice notice--error" role="alert">
-            攞唔到清單：{error}{' '}
+            無法獲取清單：{error}{' '}
             <button className="link-button" type="button" onClick={onRetry}>
               再試
             </button>
@@ -111,7 +111,7 @@ export default function RecordListPage({
 
         {!loading && !error && visible.length === 0 && (
           <div className="muted empty">
-            {records.length === 0 ? '仲未有工程。撳右下角「＋ 新增工程」開始。' : '冇工程符合而家嘅篩選。'}
+            {records.length === 0 ? '尚未有工程。請點擊右下角「＋ 新增工程」開始。' : '沒有工程符合目前的篩選。'}
           </div>
         )}
 

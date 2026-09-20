@@ -100,7 +100,7 @@ describe('siteFormToRow', () => {
 
 describe('validateSiteForm', () => {
   it('垃圾處理未揀就攔住，唔會去到 DB', () => {
-    expect(validateSiteForm(EMPTY_SITE_FORM_INPUT).waste_options).toBe('請至少揀一個垃圾處理方法')
+    expect(validateSiteForm(EMPTY_SITE_FORM_INPUT).waste_options).toBe('請至少勾選一個垃圾處理方法')
   })
 
   it('淨係揀咗垃圾處理，其餘全部留空都過得', () => {

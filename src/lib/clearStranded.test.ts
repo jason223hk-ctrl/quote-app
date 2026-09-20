@@ -110,7 +110,7 @@ describe('⛔ 釘死四：N ＝ 0 嗰陣成行唔出', () => {
   })
 
   it('唔係零 ⇒ 寫出實數', () => {
-    expect(strandedNote(3)).toBe('有 3 張相傳唔到，而佢哋嘅工程已經刪咗')
+    expect(strandedNote(3)).toBe('有 3 張相片無法上傳，而它們所屬的工程已經刪除')
   })
 })
 
