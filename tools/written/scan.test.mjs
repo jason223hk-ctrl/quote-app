@@ -54,6 +54,29 @@ describe('regex 字面值', () => {
     const src = ["const re = /[/]/g", "const msg = '仲有嘢未做'"].join('\n')
     expect(scanFile(src).map((h) => h.text)).toEqual(['仲有嘢未做'])
   })
+
+  /*
+   * ⭐⭐ 2026-09-20 第三個窿，而且係**我自己補上面兩個窿嗰陣整出嚟**嘅：
+   *    舊版將 `<` 同 `>` 都當咗運算子 ⇒ JSX 收尾標籤 `</strong>` 前面嗰個 `<`
+   *    令後面個 `/` 變咗「regex 開頭」，**由嗰度一路剷到落一個 `/` 或者行尾**。
+   *
+   * ⚠️ 真個案 `TreeFormPage.tsx:224`：`</strong>` 之後成行
+   *    「如要寫明是哪一種修剪⋯」（20 個中文字元）入唔到 `userText()`
+   *    ⇒ 書面語尺由頭到尾**睇唔到佢**，而三把尺（baseline、下限、REQUIRED）全部報綠。
+   *
+   * ⭐ ⛔ 唔係人讀出嚟 —— 係 `check.mjs` 個字元覆蓋差指住一張檔（分母 5339 vs 分子 5319）。
+   */
+  it('⛔ JSX 收尾標籤個 `<` ⛔ 唔係運算子 —— `</strong>` 之後嘅字要抽得返', () => {
+    const src = [
+      '<p className="notice">',
+      '  屬於舊格式。<strong>會保留，不會消失。</strong>',
+      '  如果要寫明係邊一種修剪，請喺上面揀返一項。',
+      '</p>',
+    ].join('\n')
+    expect(userText(src).map((h) => h.text)).toContain(
+      '如果要寫明係邊一種修剪，請喺上面揀返一項。',
+    )
+  })
 })
 
 /*

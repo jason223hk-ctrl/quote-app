@@ -52,7 +52,17 @@ function isRegexStart(before) {
   const t = before.replace(/\s+$/, '')
   if (t === '') return true
   const last = t[t.length - 1]
-  if ('([{,;:=!&|?+-*%~^<>'.includes(last)) return true
+  /*
+   * ⛔⛔ `<` 同 `>` **⛔ 唔准當運算子** —— ⚠️ 2026-09-20 個字元覆蓋 gauge 捉到：
+   *    JSX 嘅收尾標籤 `</strong>` 前面就係 `<`，
+   *    ⇒ 舊版當咗嗰個 `/` 係 regex 開頭，**由嗰度剷到落一個 `/` 或者行尾**。
+   *    真個案 `TreeFormPage.tsx:224`：成行「如要寫明是哪一種修剪⋯」（20 個中文字元）
+   *    俾人剷咗 ⇒ `userText()` 抽唔到 ⇒ 把書面語尺⛔ 睇唔到。
+   *
+   * ⭐ 呢個係第三個掃描器窿，而佢係**我自己上一次補 regex 窿嗰陣整出嚟**嘅。
+   *   ⚠️ 而且⛔ 唔係人讀出嚟 —— 係個 gauge（分母 5339 vs 分子 5319）指住一張檔。
+   */
+  if ('([{,;:=!&|?+-*%~^'.includes(last)) return true
   return /\b(return|typeof|case|in|of|new|delete|void|do|else)$/.test(t)
 }
 
