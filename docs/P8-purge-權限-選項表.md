@@ -1,6 +1,29 @@
 # P8 `/purge` 權限：四個做法，⛔ 我唔揀
 
-**2026-09-20** · ⛔ **一行 SQL 都未寫。等 CO 揀完、Jason 批。**
+**2026-09-20**
+
+> ## ✅ 揀咗 **④**（⛔ 呢段係後加嘅，下面原文一個字都冇改）
+>
+> **Jason 2026-09-20 明文批。** ⛔ 逐字記住佢批嘅係乜 —— CO 用人話問，
+> ⛔ **冇用過「SECURITY DEFINER」呢個詞**：
+>
+> > 「一道好窄嘅後門，得一個用途：喺張相度打個『清咗』嘅剔，⛔ 刪唔到任何嘢。」
+>
+> 佢答：**「批」**。
+>
+> ⛔⛔ **佢批嘅係「一個只寫得低 `purged_at`、刪唔到任何嘢嘅 function」**，
+> ⛔ **唔係**「一個 `SECURITY DEFINER` 隨便點寫都得」。
+> ⚠️⚠️ **將來有人想加第二個，⛔ 唔准攞今次當先例。**
+>
+> ⚠️ **過程要記住**：CO 問咗**三次**先問到一個清楚嘅答案 ——
+> 頭兩次佢答「咁嚟」同「唔明你講咩」，⛔ **兩次都冇當佢批咗**。
+> ⭐ 第三次用人話重寫先答「批」。
+> ⇒ ⭐ 呢個係一條可以帶走嘅做法：**佢答唔到，唔代表佢唔批 ——
+>   通常係條問題用咗佢唔使用嘅詞。⛔ 重寫，⛔ 唔好當佢批咗、亦⛔ 唔好當佢唔批。**
+>
+> **⭐ 一併批咗：條 function ⛔ 唔睇 `locked`**（見 ④ 入面嗰段）。
+>
+> ⇒ 草稿：`docs/P8-purged_at-草稿.sql` 第 2 段（喺 PR #67 度）。⛔ Jason 親手跑。
 
 ---
 
@@ -85,7 +108,8 @@ $function$
 | ⛔ **我唔知**：Supabase／PostgREST 會唔會把 `42501` 好好地傳返出嚟，定係變成另一個 status | ⛔ 我掂唔到個 DB，⛔ 試唔到 |
 | ⛔ **我唔知**：而家 `quote_photos` 上面到底有冇 column-level grant | ⛔ 冇人查過 |
 
-⇒ **一句只讀查詢就答到最後兩條**，擺咗喺每份草稿最前：
+⇒ **一句只讀查詢就答到最後兩條**，擺咗喺每份草稿最前
+（⛔ CO 2026-09-20 明文要求⛔ 唔准刪）：
 
 ```sql
 select grantee, column_name, privilege_type
@@ -94,6 +118,16 @@ select grantee, column_name, privilege_type
    and grantee not in ('postgres')
  order by grantee, column_name;
 ```
+
+⚠️⚠️ **但要更正一個理由，⛔ 唔好記錯。** CO 當時寫嘅理由係
+「如果已經有 column grant 而 `purged_at` 唔喺入面，`update` 會撞 `42501`」——
+⛔ **呢個對做法 ④ 嚟講唔成立**：④ 條 function 係 `SECURITY DEFINER`，
+入面個 `update` 行 **owner** 嘅權限 ⇒ `authenticated` 有冇 column grant ⛔ 撞唔到佢。
+
+⭐ **但呢句照擺、⛔ 唔准拆走**，兩個真理由：
+
+1. 「而家到底有冇人收窄過」呢件事**本身要知** —— ⛔ 由頭到尾冇人查過。
+2. 邊日改用做法 ①，呢個數即刻用得着。
 
 ---
 
@@ -233,6 +267,15 @@ grant execute on function public.quote_purge_stamp(uuid, boolean) to authenticat
 
 **邊個跑** Jason。
 
+**⭐⭐ ⛔ 唔睇 `locked` —— ✅ Jason 2026-09-20 明文批**
+
+⚠️ 我喺 ① 度標咗「`locked` 呢個要拍板，⛔ 唔係我順手拆」，**⛔ 但 ④ 度冇標**
+—— ⭐ CO 2026-09-20 捉返：⛔ 唔准靜靜咁跟 ①。
+
+⇒ 而家明文：**⛔ 唔睇 `locked`**。理由：**一單已經刪咗嘅工程，`locked` 冇意思**
+（鎖係為咗擋「唔好再改呢單嘢」，而佢已經俾人刪咗）。
+⛔ 呢個⛔ 唔係一個實作細節，係一個拍咗板嘅決定 —— 已經寫咗入條 function 嘅註解。
+
 **好處**
 ⭐⭐ **佢係四個入面唯一一個真係做到「淨係改 `purged_at`」嘅做法** ——
 因為寫邊個欄係**寫死喺 function 入面**，⛔ 唔靠 grant、⛔ 唔靠 policy。
@@ -240,6 +283,20 @@ grant execute on function public.quote_purge_stamp(uuid, boolean) to authenticat
 
 ⭐ `p_dry_run` 就係 CLAUDE.md §2.13 個「閘准」：**同一條 function、同一段判斷**，
 ⛔ 唔係第二套「邊個刪得」嘅講法。
+
+**⛔⛔ 回四個值，⛔ 唔准合埋（CO 2026-09-20 明文要求）**
+
+⚠️ 我上面本來寫 `returns boolean` —— ⛔ 咁樣 `false` 會**同時**代表
+「唔准」同「揾唔到張相」。⛔ 唔得。
+
+⇒ 改成 `returns text`：`ok` / `record_not_deleted` / `not_yours` / `not_found`。
+
+⭐ 點解要分：**`not_found` 係一個⛔ 唔應該發生嘅情況**
+（Worker 啱啱先由 DB 讀返嗰個 id 出嚟）。
+⚠️ 合埋咗就變成「拒絕」嘅一種，而**之後冇人會再問點解**。
+
+**⛔ 仲有一個 `404`**：條 function 未跑（SQL 未 deploy）⇒ PostgREST 回 404。
+⚠️ ⛔ 唔准當佢係「拒絕」—— 兩件事嘅修法完全唔同（一個係跑 SQL，一個係搵人）。
 
 **代價**
 ⚠️ `SECURITY DEFINER` ＝ **繞過 RLS**。條 function 入面嗰段 `where` 就係**全部**把關
