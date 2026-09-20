@@ -66,7 +66,7 @@ export function markupToSave(typed: string): number | null | undefined {
  *    ⛔ 唔准食咗佢換一句通用嘢。
  */
 export function markupSaveFailed(reason: string): string {
-  return `加成 ％ 存唔到：${reason.trim()} ⚠️ 你打咗嘅數仲喺格入面，⛔ 未存到入去。`
+  return `加成 ％ 無法儲存：${reason.trim()} ⚠️ 你輸入的數字仍在欄內，⛔ 尚未儲存。`
 }
 
 /**
@@ -105,8 +105,21 @@ export type AskingState =
  * ⛔ **呢句係報價價錢嗰格會出嘅字，⛔ 唔係一句 alert。**
  * ⭐ 佢要答到兩樣：**而家係點**、**點樣先出得返個價**。
  */
+/*
+ * ⛔⛔ 「**無法辨識**」，⛔ 唔係「獲取失敗」。
+ *
+ * ⚠️ 2026-09-19 CO 捉到：書面語轉換把佢譯成「加成一欄獲取失敗」——
+ *    ⭐ 但「獲取失敗」讀落係「**去攞但攞唔到**」（網絡／伺服器），
+ *    而呢句真正嘅意思係「**你打嗰啲唔係數字，解唔出**」。
+ * ⇒ 後面嗰句補救係「請在加成欄只填數字」—— **兩句接唔上**，
+ *   現場同事會去撳重新載入，⛔ 唔會去改格入面嗰個字。
+ *
+ * ⭐⭐ 呢個同「無法片排編號」同一個家族，只係**呢次冇打崩句子**，
+ *    所以 test ⛔ 冇印出嚟。
+ *    ⇒ 一把靠「崩咗先見到」嘅驗收，⛔ 守唔住「通順但意思變咗」。
+ */
 export const MARKUP_UNREADABLE =
-  '加成嗰格讀唔到，⛔ 計唔到報價價錢。請喺加成格淨係填數字（想冇加成就清空佢）。'
+  '加成一欄的內容無法辨識，⛔ 無法計算報價價錢。請在加成欄只填數字（不設加成請清空該欄）。'
 
 export function askingState(typed: string): AskingState {
   const saved = markupToSave(typed)

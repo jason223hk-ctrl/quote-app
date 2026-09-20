@@ -62,9 +62,9 @@ export const PHOTO_STATUS_LABEL: Record<PhotoStatus, string> = {
  *    見下面 `photoHint()` 檔頭 —— 一個狀態唔夠講清楚「你而家做得到咩」。
  */
 export const PHOTO_STATUS_HINT: Record<PhotoStatus, string> = {
-  local: '仲未上到雲端。唔好清瀏覽器資料，返到有網開一開 app。',
-  uploading: '上緊，唔好熄咗個 app。',
-  r2: '雲端（R2）已經有一份，⛔ 唔會冇咗。Drive 嗰份補緊。',
+  local: '尚未上傳到雲端。請不要清除瀏覽器資料，回到有網絡的地方開啟一次 app。',
+  uploading: '上傳中，請不要關閉 app。',
+  r2: '雲端（R2）已經有一份，⛔ 不會丟失。Drive 那一份正在補上。',
   synced: '兩份雲端副本齊晒。',
   /* ⚠️ `error` 呢句**⛔ 出唔到畫面** —— `photoHint()` 見到 `error` 一定會行
      三條分支其中一條。留喺度淨係為咗 `Record<PhotoStatus, string>` 齊整。
@@ -125,15 +125,15 @@ export function photoHint(trouble: PhotoTrouble): string {
   // ⭐ R2 有份 ⇒ 卡住嘅係 Drive 嗰份。⛔ 而呢個情況人做唔到嘢。
   if (r2Done) {
     return (
-      '⭐ 張相已經安全入咗雲端，⛔ 唔會冇咗 —— 差嘅淨係 Drive 嗰份副本。' +
+      '⭐ 相片已經安全存入雲端，⛔ 不會丟失 —— 欠缺的只是 Drive 那一份副本。' +
       '試咗三次都唔得，⛔ 唔會再自動試。' +
-      '⚠️ 你而家做唔到嘢，請截圖搵 Jason。'
+      '⚠️ 你現在無法自行處理，請截圖並聯絡 Jason。'
     )
   }
 
   // 連 R2 都未上到，而部機仲有份 ⇒ 撳「再試一次」真係會再上一次。
   if (hasLocal) {
-    return '上唔到雲端。張相仲喺部機度，⛔ 唔會冇咗。撳「再試一次」——⛔ 唔會影多張相。'
+    return '無法上傳雲端。相片仍在本裝置，⛔ 不會丟失。請點擊「再試一次」——⛔ 不會多拍一張相片。'
   }
 
   /* ⚠️ 連 R2 都未上到，而**呢部機冇份**（喺第二部機影嘅）。
@@ -141,8 +141,8 @@ export function photoHint(trouble: PhotoTrouble): string {
      由頭到尾冇人寫過非空值）—— ⭐ 但⛔ 唔准因為「行唔到」就出一句錯嘅字：
      一個將來加嘅路徑會靜靜咁踩中佢，而嗰陣冇人記得呢度。 */
   return (
-    '上唔到雲端，而呢部機冇呢張相嘅副本（喺第二部機影嘅）。' +
-    '⛔ 喺呢部機做唔到嘢 —— 請喺影嗰部機開一開 app。'
+    '無法上傳雲端，而本裝置沒有這張相片的副本（在另一部裝置拍攝）。' +
+    '⛔ 在本裝置無法處理 —— 請在拍攝的那部裝置開啟一次 app。'
   )
 }
 
@@ -221,9 +221,9 @@ export function digestMatches(expected: Digest, actual: Digest): boolean {
 
 export function digestMismatchMessage(expected: Digest, actual: Digest): string {
   if (expected.size !== actual.size) {
-    return `對唔到數：上傳前 ${expected.size} bytes，讀返出嚟 ${actual.size} bytes。呢張相未算上到，請再試一次。`
+    return `核對不符：上傳前 ${expected.size} bytes，讀取回來 ${actual.size} bytes。這張相片未算上傳成功，請再試一次。`
   }
-  return '對唔到數：讀返出嚟嘅內容同上傳嗰份唔一樣。呢張相未算上到，請再試一次。'
+  return '核對不符：讀取回來的內容與上傳的一份不相同。這張相片未算上傳成功，請再試一次。'
 }
 
 export function bytesToHex(buffer: ArrayBuffer): string {
@@ -303,7 +303,7 @@ export function isUniqueViolation(error: { code?: string; message: string }): bo
 
 /** 撞咗 unique 但又揾唔返嗰行 —— 唔常見，但唔准靜靜過骨，要出中文。 */
 export const DUPLICATE_NOT_FOUND_MESSAGE =
-  '資料庫話呢張相已經有紀錄，但即刻揾返出嚟又揾唔到。相仲喺部機度，唔會冇咗。請截圖搵 Jason。'
+  '資料庫顯示這張相片已有紀錄，但隨即又檢索不到。相片仍在本裝置，不會丟失。請截圖並聯絡 Jason。'
 
 /**
  * 同一格撞咗號（`quote_photos_slot_seq_uidx`）。
@@ -364,7 +364,7 @@ function reportError(message: string): Error {
  *    過咗序列化，型別冚唪唥冇晒。所以唯一守得住嘅做法係大家用返同一個常數。
  */
 export const PHOTO_NO_ROW_MESSAGE =
-  '相片記錄寫唔入資料庫。可能母單已經鎖定，或者唔係你開嘅單。相仲喺部機度，唔會冇咗。請截圖，用 WhatsApp 搵 Jason。'
+  '相片紀錄無法寫入資料庫。可能所屬工程已經鎖定，或者不是你建立的工程。相片仍在本裝置，不會丟失。請截圖，並用 WhatsApp 聯絡 Jason。'
 
 const NO_ROW_MESSAGE = PHOTO_NO_ROW_MESSAGE
 
@@ -416,7 +416,7 @@ export function createPhotosApi(client: SupabaseClient, userId: string): PhotosA
       // ⛔ 派唔到號就唔准自己填一個（`P3c-計劃書.md` §7）——
       //    自己填等於繞過咗個 index，兩行同號就真係會寫得入去。
       if (typeof data !== 'number' || !Number.isFinite(data) || data < 1) {
-        throw new Error('攞唔到相片編號。相仲喺部機度，唔會冇咗。請撳「再試一次」。')
+        throw new Error('無法獲取相片編號。相片仍在本裝置，不會丟失。請點擊「再試一次」。')
       }
       return data
     },

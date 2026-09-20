@@ -141,7 +141,7 @@ export default function ExportPdfScreen({ trees, photos, accessToken, record, on
       setDone(
         failed.length === 0
           ? `匯出咗 ${picked.length} 張相。`
-          : `匯出咗 ${picked.length - failed.length} 張相。⚠️ 攞唔到呢 ${failed.length} 張：${failed.join('、')}。請截圖搵 Jason。`,
+          : `已匯出 ${picked.length - failed.length} 張相片。⚠️ 以下 ${failed.length} 張獲取失敗：${failed.join('、')}。請截圖並聯絡 Jason。`,
       )
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : String(caught))

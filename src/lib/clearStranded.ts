@@ -55,7 +55,7 @@ export async function clearStranded(deps: ClearStrandedDeps): Promise<ClearStran
     // ⛔⛔ 工程清單未載完／攞唔到。⚠️ 嗰陣每一單睇落都「已經刪咗」。
     return {
       removed: 0,
-      blocked: '而家攞唔到工程清單，唔肯定邊啲工程仲喺度，所以乜都冇清。請check返個網絡再試。',
+      blocked: '現在無法獲取工程清單，無法確定哪些工程仍然存在，所以沒有清除任何資料。請檢查網絡連線後再試。',
     }
   }
 
@@ -64,7 +64,7 @@ export async function clearStranded(deps: ClearStrandedDeps): Promise<ClearStran
     local = await deps.listLocal()
   } catch (caught) {
     console.error('[quote-app] clear stranded: cannot read local photos:', caught)
-    return { removed: 0, blocked: '讀唔到部機嗰批相，所以乜都冇清。請截圖，用 WhatsApp 搵 Jason。' }
+    return { removed: 0, blocked: '無法獲取本裝置的相片，所以沒有清除任何資料。請截圖，並用 WhatsApp 聯絡 Jason。' }
   }
 
   let rows: QuotePhoto[]
@@ -77,7 +77,7 @@ export async function clearStranded(deps: ClearStrandedDeps): Promise<ClearStran
     console.error('[quote-app] clear stranded: cannot read cloud rows:', caught)
     return {
       removed: 0,
-      blocked: '而家問唔到雲端有冇呢啲相，唔肯定得唔得清，所以乜都冇清。請check返個網絡再試。',
+      blocked: '現在無法向雲端查詢這些相片是否存在，無法確定可否清除，所以沒有清除任何資料。請檢查網絡連線後再試。',
     }
   }
 
@@ -92,6 +92,6 @@ export async function clearStranded(deps: ClearStrandedDeps): Promise<ClearStran
     return { removed, blocked: null }
   } catch (caught) {
     console.error('[quote-app] clear stranded: remove failed:', caught)
-    return { removed: 0, blocked: '清唔到，部機嘅儲存空間出錯。請截圖，用 WhatsApp 搵 Jason。' }
+    return { removed: 0, blocked: '無法清除，本裝置的儲存空間出錯。請截圖，並用 WhatsApp 聯絡 Jason。' }
   }
 }

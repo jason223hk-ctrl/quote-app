@@ -45,7 +45,7 @@ describe('planStatusChange', () => {
     expect(plan.confirm).not.toBeNull()
     expect(plan.confirm).toContain('彩')
     expect(plan.confirm).toContain('Tree App Photos')
-    expect(plan.confirm).toContain('改唔返')
+    expect(plan.confirm).toContain('不能還原')
     expect(plan.confirm).not.toBe('確定嗎？')
   })
 

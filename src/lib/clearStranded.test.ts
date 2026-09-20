@@ -42,7 +42,7 @@ const LIVE = new Set(['仲喺度嗰單'])
    Jason 2026-09-14 第 5 條：五樣要釘死。
    ══════════════════════════════════════════════════════════════════ */
 
-describe('⛔ 釘死一：母單仲喺度 ⇒ 一張都清唔到', () => {
+describe('⛔ 釘死一：母單仲喺度 ⇒ 一張都無法清除', () => {
   it('母單仲喺度、又冇雲端副本 ⇒ ⛔ 照樣唔准清', () => {
     // ⚠️ 呢啲相**仲有機會傳得到**，而且可能係全世界唯一一份。
     const items = [photo({ operationId: 'a', recordId: '仲喺度嗰單' })]
@@ -67,7 +67,7 @@ describe('⛔ 釘死一：母單仲喺度 ⇒ 一張都清唔到', () => {
   })
 })
 
-describe('⛔ 釘死二：有雲端副本 ⇒ 清唔到', () => {
+describe('⛔ 釘死二：有雲端副本 ⇒ 無法清除', () => {
   it('部機話已經上到（uploaded）⇒ ⛔ 唔准清', () => {
     expect(strandedPending([photo({ operationId: 'a', status: 'uploaded' })], [], LIVE)).toEqual([])
   })
@@ -115,11 +115,11 @@ describe('⛔ 釘死四：N ＝ 0 嗰陣成行唔出', () => {
 })
 
 describe('⛔⛔ 確認嗰句：唔准縮成「確定嗎」', () => {
-  it('⭐ 三樣缺一不可：實數、只剩部機一份、清咗就真係冇', () => {
+  it('⭐ 三樣缺一不可：實數、只剩部機一份、清除後就真的沒有了', () => {
     const text = strandedConfirm(3)
     expect(text).toContain('3')
-    expect(text).toContain('全世界只剩部機呢一份')
-    expect(text).toContain('清咗就真係冇')
+    expect(text).toContain('全世界只剩本裝置這一份')
+    expect(text).toContain('清除後就真的沒有了')
   })
 
   it('⛔ 唔准出現「確定」呢種空話', () => {
@@ -134,7 +134,7 @@ describe('⭐ 釘死五：刪工程嗰陣 N > 0 一定要出多一行', () => {
      ⚠️ 唔係就變成「測試仲喺度，但佢守緊一段死 code」。 */
   it('呢一單有未傳嘅相 ⇒ 出，而且寫出實數', () => {
     expect(onlyOnPhoneWarning(2)).toBe(
-      '⚠️ 呢單仲有 2 張相只剩部機呢一份（未傳上雲端）。清咗就真正永遠冇咗。',
+      '⚠️ 此單仍有 2 張相片只剩本裝置這一份（未上傳到雲端）。清除後就真正永遠消失。',
     )
   })
 
@@ -142,7 +142,7 @@ describe('⭐ 釘死五：刪工程嗰陣 N > 0 一定要出多一行', () => {
     expect(onlyOnPhoneWarning(0)).toBe(null)
   })
 
-  it('⛔⛔ 讀唔到部機（null）⇒ 都唔出，⛔ 唔准當零', () => {
+  it('⛔⛔ 無法獲取本裝置（null）⇒ 都唔出，⛔ 唔准當零', () => {
     expect(onlyOnPhoneWarning(null)).toBe(null)
     expect(onlyOnPhoneCount('r1', null)).toBe(null)
   })
@@ -192,10 +192,10 @@ describe('clearStranded —— ⛔ 唔用畫面上面個數', () => {
     })
     expect(remove).not.toHaveBeenCalled()
     expect(result.removed).toBe(0)
-    expect(result.blocked).toContain('攞唔到工程清單')
+    expect(result.blocked).toContain('無法獲取工程清單')
   })
 
-  it('⛔⛔ 問唔到雲端 ⇒ 一張都唔清（保守方向）', async () => {
+  it('⛔⛔ 無法向雲端查詢 ⇒ 一張都唔清（保守方向）', async () => {
     // ⚠️ 問唔到就唔敢講「雲端冇呢張」。反過嚟嗰個錯係冇得返轉頭嘅。
     const remove = vi.fn()
     const result = await clearStranded({
@@ -207,10 +207,10 @@ describe('clearStranded —— ⛔ 唔用畫面上面個數', () => {
       remove,
     })
     expect(remove).not.toHaveBeenCalled()
-    expect(result.blocked).toContain('問唔到雲端')
+    expect(result.blocked).toContain('無法向雲端查詢')
   })
 
-  it('讀唔到部機 ⇒ 一張都唔清', async () => {
+  it('無法獲取本裝置 ⇒ 一張都唔清', async () => {
     const remove = vi.fn()
     const result = await clearStranded({
       listLocal: async () => {
@@ -221,7 +221,7 @@ describe('clearStranded —— ⛔ 唔用畫面上面個數', () => {
       remove,
     })
     expect(remove).not.toHaveBeenCalled()
-    expect(result.blocked).toContain('讀唔到部機')
+    expect(result.blocked).toContain('無法獲取本裝置')
   })
 
   it('⭐ 撳落去嗰刻已經冇嘢清 ⇒ 唔算出錯（⛔ 唔准出紅字）', async () => {
@@ -246,7 +246,7 @@ describe('clearStranded —— ⛔ 唔用畫面上面個數', () => {
       },
     })
     expect(result.removed).toBe(0)
-    expect(result.blocked).toContain('清唔到')
+    expect(result.blocked).toContain('無法清除')
     // ⛔ 中文，⛔ 唔准彈英文原文出畫面。
     expect(result.blocked).not.toContain('QuotaExceededError')
   })

@@ -32,7 +32,7 @@ const photo = (p: Partial<PendingPhoto>): PendingPhoto => ({
 })
 
 const okResult = { ok: true, row: {}, alreadyDone: false } as unknown as UploadResult
-const failResult: UploadResult = { ok: false, message: '連唔到伺服器。' }
+const failResult: UploadResult = { ok: false, message: '無法連接伺服器。' }
 
 /** 一個記住寫咗啲乜嘅假部機。 */
 function fakeStore(items: PendingPhoto[]) {
@@ -155,7 +155,7 @@ describe('resumeOnce', () => {
     const last = store.saved[store.saved.length - 1]
     expect(last.status).toBe('error')
     expect(last.attempts).toBe(4)
-    expect(last.error).toBe('連唔到伺服器。')
+    expect(last.error).toBe('無法連接伺服器。')
   })
 
   it('⛔ 一輪最多三張，順序嚟', async () => {
@@ -210,7 +210,7 @@ describe('resumeOnce', () => {
     expect(report).toMatchObject({ tried: 1, failed: 1 })
   })
 
-  it('讀唔到部機嗰份都唔准 throw 上去', async () => {
+  it('無法獲取本裝置嗰份都唔准 throw 上去', async () => {
     const report = await resumeOnce({
       listAll: () => Promise.reject(new Error('IndexedDB 壞咗')),
       save: () => Promise.resolve(),
@@ -341,7 +341,7 @@ describe('mirrorOnce', () => {
 
   it('失敗要留低痕跡：試咗幾多次加一、錯誤寫低', async () => {
     const saved: PendingPhoto[] = []
-    const mirror = vi.fn().mockResolvedValue({ ok: false, message: '抄唔到去 Drive。' })
+    const mirror = vi.fn().mockResolvedValue({ ok: false, message: '無法複製去 Drive。' })
     const report = await mirrorOnce(
       {
         listRows: () => Promise.resolve([dbRow({ id: 'm-fail', operation_id: 'op-fail' })]),
@@ -360,7 +360,7 @@ describe('mirrorOnce', () => {
 
     expect(report).toMatchObject({ tried: 1, done: 0, failed: 1 })
     expect(saved[0].driveAttempts).toBe(2)
-    expect(saved[0].driveError).toBe('抄唔到去 Drive。')
+    expect(saved[0].driveError).toBe('無法複製去 Drive。')
   })
 
   it('⛔ 一次開 app 一張相試一次 —— 同一張唔會喺第二輪再補', async () => {

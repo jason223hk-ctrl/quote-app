@@ -19,7 +19,7 @@
 import { readFileSync, readdirSync, statSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { scanFile } from './scan.mjs'
+import { scanFile, userText } from './scan.mjs'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const DIRS = ['src', 'worker/src']
@@ -37,12 +37,14 @@ const DIRS = ['src', 'worker/src']
 export const REQUIRED = [
   {
     file: 'src/lib/records.ts',
-    must: '⛔ 唔係你做錯嘢',
+    /* ⚠️ 2026-09-19 書面語（A）：由「⛔ 唔係你做錯嘢」改成呢句。⛔ 改語體，⛔ 唔改意思。 */
+    must: '⛔ 不是你操作錯誤',
     why: '權限設定出錯嗰陣，要同現場同事講明⛔ 唔好怪自己、⛔ 唔好一路再試（CLAUDE.md §2.7）',
   },
   {
     file: 'src/lib/sync.ts',
-    must: '唔係你做錯嘢',
+    /* ⚠️ 2026-09-19 書面語（A）：同上，Drive 登入唔到嗰條路。 */
+    must: '不是你操作錯誤',
     why: '同上，Drive 登入唔到嗰條路',
   },
   {
@@ -56,17 +58,20 @@ export const REQUIRED = [
   },
   {
     file: 'src/lib/records.ts',
-    must: '呢一單已經鎖定咗',
+    /* ⚠️ 2026-09-19 書面語（A）。 */
+    must: '此單已經鎖定',
     why: '三句拒絕原因之一：鎖定。⚠️ RLS 拒絕⛔ 唔會 throw，只會 0 行 ⇒ 冇呢句人就唔知發生咗乜',
   },
   {
     file: 'src/lib/records.ts',
-    must: '呢一單唔係你開嘅',
+    /* ⚠️ 2026-09-19 書面語（A）。 */
+    must: '此單不是你建立的',
     why: '三句拒絕原因之二：唔係自己開嗰單',
   },
   {
     file: 'src/lib/records.ts',
-    must: '伺服器唔俾改呢一單',
+    /* ⚠️ 2026-09-19 書面語（A）。 */
+    must: '伺服器不允許修改此單',
     why: '三句拒絕原因之三：兩邊唔夾（部機話得、伺服器話唔得）',
   },
 ]
@@ -83,6 +88,24 @@ export const REQUIRED = [
  *   讀落似係兩件事**。Jason 拍板統一用「核對」。
  *
  * ⛔ 冇呢把尺，下一個人照樣會寫返「校驗」，而⛔ 冇嘢會紅。
+ *
+ * ⛔⛔⛔ **佢一定要睇 `userText()`，⛔ 唔可以睇 `found`。**
+ *
+ * ⚠️⚠️ 2026-09-20 CO 讀 code 捉到：第一版用 `found`，
+ *    而 `found` 係由 `scanFile()` 砌 —— 佢最後一行係
+ *    `.filter((o) => o.words.length > 0)`，**即係淨係「仲帶住廣東話」嗰批**。
+ *
+ * ⭐⭐ 而「校驗」**依定義只會出現喺已經轉完書面語嗰啲句度** ——
+ *    嗰啲句冇廣東話 ⇒ ⛔ 入唔到 `found` ⇒ 把尺印「✓ 冇出現過」。
+ *    **即係話佢守嗰個情況，就係佢唯一睇唔到嗰個情況。**
+ *
+ * ⚠️ 我當時「反證跑過」—— 但我插「校驗」入咗一句**仲帶住廣東話**嘅句，
+ *    嗰句當然入到 `found`，當然紅。⛔ **個反證由頭到尾冇碰過真個案。**
+ *
+ * ⭐ 同「一把只識數少咗就好嘅尺，⛔ 守唔住刪走咗」同一個形狀：
+ *   **一把只睇得到「未改嘅句」嘅尺，⛔ 守唔住「改咗之後出嘅問題」。**
+ *
+ * ⚠️ 而且佢會越嚟越綠：（B）轉埋剩低嗰批之後，`found` 會近乎清空。
  */
 const FORBIDDEN = [
   { word: '校驗', use: '核對', why: 'Jason 2026-09-19 拍板統一用「核對」——「對數」係呢個 repo 自己嘅語言' },
@@ -143,9 +166,36 @@ if (gone.length) {
   console.log('      ⚠️ 逼你剷，係為咗令「改咗邊幾句」喺 PR diff 度睇得到。')
 }
 
+/*
+ * ⛔ 所有**用家睇得到嘅字**，⛔ 唔理佢仲有冇廣東話。
+ * ⚠️ 同 `found` 兩件事 —— 見上面 `FORBIDDEN` 個註解。
+ */
+const everyUserLine = []
+for (const dir of DIRS) {
+  for (const abs of walk(path.join(ROOT, dir))) {
+    const rel = path.relative(ROOT, abs)
+    for (const t of userText(readFileSync(abs, 'utf8'))) everyUserLine.push({ ...t, file: rel })
+  }
+}
+
+/*
+ * ⛔⛔ 呢把尺自己都要有個下限 —— ⭐ 同 `ui:check` 嗰個 `FLOORS` 同一條規矩。
+ * ⚠️ 冇咗佢，`userText()` 有日靜靜咁抽少咗，下面就會印「✓ 冇出現過」
+ *    而其實**佢乜都冇掃過**。
+ * ⭐ 625 係 2026-09-20 實測。⛔ 呢個數**淨係可以加** ——
+ *   書面語轉換⛔ 唔會令句數減少（句子換字，⛔ 唔係消失）。跌咗就係出咗事。
+ */
+const USER_LINE_FLOOR = 625
+
 console.log('\n══ ⛔ 拍咗板⛔ 唔准用嘅詞 ══')
+console.log(`  （掃緊 ${everyUserLine.length} 句用家睇得到嘅字，⛔ 唔係淨係未改嗰批）`)
+if (everyUserLine.length < USER_LINE_FLOOR) {
+  bad += 1
+  console.log(`  ✗ ⛔⛔ 只掃到 ${everyUserLine.length} 句，至少要 ${USER_LINE_FLOOR}`)
+  console.log('      ⚠️ ⛔ 唔係「冇問題」—— 係把尺根本冇掃到嘢。')
+}
 for (const one of FORBIDDEN) {
-  const hits = [...found.values()].filter((h) => h.text.includes(one.word))
+  const hits = everyUserLine.filter((h) => h.text.includes(one.word))
   if (hits.length === 0) {
     console.log(`  ✓ 「${one.word}」冇出現過（要用「${one.use}」）`)
   } else {
@@ -158,8 +208,18 @@ for (const one of FORBIDDEN) {
 
 console.log('\n══ ⛔ 唔准掃空：呢幾句安全訊息一定要仲喺度 ══')
 for (const one of REQUIRED) {
-  const src = readFileSync(path.join(ROOT, one.file), 'utf8')
-  if (src.includes(one.must)) {
+  /*
+   * ⛔⛔ 只查**用家睇得到嘅字**，⛔ 唔查成個檔。
+   *
+   * ⚠️ 2026-09-19 捉到：「伺服器唔俾改呢一單」呢句喺畫面已經改晒，
+   *    但佢**仲喺一段註解入面出現**（records.ts:273 講緊「點解要呢句」）——
+   *    ⇒ 舊版用 `src.includes()` 就**照樣 ✓**，而現場其實已經冇咗嗰句。
+   *
+   * ⭐ 即係話把尺當時守緊嘅係「有冇人提過呢句」，
+   *   ⛔ 唔係「現場同事仲睇唔睇得到呢句」。差好遠。
+   */
+  const seen = userText(readFileSync(path.join(ROOT, one.file), 'utf8'))
+  if (seen.some((t) => t.text.includes(one.must))) {
     console.log(`  ✓ ${one.file}：「${one.must}」`)
   } else {
     bad += 1

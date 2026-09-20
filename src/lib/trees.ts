@@ -131,7 +131,7 @@ function reportError(message: string): Error {
   return new Error(translateDbError(message))
 }
 
-const NO_ROW_MESSAGE = '改唔到呢棵樹。可能母單已經鎖定，或者唔係你開嘅單。'
+const NO_ROW_MESSAGE = '無法修改這棵樹。可能所屬工程已經鎖定，或者不是你建立的工程。'
 
 export function createTreesApi(client: SupabaseClient, userId: string): TreesApi {
   async function writeBack(

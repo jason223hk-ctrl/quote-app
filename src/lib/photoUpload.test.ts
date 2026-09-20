@@ -85,13 +85,13 @@ describe('uploadPending 重試', () => {
 })
 
 describe('uploadPending 出事嗰陣', () => {
-  it('攞唔到網址：出中文，而且講明相仲喺部機', async () => {
+  it('攞唔到網址：出中文，而且講明相仍在本裝置', async () => {
     const d = deps({ sign: vi.fn(async () => { throw new Error('offline') }) })
     const result = await uploadPending(pending(), d)
 
     expect(result.ok).toBe(false)
     if (result.ok) return
-    expect(result.message).toContain('相仲喺部機度')
+    expect(result.message).toContain('相片仍在本裝置')
     expect(d.putBytes).not.toHaveBeenCalled()
   })
 
@@ -117,7 +117,7 @@ describe('uploadPending 出事嗰陣', () => {
 
     expect(result.ok).toBe(false)
     if (result.ok) return
-    expect(result.message).toContain('對唔到數')
+    expect(result.message).toContain('核對不符')
     expect(d.saveRow).not.toHaveBeenCalled()
   })
 
@@ -232,7 +232,7 @@ describe('派號（P3c §5.5）', () => {
       expect(result.message).toContain('再試一次')
       expect(result.message).toContain('Jason')
       // ⛔ 唔准嚇人 —— 相真係冇冇咗。
-      expect(result.message).toContain('唔會冇咗')
+      expect(result.message).toContain('不會丟失')
     }
   })
 
@@ -240,7 +240,7 @@ describe('派號（P3c §5.5）', () => {
     const saveRow = vi.fn(async () => savedRow)
     const d = deps({
       allocateSeq: vi.fn(async () => {
-        throw new Error('攞唔到相片編號。')
+        throw new Error('無法獲取相片編號。')
       }),
       saveRow,
     })
@@ -304,7 +304,7 @@ describe('冇網要講人話（2026-09-05 真機中過）', () => {
       expect(result.message).not.toMatch(/Failed to fetch/i)
       // ⭐ 一個具體動作 ＋ 一個唔使驚嘅保證。
       expect(result.message).toContain('再試一次')
-      expect(result.message).toContain('唔會冇咗')
+      expect(result.message).toContain('不會丟失')
     }
   })
 

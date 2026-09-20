@@ -76,7 +76,7 @@ export const SEQ_BACKOFF_MS = [200, 400]
 
 /** 三次都排唔到號。⛔ 一個具體動作 ＋ 一個具體對象。 */
 export const SEQ_EXHAUSTED_MESSAGE =
-  '呢張相排唔到號，可能有人同時影緊同一格。相仲喺部機同雲端度，唔會冇咗。請撳「再試一次」，或者截圖搵 Jason。'
+  '這張相片無法排到編號，可能有人正在同時拍攝同一格。相片仍在本裝置和雲端，不會丟失。請點擊「再試一次」，或截圖並聯絡 Jason。'
 
 export type UploadResult =
   | { ok: true; row: QuotePhoto; alreadyDone: boolean }
@@ -115,7 +115,7 @@ export function isNetworkFailure(detail: string): boolean {
 
 /** ⭐ 一個具體動作 ＋ 一個具體對象（`P3c-計劃書.md` §5.5 同一套規矩）。 */
 export const OFFLINE_MESSAGE =
-  '連唔到伺服器。相仲喺部機度，唔會冇咗。行去有訊號嘅地方，再撳「再試一次」。'
+  '無法連接伺服器。相片仍在本裝置，不會丟失。請走到有訊號的地方，再點擊「再試一次」。'
 
 /**
  * 出一句畀人睇嘅錯誤。認得出係冇網就講人話，⛔ 認唔出就照出原文。
@@ -156,7 +156,7 @@ export async function uploadPending(
       message: stepMessage(
         'sign',
         caught,
-        (detail) => `攞唔到上傳網址：${detail}。相仲喺部機度，唔會冇咗。`,
+        (detail) => `無法獲取上傳網址：${detail}。相片仍在本裝置，不會丟失。`,
       ),
     }
   }
@@ -171,7 +171,7 @@ export async function uploadPending(
       message: stepMessage(
         'putBytes',
         caught,
-        (detail) => `上傳中斷：${detail}。相仲喺部機度，撳「再試一次」就得。`,
+        (detail) => `上傳中斷：${detail}。相片仍在本裝置，點擊「再試一次」即可。`,
       ),
     }
   }
@@ -185,7 +185,7 @@ export async function uploadPending(
       message: stepMessage(
         'getBytes',
         caught,
-        (detail) => `上傳咗但讀唔返出嚟核對：${detail}。未對到數就唔算上到，請再試一次。`,
+        (detail) => `已上傳但無法取回核對：${detail}。未核對相符就不算上傳成功，請再試一次。`,
       ),
     }
   }

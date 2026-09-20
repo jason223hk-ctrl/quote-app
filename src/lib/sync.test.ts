@@ -158,7 +158,7 @@ describe('syncAdvice', () => {
 
   it('⛔ 句嘢一定要講明相冇事 —— 阿耀見到「失敗」會以為張相冇咗', () => {
     const advice = syncAdvice(row({ drive_error: REAL_ERROR }))
-    expect(advice.text).toContain('唔會冇咗')
+    expect(advice.text).toContain('不會丟失')
   })
 
   it('⛔ 唔准當佢暫時性、⛔ 唔准講「系統會自動再試」', () => {
@@ -178,7 +178,7 @@ describe('syncAdvice', () => {
     const advice = syncAdvice(row({ drive_error: 'Drive 登入失敗（400：invalid_client）' }))
     expect(advice.permanent).toBe(true)
     expect(advice.text).toBe(DRIVE_LOGIN_FAILED_MESSAGE)
-    expect(advice.text).toContain('唔會冇咗')
+    expect(advice.text).toContain('不會丟失')
   })
 
   it('Google 額滿／冇權限 ＝ 要人做嘢', () => {

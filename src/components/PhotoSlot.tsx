@@ -343,7 +343,12 @@ export default function PhotoSlot({
     setError(null)
     try {
       if (!storeReady) {
-        throw new Error('呢部機嘅瀏覽器唔支援本機儲存，影咗都留唔住。請截圖搵 Jason。')
+        /* ⛔⛔ 「**本機儲存**」係個**術語**（瀏覽器嗰個 local storage），
+           ⛔ 唔准跟住書面語詞彙表換成「本裝置儲存」。
+           ⚠️ 2026-09-19 中過：一句入面出咗兩次「本裝置」——
+           「本裝置的瀏覽器不支援本裝置儲存」。
+           ⭐ 詞彙表換嘅係「**你部機**」嗰個意思，⛔ 唔係所有寫住「機」嘅詞。 */
+        throw new Error('本裝置的瀏覽器不支援本機儲存，拍攝後無法保留。請截圖並聯絡 Jason。')
       }
 
       const blob = await compressToJpeg(file)
@@ -365,10 +370,10 @@ export default function PhotoSlot({
       // 先寫落部機，再讀返出嚟對數 —— 對到先算存到，先至好講上傳。
       await photoStore.put(item)
       const saved = await photoStore.get(item.operationId)
-      if (!saved) throw new Error('張相寫唔入部機。請再影一次，或者截圖搵 Jason。')
+      if (!saved) throw new Error('相片無法寫入本裝置。請重新拍攝，或截圖並聯絡 Jason。')
       const savedBytes = await saved.blob.arrayBuffer()
       if (savedBytes.byteLength !== item.size || (await sha256Hex(savedBytes)) !== item.sha256) {
-        throw new Error('張相存落部機之後對唔返數。請再影一次，或者截圖搵 Jason。')
+        throw new Error('相片存入本裝置後核對不符。請重新拍攝，或截圖並聯絡 Jason。')
       }
 
       await reload()
@@ -423,7 +428,7 @@ export default function PhotoSlot({
       {/* ⛔ 唔講嘅話，人會以為畫面上面就係全部。實情係雲端嗰份而家攞唔到。 */}
       {stale && (
         <p className="notice notice--warning" role="status">
-          而家連唔到伺服器，下面顯示嘅係呢部機記住嘅嘢。影相照影得，有網會自己補返。
+          現在無法連接伺服器，下面顯示的是本裝置記住的內容。仍然可以拍攝，有網絡時會自動補上。
         </p>
       )}
 

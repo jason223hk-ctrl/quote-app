@@ -140,13 +140,13 @@ export function isDriveAuthExpired(message: string): boolean {
  *    ⛔ 重試一萬次都係同一個答案。
  */
 export const DRIVE_AUTH_EXPIRED_MESSAGE =
-  '需要處理：Drive 授權過咗期，要重新登入先抄得上 Drive。' +
-  '相已經安全存咗喺雲端（R2），唔會冇咗。請截圖，用 WhatsApp 搵 Jason。'
+  '需要處理：Drive 授權已過期，需要重新登入才能複製上 Drive。' +
+  '相片已經安全存入雲端（R2），不會丟失。請截圖，並用 WhatsApp 聯絡 Jason。'
 
 /** 登入唔到但唔係過期（多數係 `invalid_client`）——⛔ 修法唔同，所以句嘢都唔同。 */
 export const DRIVE_LOGIN_FAILED_MESSAGE =
-  '需要處理：Drive 登入唔到，係設定嗰邊嘅問題，唔係你做錯嘢。' +
-  '相已經安全存咗喺雲端（R2），唔會冇咗。請截圖，用 WhatsApp 搵 Jason。'
+  '需要處理：Drive 無法登入，這是設定方面的問題，不是你操作錯誤。' +
+  '相片已經安全存入雲端（R2），不會丟失。請截圖，並用 WhatsApp 聯絡 Jason。'
 
 /**
  * ⛔ Google 自己個 reason code —— **會自己好返嗰啲**。
@@ -250,7 +250,7 @@ export function syncAdvice(row: QuotePhoto): SyncAdvice {
     }
     return {
       permanent: true,
-      text: '需要處理：呢個問題唔會自己好返。請截圖，用 WhatsApp 搵 Jason。',
+      text: '需要處理：這個問題不會自行恢復。請截圖，並用 WhatsApp 聯絡 Jason。',
     }
   }
 
@@ -259,7 +259,7 @@ export function syncAdvice(row: QuotePhoto): SyncAdvice {
   if (/storageQuota|quotaExceeded|403|insufficientPermissions|401/i.test(message)) {
     return {
       permanent: true,
-      text: '需要處理：Google Drive 嗰邊唔收（額滿或者冇權限）。請截圖，用 WhatsApp 搵 Jason。',
+      text: '需要處理：Google Drive 那邊拒絕接收（額滿或沒有權限）。請截圖，並用 WhatsApp 聯絡 Jason。',
     }
   }
 
@@ -274,7 +274,7 @@ export function syncAdvice(row: QuotePhoto): SyncAdvice {
   // ⛔ 落唔到類 ＝ 我哋唔知，⛔ 唔係冇事。
   return {
     permanent: true,
-    text: '需要處理：系統認唔出呢個錯誤。請截圖，用 WhatsApp 搵 Jason。',
+    text: '需要處理：系統無法辨認這個錯誤。請截圖，並用 WhatsApp 聯絡 Jason。',
   }
 }
 

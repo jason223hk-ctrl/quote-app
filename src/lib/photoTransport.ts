@@ -25,7 +25,7 @@ export function photoWorkerBase(): string {
 }
 
 export const WORKER_MISSING_MESSAGE =
-  '未設定相片上傳服務（VITE_PHOTO_WORKER_URL）。相會照存喺部機，但上唔到雲端。請截圖搵 Jason。'
+  '未設定相片上傳服務（VITE_PHOTO_WORKER_URL）。相片仍會存入本裝置，但無法上傳雲端。請截圖並聯絡 Jason。'
 
 /**
  * 壓一次：長邊 2048、JPEG 85。R2 同 Drive 之後存嘅係同一份 bytes，
@@ -41,7 +41,7 @@ export async function compressToJpeg(file: Blob): Promise<Blob> {
   const context = canvas.getContext('2d')
   if (!context) {
     bitmap.close()
-    throw new Error('部機嘅瀏覽器整唔到縮圖，影唔到相。請截圖搵 Jason。')
+    throw new Error('本裝置的瀏覽器無法製作縮圖，無法拍攝。請截圖並聯絡 Jason。')
   }
   context.drawImage(bitmap, 0, 0, size.width, size.height)
   bitmap.close()
@@ -49,7 +49,7 @@ export async function compressToJpeg(file: Blob): Promise<Blob> {
   const blob = await new Promise<Blob | null>((resolve) =>
     canvas.toBlob(resolve, 'image/jpeg', JPEG_QUALITY),
   )
-  if (!blob) throw new Error('壓縮相片失敗。請再影一次，或者截圖搵 Jason。')
+  if (!blob) throw new Error('壓縮相片失敗。請重新拍攝，或截圖並聯絡 Jason。')
   return blob
 }
 
@@ -136,7 +136,7 @@ export async function mirrorPhoto(accessToken: string, photoId: string): Promise
   } catch (caught) {
     const detail = caught instanceof Error ? caught.message : String(caught)
     console.error('[quote-app] drive mirror failed:', detail)
-    return { ok: false, message: `抄唔到去 Drive：${detail}。R2 嗰份仲喺，唔會冇咗。` }
+    return { ok: false, message: `無法複製去 Drive：${detail}。R2 那一份仍在，不會丟失。` }
   }
 }
 
