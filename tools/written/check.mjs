@@ -19,7 +19,7 @@
 import { readFileSync, readdirSync, statSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { scanFile, userText } from './scan.mjs'
+import { scanFile, stripComments, userText } from './scan.mjs'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const DIRS = ['src', 'worker/src']
@@ -185,7 +185,7 @@ for (const dir of DIRS) {
  * ⛔⛔ 呢把尺自己都要有個下限 —— ⭐ 同 `ui:check` 嗰個 `FLOORS` 同一條規矩。
  * ⚠️ 冇咗佢，`userText()` 有日靜靜咁抽少咗，下面就會印「✓ 冇出現過」
  *    而其實**佢乜都冇掃過**。
- * ⭐ 651 係 2026-09-20 **修完 JSX 插值之後**實測。⛔ 呢個數**淨係可以加**。
+ * ⭐ 653 係 2026-09-20 **修完 JSX 插值 ＋ JSX 收尾標籤兩個窿之後**實測。⛔ 呢個數**淨係可以加**。
  *
  * ⚠️⚠️ 本來寫住 625（修之前嗰個數）—— CO 捉到：
  *    今日最大嗰個修正就係 JSX 插值（625 → 651）。
@@ -196,7 +196,68 @@ for (const dir of DIRS) {
  *   ⛔ 唔准因為一個 run 跌咗就調低 —— ⚠️ 而**數目升咗而下限冇跟上，
  *   係同一個毛病嘅另一面**。
  */
-const USER_LINE_FLOOR = 651
+const USER_LINE_FLOOR = 653
+
+/*
+ * ── ⭐⭐ 覆蓋差：把尺究竟**睇唔到幾多** ──────────────────────
+ *
+ * ⛔⛔ **點解要呢個 —— ⛔ 唔准淨係記住結論**
+ *
+ * 上面所有數（「名單剩 0 句」「掃緊 653 句」）都係**把尺自己報自己**。
+ * ⚠️ 佢哋答到「我睇到嗰批剩幾多」，⛔ 答唔到「我睇唔到幾多」。
+ * ⭐ 2026-09-20 三次「把尺綠咗但其實未做完」，全部都係呢個分別。
+ *
+ * ⇒ 所以量一個**差**：
+ *     分母 ＝ 剃咗註解同 regex 之後，成個檔嘅中文字元
+ *     分子 ＝ `userText()` 真係抽到嗰啲中文字元
+ *     差   ＝ 分母 − 分子 ＝ **把尺睇唔到幾多個字**
+ *
+ * ⛔ 報嘅係**個差**，⛔ 唔係兩個絕對數 —— ⚠️ 兩個絕對數一齊升／跌
+ *   睇落好正常，而個差一升就係出事。
+ *
+ * ⚠️⚠️ **佢量嘅係「抽得到唔到」，⛔ 唔係「認得出唔出」。**
+ *   · JSX 插值嗰個窿（2026-09-20）⇒ 呢個 gauge 搵得到 ✅
+ *   · 「分得返邊棵」嗰種（抽到但 BANNED 冇嗰個詞）⇒ ⛔ **佢全綠**
+ *   ⇒ 見 `scan.mjs` 頂「兩種盲點」。⛔ 唔好加咗佢就以為保晒險。
+ *
+ * ⭐ 佢未出街就已經捉到第三個窿：`isRegexStart` 當咗 JSX 收尾標籤
+ *   `</strong>` 前面嗰個 `<` 係運算子 ⇒ 成行文字俾人當 regex 剷走
+ *   （`TreeFormPage.tsx:224`，20 個中文字元）。
+ */
+const HAN_ALL = /[一-鿿]/g
+let denom = 0
+let numer = 0
+const worstFile = []
+for (const dir of DIRS) {
+  for (const abs of walk(path.join(ROOT, dir))) {
+    const src = readFileSync(abs, 'utf8')
+    const d = (stripComments(src).match(HAN_ALL) || []).length
+    const n = userText(src).reduce((a, t) => a + (t.text.match(HAN_ALL) || []).length, 0)
+    denom += d
+    numer += n
+    if (d - n > 0) worstFile.push([path.relative(ROOT, abs), d - n])
+  }
+}
+const unseen = denom - numer
+
+/*
+ * ⛔ 0 係 2026-09-20 實測。⛔ 呢個上限**淨係可以降**，⛔ 唔准調高 ——
+ * ⚠️ 調高即係「我接受把尺睇唔到多啲嘢」，而嗰個決定要寫明點解先做得。
+ */
+const MAX_UNSEEN = 0
+
+console.log('\n══ ⭐ 把尺睇唔到幾多（字元覆蓋差）══')
+if (unseen <= MAX_UNSEEN) {
+  console.log(`  ✓ 差 ${unseen} 個中文字元（上限 ${MAX_UNSEEN}）`)
+} else {
+  bad += 1
+  console.log(`  ✗ ⛔⛔ 差 ${unseen} 個中文字元，上限 ${MAX_UNSEEN}`)
+  console.log('      ⚠️ 即係話有咁多個字**入唔到** `userText()` —— 把尺由頭到尾睇唔到佢哋。')
+  console.log('      ⛔ 呢個⛔ 唔係「唔合格」，係「量漏咗」。')
+  for (const [f, g] of worstFile.sort((a, b) => b[1] - a[1]).slice(0, 8)) {
+    console.log(`      ${String(g).padStart(5)}  ${f}`)
+  }
+}
 
 console.log('\n══ ⛔ 拍咗板⛔ 唔准用嘅詞 ══')
 console.log(`  （掃緊 ${everyUserLine.length} 句用家睇得到嘅字，⛔ 唔係淨係未改嗰批）`)
