@@ -17,8 +17,8 @@ describe('buildReverseUrl', () => {
 describe('geolocationErrorMessage', () => {
   it('每一種失敗都有中文，冇英文原文彈出嚟', () => {
     expect(geolocationErrorMessage(1)).toContain('拒絕')
-    expect(geolocationErrorMessage(2)).toContain('攞唔到定位')
-    expect(geolocationErrorMessage(3)).toContain('等太耐')
+    expect(geolocationErrorMessage(2)).toContain('定位獲取失敗')
+    expect(geolocationErrorMessage(3)).toContain('定位等候過久')
     expect(geolocationErrorMessage(null)).toContain('定位')
 
     for (const code of [1, 2, 3, null]) {

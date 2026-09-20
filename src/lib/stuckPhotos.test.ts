@@ -65,13 +65,13 @@ describe('stuckAdvice —— 第二行答「你使唔使做嘢」', () => {
   it('上緊 ⇒ ⛔ 叫人唔好撳', () => {
     const advice = stuckAdvice(photo({ status: 'uploading' }))
     expect(advice.permanent).toBe(false)
-    expect(advice.text).toContain('唔使撳')
+    expect(advice.text).toContain('不需要點擊')
   })
 
-  it('排緊隊 ⇒ 講明會自己傳', () => {
+  it('排緊隊 ⇒ 講明會自動上傳', () => {
     const advice = stuckAdvice(photo({ status: 'local' }))
     expect(advice.permanent).toBe(false)
-    expect(advice.text).toContain('自己傳')
+    expect(advice.text).toContain('自動上傳')
   })
 
   it('⭐ RLS 拒絕（Testing01 嗰單嘢）⇒ 永久性，而且叫得出搵邊個', () => {

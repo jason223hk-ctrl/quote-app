@@ -373,7 +373,7 @@ export default function RecordHubScreen({
           <span className="hub-main">
             <span className="hub-title">樹木清單</span>
             <span className="hub-sub">
-              {treeCount === null ? '每棵樹嘅品種、尺寸、處理方法' : `共 ${treeCount} 棵`}
+              {treeCount === null ? '每棵樹的品種、尺寸、處理方法' : `共 ${treeCount} 棵`}
             </span>
           </span>
           <span className="hub-chev">
@@ -409,7 +409,7 @@ export default function RecordHubScreen({
           <span className="hub-main">
             <span className="hub-title">匯出 PDF</span>
             {/* ⛔ 唔寫「報價單」—— 呢份 PDF 由頭到尾冇一個價錢（成本／收客價永遠唔上 PDF）。 */}
-            <span className="hub-sub">相片報告。⛔ 環境相唔會入</span>
+            <span className="hub-sub">相片報告。⛔ 環境相不會收錄</span>
           </span>
           <span className="hub-chev">
             <Icon name={ICONS.chevron} />

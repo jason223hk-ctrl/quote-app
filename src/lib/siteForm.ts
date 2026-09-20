@@ -97,7 +97,7 @@ export function validateSiteForm(input: SiteFormInput): SiteFormErrors {
   const errors: SiteFormErrors = {}
 
   if (input.waste_options.length === 0) {
-    errors.waste_options = '請至少揀一個垃圾處理方法'
+    errors.waste_options = '請至少勾選一個垃圾處理方法'
   }
   if (!isBlankOrNonNegativeNumber(input.crew_total)) errors.crew_total = '請填數字，或者留空'
   if (!isBlankOrNonNegativeNumber(input.work_days)) errors.work_days = '請填數字，或者留空'

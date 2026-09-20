@@ -70,15 +70,15 @@ export default function SiteFormFields({ input, fieldErrors, disabled, patch }: 
     <>
           <fieldset className="group">
             <legend className="group__legend">人手</legend>
-            <p className="group__hint">唔知就留空。留空係「未填」，唔會當咗零。</p>
-            {numberField('crew_total', '總共幾多人')}
-            {numberField('work_days', '做幾多天')}
-            {numberField('climbers_per_day', '預計一日幾多個攀樹師')}
+            <p className="group__hint">不確定就留空。留空代表「未填」，不會當作零。</p>
+            {numberField('crew_total', '總共多少人')}
+            {numberField('work_days', '工作多少天')}
+            {numberField('climbers_per_day', '預計每日多少名攀樹師')}
           </fieldset>
 
           <OptionGroup
             legend="垃圾處理"
-            hint="必填，至少揀一個。可以同時揀多過一個。"
+            hint="必填，至少勾選一項。可同時勾選多項。"
             options={WASTE_OPTIONS}
             values={input.waste_options}
             disabled={disabled}
@@ -93,7 +93,7 @@ export default function SiteFormFields({ input, fieldErrors, disabled, patch }: 
 
           <OptionGroup
             legend="機械 — 吊雞"
-            hint="選填。可以同時揀幾部。"
+            hint="選填。可同時勾選多部。"
             options={CRANE_OPTIONS}
             values={input.machine_options}
             disabled={disabled}
@@ -104,7 +104,7 @@ export default function SiteFormFields({ input, fieldErrors, disabled, patch }: 
 
           <OptionGroup
             legend="機械 — 升降台"
-            hint="選填。可以同時揀幾個高度。"
+            hint="選填。可同時勾選多個高度。"
             options={LIFT_OPTIONS}
             values={input.machine_options}
             disabled={disabled}
@@ -138,7 +138,7 @@ export default function SiteFormFields({ input, fieldErrors, disabled, patch }: 
 
           <OptionGroup
             legend="起樹頭"
-            hint="選填。三個都可以獨立揀。"
+            hint="選填。三項可獨立勾選。"
             options={STUMP_OPTIONS}
             values={input.stump_options}
             disabled={disabled}

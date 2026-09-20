@@ -19,7 +19,7 @@ export async function isOffice(client: SupabaseClient, userId: string): Promise<
     .maybeSingle()
 
   if (error) {
-    console.error('[quote-app] 查唔到辦公室權限：', error.message)
+    console.error('[quote-app] 查不到辦公室權限：', error.message)
     return false
   }
   return data !== null

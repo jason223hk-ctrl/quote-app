@@ -91,7 +91,7 @@ export function createPriceApi(client: SupabaseClient, userId: string): PriceApi
 
       if (error) throw reportError(error.message)
       if (!data) {
-        throw new Error('改唔到單價。單價設定只有辦公室改得，你個帳號可能未有權限。')
+        throw new Error('無法修改單價。單價設定只有辦公室可以修改，你的帳號可能未有權限。')
       }
       return data as PriceRow
     },

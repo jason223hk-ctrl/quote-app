@@ -133,7 +133,7 @@ export default function TreeFormPage({
         */}
         <OptionGroup
           legend="修剪"
-          hint="揀修剪就要揀返係邊一種"
+          hint="勾選了修剪，就要指明是哪一種"
           options={PRUNING_OPTIONS}
           values={input.mitigations}
           disabled={busy !== null}
@@ -188,7 +188,7 @@ export default function TreeFormPage({
 
         <OptionGroup
           legend="其他處理方法"
-          hint="可以揀多過一個"
+          hint="可勾選多項"
           options={OTHER_WORK_OPTIONS}
           values={input.mitigations}
           disabled={busy !== null}
@@ -222,7 +222,7 @@ export default function TreeFormPage({
             呢棵樹記低咗「{optionLabel(LEGACY_MITIGATION_OPTIONS, 'pruning')}」，
             係舊格式。<strong>會保留，不會消失。</strong>
             想寫清楚係邊一種修剪，就喺上面「修剪」揀返一個 ——
-            <strong>揀咗之後先影得到嗰個工序嘅相</strong>。
+            <strong>勾選之後，才可以拍攝該工序的相片</strong>。
           </p>
         )}
 
@@ -264,7 +264,7 @@ export default function TreeFormPage({
                   })
                 }
               >
-                {busy === 'delete' ? '處理中…' : '再撳一次確認刪除'}
+                {busy === 'delete' ? '處理中…' : '再點擊一次確認刪除'}
               </button>
               <button
                 className="button button--secondary"
@@ -285,7 +285,7 @@ export default function TreeFormPage({
               刪除呢棵樹
             </button>
           )}
-          <p className="danger-zone__note">刪除只係記低刪除時間，資料庫入面唔會真刪。</p>
+          <p className="danger-zone__note">刪除只會記下刪除時間，資料庫內不會真正刪除。</p>
         </div>
       )}
       </ScrollBody>

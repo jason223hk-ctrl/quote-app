@@ -72,7 +72,7 @@ async function signedFromWorker(
   }
   const body = (await response.json()) as Partial<SignedUrls>
   if (!body.key || !body.put || !body.get) {
-    throw new Error('上傳服務回覆嘅內容唔完整')
+    throw new Error('上傳服務回覆的內容不完整')
   }
   return { key: body.key, put: body.put, get: body.get }
 }
@@ -130,7 +130,7 @@ export async function mirrorPhoto(accessToken: string, photoId: string): Promise
     if (!response.ok) {
       const detail = body.message ?? `上傳服務回覆 ${response.status}`
       console.error('[quote-app] drive mirror failed:', detail)
-      return { ok: false, message: `抄唔到去 Drive：${detail}` }
+      return { ok: false, message: `無法複製到 Drive：${detail}` }
     }
     return { ok: true, alreadyDone: Boolean((body as { alreadyDone?: boolean }).alreadyDone) }
   } catch (caught) {

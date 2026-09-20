@@ -30,7 +30,7 @@
  *
  * **今日（2026-09-14）＝ `false`：**
  * `records.softDelete()` 淨係寫 `deleted_at`，`worker/` 嗰邊**一行清相嘅 code 都未有**
- * （P8 步 3 未做，而且卡住等 Jason 部署）。⇒ **今日「後台仲攞得返」係真嘅，
+ * （P8 步 3 未做，而且卡住等 Jason 部署）。⇒ **今日「後台仍可取回」係真嘅，
  * 而「此操作無法還原」係假嘅。**
  *
  * ⛔⛔ **點解唔而家就寫死「永久刪除」四個字**（Jason 2026-09-14 叫我改）：
@@ -65,7 +65,7 @@ export function deleteDialogTruth(): TruthLine {
   // ⭐ P8 步 3 之後：相真係清走（R2 ＋ Drive 垃圾桶），⛔ 救唔返。
   if (PHOTOS_REALLY_PURGED) return { before: '此操作', strong: '無法還原', after: '。' }
   // 今日：淨係寫 `deleted_at`（CLAUDE.md §2.1 零真刪）。
-  return { before: '刪除係收埋，⛔ 唔係真刪 —— 後台', strong: '仲攞得返', after: '。' }
+  return { before: '刪除只是收起，⛔ 不是真正刪除 —— 後台', strong: '仍可取回', after: '。' }
 }
 
 /**

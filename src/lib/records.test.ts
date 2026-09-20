@@ -129,14 +129,14 @@ describe('validateInput', () => {
 
   /** 地區影響夾車同吊機價，未揀一定要攔住，唔可以悄悄 default。 */
   it('地區未揀就攔住，唔會去到 DB', () => {
-    expect(validateInput({ ...ok, region: '' }).region).toBe('請揀地區')
+    expect(validateInput({ ...ok, region: '' }).region).toBe('請選擇地區')
   })
 
   it('三個都未填就三個提示一齊出', () => {
     expect(validateInput({ ...ok, name: '', address: '', region: '' })).toEqual({
       name: '請填工程名稱',
       address: '請填地址',
-      region: '請揀地區',
+      region: '請選擇地區',
     })
   })
 
@@ -158,7 +158,7 @@ describe('translateDbError', () => {
       translateDbError(
         'null value in column "start_time" of relation "quote_records" violates not-null constraint',
       ),
-    ).toBe('「預計開工」未填好，請檢查返再儲存。')
+    ).toBe('「預計開工」未填妥，請檢查後再儲存。')
   })
 
   it('permission denied 譯成「未 GRANT」', () => {

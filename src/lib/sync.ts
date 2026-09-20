@@ -172,33 +172,6 @@ export function isWorkerDriveFailure(message: string): boolean {
 export function syncAdvice(row: QuotePhoto): SyncAdvice {
   const message = row.drive_error.trim() !== '' ? row.drive_error : row.r2_error
 
-  /*
-   * ⛔⛔⛔ **呢度⛔ 唔准用中文字串做暗號。**
-   *
-   * ⚠️⚠️ 2026-09-19 真係中過，而且中咗之後上咗線：
-   *   舊寫法係 `if (message.includes('搵 Jason'))`，
-   *   而註解寫住「worker 四句都以『請截圖搵 Jason。』收尾」。
-   *   ⇒ #56 把 worker 四句改成「請截圖並聯絡 Jason」、Jason deploy 咗
-   *     （Version 81c304b3）⇒ **呢條分支一條新 error 都中唔到**。
-   *
-   * ⭐ 後果⛔ 唔係「少咗一句」：佢會跌落下面 `/50\d/` 條，
-   *   於是一個「Drive HTTP 500 ＋ 未見過嘅 reason」由「要人處理」
-   *   變成「**無需處理，系統會自動再試**」。⛔ 而系統⛔ 唔會好返。
-   *
-   * ⭐⭐ `records.ts` 自己個註解早就警告過同一件事：
-   *   「⛔ 唔准用個訊息字串嚟認佢 —— 一改文案就靜靜咁失靈，
-   *     而失靈嗰陣冇人見到。」**呢次就係佢本人。**
-   *
-   * ── 而家改用乜 ────────────────────────────────
-   *
-   * ⭐ 用 **Google 自己個 reason code**（`dailyLimitExceeded` 嗰啲）——
-   *   佢係 API token，⛔ 唔係我哋寫嘅文案，⛔ 改書面語⛔ 唔會郁到佢。
-   *
-   * ⛔ **預設係「要人處理」** —— 同舊行為一樣：
-   *   worker 解釋唔到（未見過嘅 reason／Google 冇講原因）就當永久性。
-   *   ⚠️ 呢個⛔ 唔係保守多餘：講錯「唔使理」嘅代價係**冇人再睇**，
-   *     講錯「要處理」嘅代價淨係麻煩一次。
-   */
   // ⭐⭐ Drive 授權過咗期／俾人收返。**一定要行喺下面 403／401 嗰條之前** ——
   //    Google 呢個錯有陣時帶住 401，撞落嗰條就會出「額滿或者冇權限」，
   //    ⛔ 而嗰句叫唔到人去做啱嗰件事（重新授權）。
@@ -230,6 +203,34 @@ export function syncAdvice(row: QuotePhoto): SyncAdvice {
       text: DRIVE_LOGIN_FAILED_MESSAGE,
     }
   }
+
+  /*
+   * ⛔⛔⛔ **呢度⛔ 唔准用中文字串做暗號。**
+   *
+   * ⚠️⚠️ 2026-09-19 真係中過，而且中咗之後上咗線：
+   *   舊寫法係 `if (message.includes('聯絡 Jason'))`，
+   *   而註解寫住「worker 四句都以『請截圖聯絡 Jason。』收尾」。
+   *   ⇒ #56 把 worker 四句改成「請截圖並聯絡 Jason」、Jason deploy 咗
+   *     （Version 81c304b3）⇒ **呢條分支一條新 error 都中唔到**。
+   *
+   * ⭐ 後果⛔ 唔係「少咗一句」：佢會跌落下面 `/50\d/` 條，
+   *   於是一個「Drive HTTP 500 ＋ 未見過嘅 reason」由「要人處理」
+   *   變成「**無需處理，系統會自動再試**」。⛔ 而系統⛔ 唔會好返。
+   *
+   * ⭐⭐ `records.ts` 自己個註解早就警告過同一件事：
+   *   「⛔ 唔准用個訊息字串嚟認佢 —— 一改文案就靜靜咁失靈，
+   *     而失靈嗰陣冇人見到。」**呢次就係佢本人。**
+   *
+   * ── 而家改用乜 ────────────────────────────────
+   *
+   * ⭐ 用 **Google 自己個 reason code**（`dailyLimitExceeded` 嗰啲）——
+   *   佢係 API token，⛔ 唔係我哋寫嘅文案，⛔ 改書面語⛔ 唔會郁到佢。
+   *
+   * ⛔ **預設係「要人處理」** —— 同舊行為一樣：
+   *   worker 解釋唔到（未見過嘅 reason／Google 冇講原因）就當永久性。
+   *   ⚠️ 呢個⛔ 唔係保守多餘：講錯「唔使理」嘅代價係**冇人再睇**，
+   *     講錯「要處理」嘅代價淨係麻煩一次。
+   */
 
   /*
    * ⛔⛔ **呢一段一定要行喺上面兩條授權條之後** —— ⛔ 唔准搬上去。

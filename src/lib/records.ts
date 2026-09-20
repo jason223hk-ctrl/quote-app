@@ -159,9 +159,9 @@ export const FIELD_LABELS: Record<string, string> = {
   mitigation_other: '其他處理方法',
   note: '備註',
   // 現場資料表
-  crew_total: '總共幾多人',
-  work_days: '做幾多天',
-  climbers_per_day: '一日幾多個攀樹師',
+  crew_total: '總共多少人',
+  work_days: '工作多少天',
+  climbers_per_day: '每日多少名攀樹師',
   waste_options: '垃圾處理',
   waste_t24_qty: '24噸夾車架數',
   waste_t30_qty: '30噸夾車架數',
@@ -178,10 +178,10 @@ export type FieldErrors = Partial<Record<keyof RecordInput, string>>
  */
 export function validateInput(input: RecordInput): FieldErrors {
   const errors: FieldErrors = {}
-  if (input.record_date.trim() === '') errors.record_date = '請揀日期'
+  if (input.record_date.trim() === '') errors.record_date = '請選擇日期'
   if (input.name.trim() === '') errors.name = '請填工程名稱'
   if (input.address.trim() === '') errors.address = '請填地址'
-  if (input.region === '') errors.region = '請揀地區'
+  if (input.region === '') errors.region = '請選擇地區'
   return errors
 }
 
@@ -325,11 +325,11 @@ export function translateDbError(message: string): string {
   const notNull = /null value in column "([^"]+)"/.exec(message)
   if (notNull) {
     const field = FIELD_LABELS[notNull[1]] ?? notNull[1]
-    return `「${field}」未填好，請檢查返再儲存。`
+    return `「${field}」未填妥，請檢查後再儲存。`
   }
 
   if (message.includes('permission denied')) {
-    return '呢個帳號未有權限讀寫報價單。資料庫嗰邊未 GRANT 俾 authenticated，要 admin 補返。'
+    return '這個帳號未有權限讀寫報價單。資料庫那邊未 GRANT 給 authenticated，要 admin 補上。'
   }
 
   if (message.includes('row-level security')) {
@@ -341,11 +341,11 @@ export function translateDbError(message: string): string {
   }
 
   if (message.includes('duplicate key')) {
-    return '呢一單好似已經存在，請返清單睇返。'
+    return '此單似乎已經存在，請返回清單查看。'
   }
 
   if (message.includes('Failed to fetch') || message.includes('NetworkError')) {
-    return '連唔到伺服器，請check返個網絡再試。'
+    return '無法連接伺服器，請檢查網絡連線後再試。'
   }
 
   return '無法儲存，請再試一次。如果一直不成功，請截圖並聯絡 Jason。'

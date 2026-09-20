@@ -72,7 +72,7 @@ type Fonts = { cjk: PDFFont; ascii: PDFFont }
 
 async function fetchBytes(url: string): Promise<Uint8Array> {
   const res = await fetch(url)
-  if (!res.ok) throw new Error(`攞唔到 ${url}（${res.status}）`)
+  if (!res.ok) throw new Error(`無法獲取 ${url}（${res.status}）`)
   return new Uint8Array(await res.arrayBuffer())
 }
 

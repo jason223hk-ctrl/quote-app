@@ -115,7 +115,7 @@ export function isUploadInFlight(operationId: string): boolean {
 }
 
 /** 撞正背景重傳嗰陣撳「再試一次」。⛔ 唔准靜靜咁乜都唔做。 */
-export const BUSY_MESSAGE = '呢張相而家背景度自動上緊，唔使撳。等佢傳完就得。'
+export const BUSY_MESSAGE = '這張相片正在背景自動上傳，不需要點擊。等待上傳完成即可。'
 
 export type ResumeDeps = {
   /** 部機所有相。⛔ 唔分工程 —— 見 `photoStore.listAll`。 */

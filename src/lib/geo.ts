@@ -19,24 +19,24 @@ export type ReverseResult = {
 export function geolocationErrorMessage(code: number | null): string {
   switch (code) {
     case 1:
-      return '你拒絕咗定位權限，請自己打地址。（想用返 GPS 就喺瀏覽器設定開返位置權限）'
+      return '你拒絕了定位權限，請自行輸入地址。（如要重新使用 GPS，請在瀏覽器設定開啟位置權限）'
     case 2:
-      return '攞唔到定位，請自己打地址。'
+      return '定位獲取失敗，請自行輸入地址。'
     case 3:
-      return '定位等太耐，請自己打地址。'
+      return '定位等候過久，請自行輸入地址。'
     default:
-      return '定位出咗問題，請自己打地址。'
+      return '定位出現問題，請自行輸入地址。'
   }
 }
 
-export const REVERSE_FAILED_MESSAGE = '反查唔到地址，座標已經記低咗，請自己打。'
-export const REGION_UNKNOWN_MESSAGE = '認唔到地區，請自己揀。'
+export const REVERSE_FAILED_MESSAGE = '無法反查地址，座標已經記錄，請自行輸入。'
+export const REGION_UNKNOWN_MESSAGE = '無法辨認地區，請自行選擇。'
 export const OSM_ATTRIBUTION = '地址資料來自 OpenStreetMap'
 
 export function getCurrentCoords(): Promise<Coords> {
   return new Promise((resolve, reject) => {
     if (typeof navigator === 'undefined' || !navigator.geolocation) {
-      reject(new Error('呢部機唔支援定位，請自己打地址。'))
+      reject(new Error('本裝置不支援定位，請自行輸入地址。'))
       return
     }
 

@@ -187,4 +187,4 @@ export function countsPhase(done: boolean, counts: PurgeCounts | null): CountsPh
 }
 
 /** 數緊嗰陣嗰行字。⛔ 唔准留空 —— 空白會令人以為冇嘢會消失。 */
-export const COUNTING_MESSAGE = '數緊呢一單有幾多樹同相⋯'
+export const COUNTING_MESSAGE = '正在點算此單有多少棵樹和相片⋯'

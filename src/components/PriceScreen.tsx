@@ -142,7 +142,7 @@ export default function PriceScreen({ api, canEdit, onBack }: Props) {
 
       <ScrollBody testid="price-scroll" compact>
         <p className="note-box">
-          此處只設定單價。每張報價實際用幾多，由該工程的「工程資料」決定。
+          此處只設定單價。每張報價實際用多少，由該工程的「工程資料」決定。
           <br />
           標示「逐次報價」的項目沒有固定單價，出報價時須逐次填寫。
           <br />
@@ -151,7 +151,7 @@ export default function PriceScreen({ api, canEdit, onBack }: Props) {
           所有改動儲存後會同步給全公司所有用戶。
         </p>
 
-        {!canEdit && <p className="note-box note-box--warn">你可以睇，但改唔到 —— 單價設定只有辦公室改得。</p>}
+        {!canEdit && <p className="note-box note-box--warn">你可以查看，但不能修改 —— 單價設定只有辦公室可以修改。</p>}
 
         {error && (
           <p className="notice notice--error" role="alert">

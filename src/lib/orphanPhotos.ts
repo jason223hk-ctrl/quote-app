@@ -225,7 +225,7 @@ export function strandedCount(
  */
 export function strandedNote(count: number): string | null {
   if (count <= 0) return null
-  return `有 ${count} 張相傳唔到，而佢哋嘅工程已經刪咗`
+  return `有 ${count} 張相片無法上傳，而它們所屬的工程已經刪除`
 }
 
 /**

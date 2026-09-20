@@ -114,7 +114,7 @@ function reportError(message: string): Error {
   return new Error(translateClientError(message))
 }
 
-const NO_ROW_MESSAGE = '改唔到呢個客戶。可能有人啱啱刪咗佢，或者你冇權改。'
+const NO_ROW_MESSAGE = '無法修改這個客戶。可能剛被其他人刪除，或者你沒有修改權限。'
 
 export function createClientsApi(client: SupabaseClient, userId: string): ClientsApi {
   async function writeBack(

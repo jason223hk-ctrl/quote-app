@@ -6,7 +6,7 @@ import { IconSprite } from './ui/Icon'
 const container = document.getElementById('root')
 
 if (!container) {
-  throw new Error('搵唔到 #root，index.html 有問題')
+  throw new Error('檢索不到 #root，index.html 有問題')
 }
 
 createRoot(container).render(

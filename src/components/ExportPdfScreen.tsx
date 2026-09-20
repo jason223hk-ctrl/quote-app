@@ -124,7 +124,7 @@ export default function ExportPdfScreen({ trees, photos, accessToken, record, on
         }
       }
       if (failed.length === picked.length) {
-        throw new Error('一張相都攞唔到，冇嘢可以匯出。請確認有網絡，再試一次。')
+        throw new Error('一張相片也無法獲取，沒有內容可以匯出。請確認網絡連線後再試一次。')
       }
 
       // ⛔ pdf-lib ＋ fontkit 成 1.1MB，⛔ 唔可以每次開 app 都載 ——
@@ -140,7 +140,7 @@ export default function ExportPdfScreen({ trees, photos, accessToken, record, on
 
       setDone(
         failed.length === 0
-          ? `匯出咗 ${picked.length} 張相。`
+          ? `已匯出 ${picked.length} 張相片。`
           : `已匯出 ${picked.length - failed.length} 張相片。⚠️ 以下 ${failed.length} 張獲取失敗：${failed.join('、')}。請截圖並聯絡 Jason。`,
       )
     } catch (caught) {
@@ -252,7 +252,7 @@ export default function ExportPdfScreen({ trees, photos, accessToken, record, on
                     <button
                       className={`ex-box${on ? ' ex-box--on' : ''}`}
                       type="button"
-                      aria-label={on ? '唔要呢棵樹' : '要呢棵樹'}
+                      aria-label={on ? '不包括這棵樹' : '要呢棵樹'}
                       onClick={(event) => {
                         event.stopPropagation()
                         setSelection((current) => toggleTree(current, row.id, shots))

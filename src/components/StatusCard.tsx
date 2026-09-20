@@ -109,7 +109,7 @@ export default function StatusCard({ record, canSetWon, busy, onChange }: Props)
               type="button"
               onClick={() => setAsking(null)}
             >
-              唔轉住
+              暫不轉換
             </button>
           </div>
         </div>

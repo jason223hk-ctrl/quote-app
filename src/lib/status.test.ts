@@ -145,8 +145,8 @@ describe('quotedAgeText', () => {
     expect(quotedAgeText(r, new Date('2026-09-05T18:00:00+08:00'))).toBe('今日報')
   })
 
-  it('三日前報 → 「報咗 3 日」', () => {
+  it('三日前報 → 「已報價 3 日」', () => {
     const r = rec({ status: 'quoted', price_snapshot_at: '2026-09-02T09:00:00+08:00' })
-    expect(quotedAgeText(r, new Date('2026-09-05T18:00:00+08:00'))).toBe('報咗 3 日')
+    expect(quotedAgeText(r, new Date('2026-09-05T18:00:00+08:00'))).toBe('已報價 3 日')
   })
 })

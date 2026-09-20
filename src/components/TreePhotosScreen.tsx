@@ -101,13 +101,13 @@ export default function TreePhotosScreen({
             title={labelOf(option.value, option.label)}
             hint={null}
             readOnly={option.value === REMOVAL_OPTION.value}
-            readOnlyNote="全景相已經足夠，唔使再影。"
+            readOnlyNote="全景相已經足夠，不需要再拍攝。"
             refreshToken={refreshToken}
           />
         ))}
 
         {slots.length === 0 && (
-          <p className="hint">仲未揀工序。撳上面個樹牌號入「改樹」揀返，呢度就會出返格。</p>
+          <p className="hint">尚未勾選工序。請點擊上方的樹牌號進入「改樹」勾選，這裡就會出現拍攝格。</p>
         )}
       </ScrollBody>
     </>

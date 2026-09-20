@@ -116,7 +116,7 @@ export default function HomeScreen({ records, loading, nav, onRefresh, swipeDele
           ))}
         </ul>
 
-        {!loading && pending.length === 0 && <div className="muted empty">冇工程待報價</div>}
+        {!loading && pending.length === 0 && <div className="muted empty">沒有待報價的工程</div>}
       </main>
 
       {/* ⭐ 圓形 FAB（原型 58px）。⛔ 唔係工程列表嗰個長條掣 —— 嗰版下一輪先改。 */}

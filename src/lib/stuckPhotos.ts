@@ -58,14 +58,14 @@ export function stuckAdvice(item: PendingPhoto): StuckAdvice {
   if (item.status === 'uploading') {
     return {
       permanent: false,
-      text: '而家背景度自動上緊，⛔ 唔使撳。等佢傳完就得。',
+      text: '正在背景自動上傳，⛔ 不需要點擊。等待上傳完成即可。',
     }
   }
 
   if (item.status === 'local') {
     return {
       permanent: false,
-      text: '排緊隊。有網嘅時候會自己傳，唔使做嘢。',
+      text: '正在排隊。有網絡時會自動上傳，不需要處理。',
     }
   }
 
