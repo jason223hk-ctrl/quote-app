@@ -48,7 +48,7 @@ export type PhotoStatus = 'local' | 'uploading' | 'r2' | 'synced' | 'error'
 
 export const PHOTO_STATUS_LABEL: Record<PhotoStatus, string> = {
   local: '只在本裝置',
-  uploading: '上緊',
+  uploading: '上傳中',
   r2: '已入 R2（Drive 未做）',
   synced: '已同步，兩份齊',
   error: '需要人手處理',

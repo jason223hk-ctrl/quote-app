@@ -213,7 +213,7 @@ export function RecordsScreen({
     return (
       <div className="content">
         <p className="notice notice--warning">
-          搵唔到呢一單。{' '}
+          檢索不到此單。{' '}
           <button className="link-button" type="button" onClick={() => nav.go({ name: 'records' })}>
             返工程清單
           </button>

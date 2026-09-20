@@ -183,13 +183,13 @@ export default function TreesScreen({ api, photos, accessToken, record, onBack }
       <ScrollBody testid="tree-scroll" compact onRefresh={reload}>
         {duplicates.length > 0 && (
           <p className="notice notice--warning" role="status">
-            有樹撞咗編號：{duplicates.join('、')}。照儲存得，記住之後分得返邊棵就得。
+            有樹木編號重複：{duplicates.join('、')}。照儲存得，記住之後分得返邊棵就得。
           </p>
         )}
 
         {error && (
           <p className="notice notice--error" role="alert">
-            攞唔到樹木清單：{error}{' '}
+            無法獲取樹木清單：{error}{' '}
             <button className="link-button" type="button" onClick={() => void reload()}>
               再試
             </button>

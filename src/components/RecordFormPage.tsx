@@ -302,7 +302,7 @@ export default function RecordFormPage({
           )}
           {input.gps_lat !== null && input.gps_lng !== null && (
             <span className="field__hint">
-              已記低座標：{input.gps_lat.toFixed(5)}, {input.gps_lng.toFixed(5)}
+              已記錄座標：{input.gps_lat.toFixed(5)}, {input.gps_lng.toFixed(5)}
             </span>
           )}
           <span className="field__hint">{OSM_ATTRIBUTION}</span>

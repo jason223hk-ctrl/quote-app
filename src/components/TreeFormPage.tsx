@@ -112,7 +112,7 @@ export default function TreeFormPage({
           {/* 撞號只係警告，唔會擋住儲存——現場真係會撞。 */}
           {duplicated && (
             <span className="field__warning" role="status">
-              呢個編號同另一棵樹一樣。照儲存得，記住之後分得返邊棵就得。
+              這個編號與另一棵樹相同。仍然可以儲存，只要之後分得出是哪一棵即可。
             </span>
           )}
         </label>
@@ -219,9 +219,9 @@ export default function TreeFormPage({
         */}
         {hasLegacyMitigation(input.mitigations) && (
           <p className="notice notice--warning" role="status">
-            呢棵樹記低咗「{optionLabel(LEGACY_MITIGATION_OPTIONS, 'pruning')}」，
-            係舊格式。<strong>會保留，不會消失。</strong>
-            想寫清楚係邊一種修剪，就喺上面「修剪」揀返一個 ——
+            這棵樹記錄了「{optionLabel(LEGACY_MITIGATION_OPTIONS, 'pruning')}」，
+            屬於舊格式。<strong>會保留，不會消失。</strong>
+            如要寫明是哪一種修剪，請在上面「修剪」勾選一項 ——
             <strong>勾選之後，才可以拍攝該工序的相片</strong>。
           </p>
         )}
@@ -238,7 +238,7 @@ export default function TreeFormPage({
         </label>
 
         {/* ⭐ 同「工程資料」嗰版**一模一樣嘅結構問題**：呢行紅字喺 `</form>` 上面，
-            而「刪除呢棵樹」粒掣喺下面嗰張 `.card danger-zone`。
+            而「刪除這棵樹」粒掣喺下面嗰張 `.card danger-zone`。
             ⛔ 所以呢度都要用會自己拉入畫面嗰個 —— 唔係嘅話「刪一棵樹撳咗冇反應」
             會照樣存在，⚠️ 而且係同一日、同一個原因。 */}
         <ErrorNotice message={error} />
@@ -282,7 +282,7 @@ export default function TreeFormPage({
               disabled={busy !== null}
               onClick={() => setConfirmingDelete(true)}
             >
-              刪除呢棵樹
+              刪除這棵樹
             </button>
           )}
           <p className="danger-zone__note">刪除只會記下刪除時間，資料庫內不會真正刪除。</p>

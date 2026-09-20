@@ -165,7 +165,7 @@ export default function ExportPdfScreen({ trees, photos, accessToken, record, on
 
         {loadError !== null && (
           <p className="notice notice--error" role="alert">
-            攞唔到相片清單：{loadError}{' '}
+            無法獲取相片清單：{loadError}{' '}
             <button className="link-button" type="button" onClick={() => void load()}>
               再試
             </button>
@@ -252,7 +252,7 @@ export default function ExportPdfScreen({ trees, photos, accessToken, record, on
                     <button
                       className={`ex-box${on ? ' ex-box--on' : ''}`}
                       type="button"
-                      aria-label={on ? '不包括這棵樹' : '要呢棵樹'}
+                      aria-label={on ? '不包括這棵樹' : '包括這棵樹'}
                       onClick={(event) => {
                         event.stopPropagation()
                         setSelection((current) => toggleTree(current, row.id, shots))
@@ -322,7 +322,7 @@ export default function ExportPdfScreen({ trees, photos, accessToken, record, on
           onClick={() => void doExport()}
         >
           <Icon name={ICONS.exportPdf} />
-          {busy ? '砌緊…' : '匯出 PDF'}
+          {busy ? '製作中…' : '匯出 PDF'}
         </button>
       </div>
     </>

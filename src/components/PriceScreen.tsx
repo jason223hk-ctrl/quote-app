@@ -194,8 +194,8 @@ export default function PriceScreen({ api, canEdit, onBack }: Props) {
 
         {bad.length > 0 && (
           <p className="notice notice--warning" role="alert">
-            有 {bad.length} 格未填好。⛔ 空白唔等於 $0，亦唔等於「逐次報價」——
-            填返個數先儲存得。
+            有 {bad.length} 格未填妥。⛔ 空白不等於 $0，亦不等於「逐次報價」——
+            要填上數字才能儲存。
           </p>
         )}
 

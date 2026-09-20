@@ -511,7 +511,7 @@ export default function PhotoSlot({
                     onClick={() => void retry(item.operationId)}
                   >
                     {/* ⛔ 唔准淨係變灰 —— 粒掣要自己講返佢做緊嘢。 */}
-                    {retrying === item.operationId ? '上緊⋯' : '再試一次'}
+                    {retrying === item.operationId ? '上傳中⋯' : '再試一次'}
                   </button>
                 )}
               </div>

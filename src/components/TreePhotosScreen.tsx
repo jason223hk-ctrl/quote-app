@@ -23,7 +23,7 @@ type Props = {
  *
  * 由上到下：全景相一格，跟住揀咗幾多個工序就幾多格。
  * ⭐ 撳個樹牌號 ＝ 開「改樹」（原型原文註解：唔要鉛筆仔，撳個名本身就開）。
- * ⭐ 右上角 `×` ＝ 刪除呢棵樹（P3f §3.7），⛔ 唔喺改樹入面。
+ * ⭐ 右上角 `×` ＝ 刪除這棵樹（P3f §3.7），⛔ 唔喺改樹入面。
  *
  * ⛔ 揀咗「移除」嗰格照出，但冇拍攝／相簿 —— 寫住「全景相已經足夠，唔使再影」
  *    （Jason 2026-08-24）。⚠️ 同一棵樹嘅其他工序照樣要影。
@@ -71,7 +71,7 @@ export default function TreePhotosScreen({
             sub={recordName}
           />
         }
-        right={<ChipButton icon={ICONS.del} label="刪除呢棵樹" testid="tree-delete" onClick={onDelete} />}
+        right={<ChipButton icon={ICONS.del} label="刪除這棵樹" testid="tree-delete" onClick={onDelete} />}
       />
 
       <ScrollBody

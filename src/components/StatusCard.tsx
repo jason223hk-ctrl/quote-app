@@ -89,7 +89,7 @@ export default function StatusCard({ record, canSetWon, busy, onChange }: Props)
         ))}
       </div>
 
-      {busy && <p className="loading">改緊⋯</p>}
+      {busy && <p className="loading">修改中⋯</p>}
 
       {blocked !== null && (
         <p className="notice notice--warning" role="alert" data-testid="status-blocked">

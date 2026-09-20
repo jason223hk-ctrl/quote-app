@@ -238,8 +238,8 @@ export default function SyncScreen({
             <div className="sync-sect">仍在本裝置，未寫入資料庫</div>
             <section className="card card--bare">
               <p className="note-box note-box--warn">
-                呢 {stuck.length} 張相仲喺部機度，⛔ 唔會冇咗，但未寫得入資料庫，
-                所以上面三個數唔會計佢哋。逐張嘅原因列咗喺下面。
+                這 {stuck.length} 張相片仍在本裝置，⛔ 不會丟失，但未能寫入資料庫，
+                所以上面三個數字不會計算它們。逐張的原因列在下面。
               </p>
               {stuck.map((item) => {
                 const advice = stuckAdvice(item)

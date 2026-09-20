@@ -265,7 +265,7 @@ export default function SettingsScreen({
               <p className="note-box note-box--warn" data-testid="stranded-note">
                 {/* ⚠️ 真機量出嚟改咗：本來寫「…工程已經刪咗。佢哋嘅工程冇咗，所以…」
                     —— 同一句嘢講咗兩次。⭐ 後半淨係加後果，⛔ 唔重複前提。 */}
-                {strandedLine}，所以永遠都傳唔上去。
+                {strandedLine}，所以永遠都無法上傳。
               </p>
 
               {clearing === 'confirm' || clearing === 'busy' ? (
@@ -281,7 +281,7 @@ export default function SettingsScreen({
                     disabled={clearing === 'busy'}
                     onClick={() => void handleClearStranded()}
                   >
-                    {clearing === 'busy' ? '清緊⋯' : `再點擊一次確認清除這 ${stranded} 張`}
+                    {clearing === 'busy' ? '清除中⋯' : `再點擊一次確認清除這 ${stranded} 張`}
                   </button>
                   <button
                     className="button button--secondary"

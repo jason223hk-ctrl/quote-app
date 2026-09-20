@@ -100,7 +100,7 @@ export default function RecordListPage({
       >
         {error && (
           <p className="notice notice--error" role="alert">
-            攞唔到清單：{error}{' '}
+            無法獲取清單：{error}{' '}
             <button className="link-button" type="button" onClick={onRetry}>
               再試
             </button>
