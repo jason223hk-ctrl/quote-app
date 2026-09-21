@@ -744,6 +744,14 @@ async function patchPhoto(env, token, id, values) {
  *
  * ⛔⛔ 回四個值，⛔ 唔准合埋（`not_found` ⛔ 唔係「拒絕」嘅一種）：
  *   `ok` / `record_not_deleted` / `not_yours` / `not_found`
+ *
+ * ⚠️⚠️ **`ok` ⛔ 唔等於「今次係我打嘅剔」。**
+ *    條 function 入面個 `update` 有 `and purged_at is null` —— 已經打咗剔就
+ *    **影響 0 行，但照樣回 `ok`**（特登嘅：保住「第一次清走係幾時」）。
+ *    ⇒ ⛔ **唔准靠個回值去數「今次清咗幾多張」。**
+ *    ⭐ 呢度個 `purged` 數得準，係因為**上面 `purgePlan()` 已經把
+ *      `purged_at` 有值嗰啲隔咗去 `done`** —— ⛔ 唔係因為個回值分得開。
+ *    ⚠️ 邊日有人拆走嗰個隔篩，呢個數就會靜靜咁變成「掃過幾多張」。
  */
 const PURGE_STAMP_WHY = {
   record_not_deleted:

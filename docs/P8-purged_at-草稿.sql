@@ -6,6 +6,16 @@
 -- ⚠️⚠️ **第 0 段有一條問題，答咗先好跑第 1 段。**
 --    ⛔ 佢唔係細節 —— 答錯嗰邊，成條 `/purge` 由頭到尾一張相都清唔到。
 --
+-- ⛔⛔⛔ **一次跑一段。⛔ 唔准成份貼落去。**
+--
+--   Supabase SQL editor 一次跑幾句，**淨係 show 最後嗰句嘅結果** ——
+--   前面嗰啲你**睇唔到**。⚠️ 而呢份嘢有十幾句，仲要 read-only 同 DDL 撈埋。
+--
+--   ⚠️ **2026-09-20 真係咁中過一次**：CO 一次過俾兩句 SQL Jason，
+--   佢跑完只見到第二句嘅結果，答「唔知你講咩」，要重新問過。
+--
+--   ⇒ **逐段跑，每段跑完對返嗰段寫住嘅「⇒ 預期見到乜」。**
+--
 -- ⭐⭐ 跑幾多次都得（idempotent）。
 --
 -- 背景：2026-09-20 寫 Worker `/purge` 嗰陣揾到 ——
@@ -65,6 +75,9 @@ select pg_get_functiondef(oid) as 原文
  where proname = 'can_edit_quote_record'
    and pronamespace = 'public'::regnamespace;
 
+-- ⇒ **預期見到**：一行全文，入面有 `r.deleted_at is null`。
+--   ⭐ 2026-09-20 已經跑過，⛔ 唔使再跑 —— 留返做記錄。
+
 -- ── ① ⛔ CO 2026-09-20 明文要求：呢句⛔ 唔准刪 ──────────────────────
 --
 -- **而家 `quote_photos` 上面到底有冇 column-level grant？**
@@ -94,6 +107,34 @@ select column_name as 欄名, data_type as 型, is_nullable as 可空
  where table_schema = 'public' and table_name = 'quote_photos'
  order by ordinal_position;
 
+-- ⇒ **預期見到**：十幾行，⛔ **入面冇 `purged_at`**。
+--   ⚠️ 已經有 `purged_at` ⇒ 第 1 段已經跑過，⛔ 唔使再跑（跑咗都冇事）。
+
+
+-- ── ③ ⛔⛔ `is_quote_admin()` 原文 —— ⛔ 讀咗先好跑第 2 段 ──────────
+--
+-- 第 2 段條 function 入面會叫 `public.is_quote_admin()`，
+-- ⛔ **但由頭到尾冇人讀過佢原文。**
+--
+-- ⚠️⚠️ 今朝就係因為同一件事撞過一次：我哋**假設**
+-- `can_edit_quote_record()` 唔會睇 `deleted_at` ⇒ ⛔ 錯，
+-- 而且錯法係「**靜靜咁 0 行**」。⛔ 同一個假設⛔ 唔准做第二次。
+--
+-- ⇒ 要睇嘅三樣：
+--   1. 佢自己有冇 `deleted_at` 之類嘅條件？
+--   2. 佢會唔會撞返 RLS（即係佢讀嘅表自己有冇 policy 攔住佢）？
+--   3. 佢係咪都係 `SECURITY DEFINER`？
+--
+-- ⇒ 貼返俾我睇。⛔ 讀咗先算。
+
+select pg_get_functiondef(oid) as 原文
+  from pg_proc
+ where proname = 'is_quote_admin'
+   and pronamespace = 'public'::regnamespace;
+
+-- ⇒ **預期見到**：一行，`create or replace function public.is_quote_admin() …` 嘅全文。
+--   ⚠️ 零行 ＝ 條 function 唔存在 ⇒ ⛔ 即刻停，話我知（第 2 段會撞 `42883`）。
+
 
 -- ══════════════════════════════════════════════════════════════════
 -- 第 1 段：加個欄
@@ -113,6 +154,8 @@ select column_name as 欄名, data_type as 型, is_nullable as 可空
 
 alter table public.quote_photos
   add column if not exists purged_at timestamptz;
+
+-- ⇒ **預期見到**：`ALTER TABLE`（跑第二次一樣，`if not exists` 擋住咗）。
 
 -- ⛔ **⛔ 唔加 index。**
 --    ⭐ 呢個⛔ 唔係漏咗：「刪咗一半」嗰個數要 join `quote_records`，
@@ -203,6 +246,13 @@ begin
 
   -- ⛔ 淨係呢一個欄。⛔ 唔准加第二個。
   -- ⭐ 已經有值就⛔ 唔覆蓋 —— 保住「第一次清走係幾時」。
+  --
+  -- ⚠️⚠️ **連帶後果，⛔ 唔准當佢唔存在**：已經有值嗰陣，呢句 `update`
+  --    影響 **0 行**，⛔ 但下面照樣回 `ok`。
+  --    ⇒ **Worker 嗰邊⛔ 唔可以靠個回值去數「今次清咗幾多張」** ——
+  --      `ok` 嘅意思係「而家呢張相係打咗剔嘅狀態」，
+  --      ⛔ **唔係**「今次係我打嘅」。
+  --    ⭐ 2026-09-21 本機實測：第二次 stamp 之後個 `purged_at` 一個字都冇變。
   update public.quote_photos
      set purged_at = now()
    where id = p_photo_id
@@ -213,8 +263,13 @@ end
 $function$;
 
 -- ⛔ `authenticated` 行得。⛔ 唔 grant 俾 `anon`、⛔ 唔 grant 俾 `service_role`。
+-- ⇒ 上面 `create` 嗰句**預期見到**：`CREATE FUNCTION`。
+--   ⚠️ 撞 `42883 function auth.uid() does not exist` ⇒ ⛔ 停，話我知。
+
 revoke all on function public.quote_purge_stamp(uuid, boolean) from public;
 grant execute on function public.quote_purge_stamp(uuid, boolean) to authenticated;
+
+-- ⇒ **預期見到**：`REVOKE` 一句、`GRANT` 一句。
 
 
 -- ══════════════════════════════════════════════════════════════════
@@ -263,11 +318,44 @@ select p.proname as 名, p.prosecdef as security_definer,
    and p.proname = 'quote_purge_stamp';
 
 -- ⑥ ⛔⛔ 條 function 入面⛔ 唔准有 delete／drop／truncate
---    ⭐ 預期：三個都係 false。⚠️ 任何一個 true ＝ ⛔ 即刻話我知，⛔ 唔好用。
+--
+-- ⛔⛔ **⛔ 唔准寫成 `ilike '%delete%'`** —— ⚠️ 我第一版就係咁寫，而佢**一定誤報**：
+--    條 function body 入面有 `r.deleted_at is not null` 同 `v_record_deleted`
+--    ⇒ `'%delete%'` 配到 `deleted_at` ⇒ **永遠 true**。
+--    ⭐ 而個指示係「true ＝ 即刻停手」⇒ **Jason 會停低一鑊唔使停嘅**；
+--    ⚠️ 或者更衰：佢學識「呢個紅燈唔使理」，而真係有 `delete` 嗰日佢照樣唔理。
+--
+-- ⭐ 改用**字界**比對（`\m` ＝ 字頭、`\M` ＝ 字尾）。
+--   ⛔ 呢個⛔ 唔係我估嘅 —— 2026-09-21 喺一個本機 PostgreSQL 16.13 上面實測過，
+--   用條 function 嘅**逐字 body** 同一條真係有 `DELETE` 嘅 function 做對照：
+--
+--     邊條                ilike '%delete%'    ~* '\mdelete\M'
+--     quote_purge_stamp          t                   f      ← ⭐ 分得開
+--     （真係有 DELETE 嗰條）      t                   t
+--
+--   仲試過：大階 `DELETE FROM`、`delete` 同 `from` 中間換行、
+--   `execute 'delete from …'`（動態 SQL）—— **三種都捉到**；
+--   而 `'nothing deletes here'`（字係 `deletes`）⛔ 唔會誤報。
+--
+-- ⚠️⚠️ **佢有一個已知誤報**（一樣係實測）：**註解入面有個 `delete` 字，一樣會 true。**
+--    ⇒ 所以下面個指示⛔ **唔係「true 就停手」**，係
+--      **「true ⇒ 行埋 ⑥-2 用人眼睇一次」**。⛔ 一個字串比對⛔ 做唔到判決。
+
 select
-  (pg_get_functiondef(p.oid) ilike '%delete%')   as 有冇delete,
-  (pg_get_functiondef(p.oid) ilike '%drop%')     as 有冇drop,
-  (pg_get_functiondef(p.oid) ilike '%truncate%') as 有冇truncate
+  (pg_get_functiondef(p.oid) ~* '\mdelete\M')   as 有冇delete,
+  (pg_get_functiondef(p.oid) ~* '\mdrop\M')     as 有冇drop,
+  (pg_get_functiondef(p.oid) ~* '\mtruncate\M') as 有冇truncate
+  from pg_proc p
+ where p.pronamespace = 'public'::regnamespace
+   and p.proname = 'quote_purge_stamp';
+
+-- ⇒ **預期見到**：三個都係 `f`。
+--   ⚠️ 任何一個 `t` ⇒ ⛔ 唔好當佢一定有事，行埋下面 ⑥-2。
+
+-- ⑥-2 ⭐ 印晒條 function 出嚟，**人眼睇一次**（⛔ 呢個先係判決）
+--     ⇒ 預期見到：`update public.quote_photos set purged_at = now() …` **得呢一句寫入**，
+--       ⛔ 冇 `delete from`、⛔ 冇 `drop`、⛔ 冇 `truncate`、⛔ 冇第二張表。
+select pg_get_functiondef(p.oid) as 原文
   from pg_proc p
  where p.pronamespace = 'public'::regnamespace
    and p.proname = 'quote_purge_stamp';
