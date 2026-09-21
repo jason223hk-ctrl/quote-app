@@ -141,7 +141,7 @@ deploy 咗之後 —— `src/lib/sync.ts` 嗰句 `message.includes('搵 Jason')`
 | 2026-09-17 | `5066c4d1-0760-4de9-aec0-39a0d1f448f1` | ⛔ 冇帶 429 logging（序搞錯咗，提前跑咗） |
 | 2026-09-19 | `77d5eeb9-d5da-40dd-8674-269746c5aa5e` | ✅ `/rename-tree` ＋ Drive 429 logging（等咗兩日） |
 | 2026-09-19 | `81c304b3-2f54-4d57-bed9-50b225dd2576` | ✅ worker 42 句書面語 |
-| ⏳ **待 deploy** | —— | 「複製上 Drive 之後**核對不符**」（Jason 2026-09-19 收返「校驗」） |
+| 2026-09-20 | `c6863fd8-ff39-42ba-8bfc-6525ad68b743` | ✅ 「複製上 Drive 之後**核對不符**」（Jason 2026-09-19 收返「校驗」）—— ⭐ `FORBIDDEN` 條尺守嗰個決定終於上埋 worker |
 
 ## 部署完之後
 
