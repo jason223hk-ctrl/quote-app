@@ -15,7 +15,7 @@
 /* ─────────────────────────────────────────────────────────────────────────────
  * ⛔⛔ 次序係定死嘅，⛔ 唔准調轉
  *
- *   ① 問准（PATCH 一次，⛔ 唔改值）
+ *   ① 問准（`quote_purge_stamp(id, p_dry_run => true)` —— ⛔ 一個字都唔寫）
  *   ② R2 刪 bytes
  *   ③ Drive 掉垃圾桶
  *   ④ stamp `quote_photos.purged_at`
@@ -60,22 +60,66 @@
  *
  *   setup ＝ 4   `userIdFrom` ＋ 讀 `quote_records`（⛔ 確認真係刪咗）
  *                ＋ 讀 `quote_photos` ＋ `googleToken`
- *   每張相 ＝ 4  ① 問准 PATCH ＋ ② R2 DELETE ＋ ③ Drive trash ＋ ④ stamp PATCH
  *
- *   ⇒ floor((50 − 4) / 4) = 11
+ *   每張相最多 ＝ 4
+ *     ① 問准 `quote_purge_stamp(…, true)`
+ *     ② R2 `DELETE`（冇 `r2_key` 就慳返）
+ *     ③ Drive trash（冇 `drive_file_id` 就慳返）
+ *     ④ 打剔 `quote_purge_stamp(…, false)`
  *
- * ⇒ 取 **10**，留一格鬆動（4 ＋ 10×4 ＝ 44）。
+ *   ⇒ floor((50 − 4) / 4) = 11 ⇒ 取 **10**，留一格鬆動。
  *
- * ⚠️ 呢個 10 係**一次掂幾多張相**，⛔ 唔理佢哋各自要幾多個 subrequest ——
- *    冇 `drive_file_id` 嘅少一個，`nothing` 嗰啲（雲端兩邊都冇）**淨係要 1 個**。
- *    ⭐ 即係話 10 係**最壞情況**，⛔ 而故意數到最壞先係安全嗰邊。
+ * ⛔⛔ **`nothing` 嗰批（雲端兩邊都冇）⛔ 唔係另一疊，佢哋同 `todo` 共用同一個上限。**
+ *
+ *   ⚠️ CO 2026-09-21 問：一單有 30 張「只剩部機一份」嘅工程，
+ *      會唔會變成 `4 + 30×1 + 10×4 = 74` ⇒ **爆 50**？
+ *   ⭐ **⛔ 唔會** —— `worker.mjs` 嗰邊係先把兩疊**併埋做一條 `queue`**，
+ *      再 `slice(0, PURGE_BATCH_MAX)`：
+ *
+ *        const queue = [...plan.todo, ...plan.nothing.map(…)]
+ *        const batch = queue.slice(0, PURGE_BATCH_MAX)
+ *        const hitLimit = queue.length > batch.length
+ *
+ *      ⇒ **一個 request 最多掂 10 張相，⛔ 唔理佢哋係邊一疊。**
+ *      ⇒ 上面嗰單 30 張嘅工程：一次做 10 張、回 `hitLimit: true` ＋ `remaining: 20`，
+ *        ⛔ 唔會爆。
+ *
+ *   ⭐ **最壞情況嘅算式**（10 張全部係 `todo`、而且兩邊雲端都有）：
+ *
+ *        4 ＋ 10 × 4 ＝ **44** ≤ 50   ✓
+ *
+ *      `nothing` 嗰啲只行 ①④ ⇒ 每張 **2** 個（⛔ 唔係 1 個 —— 問准嗰下照行，
+ *      因為佢哋一樣要過 RLS 先 stamp 得到）⇒ 10 張全部係 `nothing` ＝
+ *      `4 ＋ 10×2 ＝ 24`，**比最壞情況仲鬆**。
+ *
+ *   ⚠️ **⛔ 有測試釘住呢件事**（`purgeRoute.test.mjs`）：一個**全部係 `nothing`**
+ *      嘅 fixture、一個**混住**嘅 fixture，兩個都逐個外呼數。
+ *      ⛔ 冇嗰兩條，我哋就係靠讀 code 講「應該唔會爆」。
+ *
  * ⛔ 呢個數要喺真嘢上面量返一次先定死（計劃書 §3.3）——
  *    ⭐ 而家呢個係**計出嚟嘅上限**，⛔ 唔係實測過嘅數。Jason deploy 完要量。
  */
 export const PURGE_BATCH_MAX = 10
 
-/** loop 上限。⛔ 唔准無限 —— 撞到就回 `hitLimit`，叫人再撳一次。 */
-export const PURGE_ROUNDS_MAX = 20
+/*
+ * ⛔⛔ **本來呢度有個 `PURGE_ROUNDS_MAX = 20`，2026-09-21 剷咗。**
+ *
+ * ⚠️ CO 問：佢係「前端撳幾多次」定「Worker 入面 loop 幾多轉」？
+ * ⭐ 答案係**兩樣都唔係** —— 佢**由頭到尾冇人用過**。
+ *   `grep` 過成個 repo：得佢自己嗰行 `export`，同埋一條測試斷言佢「係有限數」。
+ *
+ * ⛔⛔ 即係話佢係一個**讀落似保證、實際乜都唔保證**嘅常數 ——
+ *   而嗰條測試仲會**綠住**，因為佢驗嘅係「20 係一個有限數」，
+ *   ⛔ 唔係「真係有人攔住個 loop」。⭐ 同「一把量緊發水畫面嘅尺」同一個家族。
+ *
+ * ⇒ **`/purge` 入面根本冇 loop**：一個 request 做一批（`PURGE_BATCH_MAX`），
+ *   做唔晒就回 `hitLimit` ＋ `remaining`，**由人撳「繼續清」再叫一次**
+ *   （CO 2026-09-20 揀咗「一粒掣」，⛔ 唔係自動再試）。
+ *   ⇒ 冇機器 loop ⇒ ⛔ 唔需要 loop 上限。
+ *
+ * ⚠️ 邊日真係加返一個自動重試，**⛔ 唔准淨係加返個常數** ——
+ *   要連埋「邊度真係讀佢」同一條會紅嘅測試一齊加。
+ */
 
 /**
  * 邊幾張要清、邊幾張已經清咗、邊幾張根本冇嘢好清。

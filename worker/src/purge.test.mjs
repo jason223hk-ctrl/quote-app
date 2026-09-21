@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
   PURGE_BATCH_MAX,
-  PURGE_ROUNDS_MAX,
   driveGone,
   purgePlan,
   purgeSummary,
@@ -107,11 +106,6 @@ describe('PURGE_BATCH_MAX：⛔ 唔准超過 Cloudflare 個 subrequest 上限', 
     expect(SETUP + PURGE_BATCH_MAX * PER_PHOTO).toBeLessThanOrEqual(50)
     // ⭐ 而且要留有鬆動 —— 剛剛好 50 就係下次加一個 fetch 即刻爆。
     expect(SETUP + (PURGE_BATCH_MAX + 1) * PER_PHOTO).toBeLessThanOrEqual(50)
-  })
-
-  it('⛔ loop 一定要有上限', () => {
-    expect(PURGE_ROUNDS_MAX).toBeGreaterThan(0)
-    expect(Number.isFinite(PURGE_ROUNDS_MAX)).toBe(true)
   })
 })
 

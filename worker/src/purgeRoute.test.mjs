@@ -303,6 +303,65 @@ describe('⛔ 一批做唔晒 ⇒ 要講', () => {
     expect(4 + 10 * 4).toBeLessThanOrEqual(50)
   })
 
+  /*
+   * ⛔⛔ **`nothing` 嗰批（雲端兩邊都冇）⛔ 唔准另開一疊行。**
+   *
+   * ⚠️ CO 2026-09-21 問：一單有 30 張「只剩部機一份」嘅工程，
+   *    會唔會變成 `4 + 30×1 + 10×4 = 74` ⇒ 爆 Cloudflare 個 50 subrequest 上限？
+   *
+   * ⭐⭐ 呢兩條測試就係去**量**佢，⛔ 唔係讀 code 講「應該唔會」。
+   *    ⚠️ 上面嗰條「逐個外呼對」嘅 fixture **全部係 `todo`**
+   *    ⇒ 佢由頭到尾**冇碰過呢個情況**（CO 捉返）。
+   */
+  it('⛔ 30 張全部係「雲端兩邊都冇」⇒ 一樣封頂 10 張，⛔ 唔爆', async () => {
+    const many = Array.from({ length: 30 }, (_, i) => ({
+      id: `4444${String(i).padStart(4, '0')}-4444-4444-8444-444444444444`,
+      r2_key: '',
+      drive_file_id: '',
+      purged_at: null,
+    }))
+    const { body, calls } = await purge({ over: { photos: () => reply(many) } })
+
+    // ⭐ 一個 request 掂 10 張，⛔ 唔理佢哋係邊一疊。
+    expect(body.hitLimit).toBe(true)
+    expect(body.remaining).toBe(20)
+    expect(body.nothingToClear).toBe(30)
+
+    // ⛔ 冇 bytes 好清 ⇒ ⛔ 唔掂 R2、⛔ 唔掂 Drive、⛔ 連 Google token 都唔攞。
+    expect(calls).not.toContain('r2-delete')
+    expect(calls).not.toContain('drive-trash')
+    expect(calls).not.toContain('google-token')
+
+    // ⭐ 每張 2 個（問准 ＋ 打剔）—— ⛔ 唔係 1 個：問准嗰下照行。
+    expect(calls.filter((c) => c === 'probe')).toHaveLength(10)
+    expect(calls.filter((c) => c === 'stamp')).toHaveLength(10)
+
+    // ⛔⛔ 最緊要嗰句：成個 request 嘅外呼⛔ 唔准爆 50。
+    expect(calls.length).toBeLessThanOrEqual(50)
+    expect(calls.length).toBe(3 + 10 * 2) // setup 3（冇攞 google token）＋ 10×2
+  })
+
+  it('⛔ 混住（20 張要清 ＋ 20 張雲端冇）⇒ 一樣封頂 10 張，⛔ 唔爆', async () => {
+    const mk = (i, empty) => ({
+      id: `5555${String(i).padStart(4, '0')}-5555-4555-8555-555555555555`,
+      r2_key: empty ? '' : `user-1/${i}.jpg`,
+      drive_file_id: empty ? '' : `drv-${i}`,
+      purged_at: null,
+    })
+    const many = [
+      ...Array.from({ length: 20 }, (_, i) => mk(i, false)),
+      ...Array.from({ length: 20 }, (_, i) => mk(100 + i, true)),
+    ]
+    const { body, calls } = await purge({ over: { photos: () => reply(many) } })
+
+    expect(body.hitLimit).toBe(true)
+    expect(body.remaining).toBe(30)
+    // ⭐ `todo` 排喺 `nothing` 前面 ⇒ 呢一批 10 張全部要清雲端。
+    expect(calls.filter((c) => c === 'r2-delete')).toHaveLength(10)
+    expect(calls.length).toBeLessThanOrEqual(50)
+    expect(calls.length).toBe(4 + 10 * 4) // ⭐ 最壞情況個算式本人：44
+  })
+
   /* ⛔ subrequest ⛔ 唔准爆 50（Cloudflare 一個 request 嘅上限）。 */
   it('最壞情況一個 request 嘅外呼⛔ 唔可以超過 50', async () => {
     const many = Array.from({ length: 11 }, (_, i) => ({
