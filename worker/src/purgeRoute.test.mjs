@@ -147,6 +147,14 @@ describe('⛔⛔ 閘二：RLS 拒絕 ⇒ 一個 byte 都唔准掂', () => {
     expect(body.purged).toBe(0)
     expect(body.failed).toHaveLength(1)
     expect(body.failed[0].why).toContain('不是你建立的')
+    /*
+     * ⛔⛔ CLAUDE.md §2.7：⛔ 唔准淨係講「係乜事」，要講**搵邊個 ＋ 做乜**。
+     * ⚠️ 2026-09-22：閘二係 `v_mine or is_quote_admin()`，而 `quote_admins`
+     *    入面得 Jason 同 Anna ⇒ 阿耀／阿聰撞到呢句係**現場真會發生**嘅事。
+     *    ⛔ 冇咗下面兩句，佢哋淨係知「唔得」，⛔ 唔知下一步做乜。
+     */
+    expect(body.failed[0].why).toContain('找建立這一單的同事')
+    expect(body.failed[0].why).toContain('管理員')
     expect(body.message).toContain('只清走了一部分')
   })
 

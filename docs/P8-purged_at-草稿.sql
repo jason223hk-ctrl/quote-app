@@ -132,6 +132,111 @@ select pg_get_functiondef(oid) as 原文
  where proname = 'is_quote_admin'
    and pronamespace = 'public'::regnamespace;
 
+-- ✅ **2026-09-22 Jason 跑咗，三條全部過到**（原文逐字）：
+--
+--   CREATE OR REPLACE FUNCTION public.is_quote_admin()
+--    RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path TO 'public'
+--   AS $function$
+--     select exists (select 1 from public.quote_admins where user_id = auth.uid());
+--   $function$
+--
+--   1. ⛔ 冇 `deleted_at` 之類嘅條件 ✅
+--   2. `SECURITY DEFINER` 讀 `quote_admins` ⇒ ⛔ 唔會撞返 RLS ✅
+--   3. 係 `SECURITY DEFINER` ✅
+--
+-- ⇒ **第 2 段條 function 可以照跑。呢條版咗。**
+
+
+-- ── ⛔⛔ 一個陷阱：**⛔ 唔准用 `select is_quote_admin();` 去驗「我係唔係 admin」** ──
+--
+-- ⚠️⚠️ 喺 **Supabase SQL editor** 度跑 `select public.is_quote_admin();`
+--    **一定回 `false`，就算你真係 admin。**
+--
+-- ⭐ 點解：editor 用緊 `postgres` 身分 ⇒ `auth.uid()` 回 **NULL**
+--   ⇒ `select 1 from quote_admins where user_id = NULL` ⇒ **永遠 0 行**
+--   （SQL 入面 `NULL = 任何嘢` 既唔係 true 又唔係 false，總之⛔ 唔會配到）。
+--
+-- ⭐ 本機實測（2026-09-22，一個掉得嘅 PostgreSQL 16 cluster，
+--   條 function 逐字照 Jason 貼返嚟嗰個原文，張表入面特登放咗 2 個人）：
+--
+--     ⓵ auth.uid() 回 NULL（＝ SQL editor 嗰個情況）
+--        auth_uid | 我係咪admin | 張表入面有幾多人
+--       ----------+-------------+------------------
+--                 | f           |                2      ← ⛔ 張表有人，一樣回 f
+--
+--     ⓶ 扮成 Jason 登住入（auth.uid() 有值）
+--        我係咪admin
+--       -------------
+--        t
+--
+--     ⓷ 點解
+--        NULL = 某個值 | NULL is null
+--       ---------------+--------------
+--                      | t                             ← ⛔ 空白，即係「唔知」
+--
+-- ⛔⛔ **呢個係一個「答案跌落好確定、但佢答緊另一條問題」嘅形狀** ——
+--    同 `docs/開發紀錄.md` 附錄 B **D9** 嗰條界線
+--    （本機量到嘅係語意、⛔ 唔係佢哋個 DB 嘅狀態）同一個家族。
+--
+-- ⇒ ⭐ **要驗「邊個係 admin」，直接讀張表**（順手 join 返個電郵）：
+--
+--     select a.user_id, u.email
+--       from public.quote_admins a
+--       join auth.users u on u.id = a.user_id
+--      order by u.email;
+--
+--   ⛔ **個電郵⛔ 唔准貼入 repo。**
+
+
+-- ── ③-2 ⚠️⚠️ 但佢帶出一條新嘢：**`quote_admins` 入面有冇人** ──────
+--
+-- ⭐ `is_quote_admin()` 嘅意思就係「`auth.uid()` 喺唔喺 `quote_admins` 入面」。
+--
+-- ⚠️⚠️ **而呢個 repo 已經中過一次**：`docs/開發紀錄.md` 附錄 B
+--    **「建咗張權限表 ≠ 入面有人」**（PR #18）—— `quote_admins` 靜咗一個月，
+--    張表建咗、policy 齊、條 function 行得，⛔ **但入面一個人都冇**。
+--
+-- ⇒ **對 `/purge` 嘅實際影響**（閘二係 `v_mine or public.is_quote_admin()`）：
+--
+--   ⭐ **張表空 ⇒ 右邊嗰半永遠 false ⇒ 閘二退化成淨係 `v_mine`**
+--     —— 即係**淨係開單嗰個人清得到**。
+--
+--   · Jason 自己開嘅單 ⇒ ✅ 冇事。
+--   · ⚠️ **阿耀／聰開嗰單，Jason 刪咗之後想清相 ⇒ 會收到 `not_yours`。**
+--
+-- ⛔⛔ **呢個⛔ 唔係一個 bug** —— 條 function 照佢寫嘅做。
+--    ⭐ **但人要知**，否則會變成「點解我 admin 都清唔到」，
+--    而畫面上**⛔ 冇任何線索**話俾佢聽係 `quote_admins` 空咗。
+--
+-- ⇒ 跑呢句只讀（⭐ 一句就答到）：
+
+select count(*) as 幾個管理員 from public.quote_admins;
+
+-- ⇒ **預期見到**：一個數。
+--
+-- ✅ **2026-09-22 Jason 跑咗：`2` —— Jason 同 Anna**
+--    （佢自己 `join auth.users` 核對過邊兩個人；⛔ 電郵唔入 repo）。
+--
+-- ⇒ **閘二對 Jason 過到** —— 佢刪任何人開嘅單都清得到相。
+--   ⭐ **P8 呢條路⛔ 冇咗 blocker。**
+--
+-- ⚠️⚠️ **但現場兩個人⛔ 唔係 admin：阿耀、阿聰。**
+--    而**阿耀係主力開單嗰個**（報價、見客），**阿聰主力做工程**
+--    ⇒ **阿聰去清一單阿耀開嘅工程，就會收到 `not_yours`。**
+--    ⛔ 呢個⛔ 唔係理論情況，係現場真係會發生嘅事。
+--
+-- ⇒ 所以 `worker/src/worker.mjs` 嗰句 `not_yours` 已經改到**講埋下一步**：
+--   「請找建立這一單的同事幫手，或者找**管理員**代勞。」
+--
+-- ⭐⭐ **⛔ 特登冇寫人名。** 我本來寫「（Jason 或 Anna）」，
+--    而 CO 2026-09-22 用返我自己標嗰個代價做判決：
+--    **一個會同 `quote_admins` 飄開、而又冇尺守得住嘅字串，⛔ 唔准要。**
+--    ⚠️ Anna 有日唔做、阿耀有日加入 admin —— 兩樣都係正常事，
+--      而兩樣都⛔ 冇嘢會提人返嚟改嗰行字。
+--    ⇒ 「管理員」指嘅係一個**角色**，而角色嘅定義**就喺呢張表度**。
+--
+-- ⭐ **⇒ 改 `quote_admins` 嗰陣，⛔ 唔使返去改任何字串。** 呢個就係重點。
+
 -- ⇒ **預期見到**：一行，`create or replace function public.is_quote_admin() …` 嘅全文。
 --   ⚠️ 零行 ＝ 條 function 唔存在 ⇒ ⛔ 即刻停，話我知（第 2 段會撞 `42883`）。
 
