@@ -147,6 +147,47 @@ select pg_get_functiondef(oid) as 原文
 -- ⇒ **第 2 段條 function 可以照跑。呢條版咗。**
 
 
+-- ── ⛔⛔ 一個陷阱：**⛔ 唔准用 `select is_quote_admin();` 去驗「我係唔係 admin」** ──
+--
+-- ⚠️⚠️ 喺 **Supabase SQL editor** 度跑 `select public.is_quote_admin();`
+--    **一定回 `false`，就算你真係 admin。**
+--
+-- ⭐ 點解：editor 用緊 `postgres` 身分 ⇒ `auth.uid()` 回 **NULL**
+--   ⇒ `select 1 from quote_admins where user_id = NULL` ⇒ **永遠 0 行**
+--   （SQL 入面 `NULL = 任何嘢` 既唔係 true 又唔係 false，總之⛔ 唔會配到）。
+--
+-- ⭐ 本機實測（2026-09-22，一個掉得嘅 PostgreSQL 16 cluster，
+--   條 function 逐字照 Jason 貼返嚟嗰個原文，張表入面特登放咗 2 個人）：
+--
+--     ⓵ auth.uid() 回 NULL（＝ SQL editor 嗰個情況）
+--        auth_uid | 我係咪admin | 張表入面有幾多人
+--       ----------+-------------+------------------
+--                 | f           |                2      ← ⛔ 張表有人，一樣回 f
+--
+--     ⓶ 扮成 Jason 登住入（auth.uid() 有值）
+--        我係咪admin
+--       -------------
+--        t
+--
+--     ⓷ 點解
+--        NULL = 某個值 | NULL is null
+--       ---------------+--------------
+--                      | t                             ← ⛔ 空白，即係「唔知」
+--
+-- ⛔⛔ **呢個係一個「答案跌落好確定、但佢答緊另一條問題」嘅形狀** ——
+--    同 `docs/開發紀錄.md` 附錄 B **D9** 嗰條界線
+--    （本機量到嘅係語意、⛔ 唔係佢哋個 DB 嘅狀態）同一個家族。
+--
+-- ⇒ ⭐ **要驗「邊個係 admin」，直接讀張表**（順手 join 返個電郵）：
+--
+--     select a.user_id, u.email
+--       from public.quote_admins a
+--       join auth.users u on u.id = a.user_id
+--      order by u.email;
+--
+--   ⛔ **個電郵⛔ 唔准貼入 repo。**
+
+
 -- ── ③-2 ⚠️⚠️ 但佢帶出一條新嘢：**`quote_admins` 入面有冇人** ──────
 --
 -- ⭐ `is_quote_admin()` 嘅意思就係「`auth.uid()` 喺唔喺 `quote_admins` 入面」。
@@ -172,12 +213,23 @@ select pg_get_functiondef(oid) as 原文
 select count(*) as 幾個管理員 from public.quote_admins;
 
 -- ⇒ **預期見到**：一個數。
---   · **0** ⇒ ⚠️ 閘二而家實際上淨係 `v_mine`。⛔ 唔攔住跑第 1／第 2 段，
---     ⛔ 但任何「靠 admin 行得通」嘅嘢⛔ 都未可以當佢得。
---   · **≥ 1** ⇒ ✅ 兩邊都行得通。⭐ 順手核對返係咪你預期嗰幾個人。
 --
--- ⛔ 呢個數**⛔ 唔准估**。（CO 2026-09-22 明文：答案返到嚟之前，
---    ⛔ 唔准寫任何依賴 admin 行得通嘅嘢。）
+-- ✅ **2026-09-22 Jason 跑咗：`2` —— Jason 同 Anna**
+--    （佢自己 `join auth.users` 核對過邊兩個人；⛔ 電郵唔入 repo）。
+--
+-- ⇒ **閘二對 Jason 過到** —— 佢刪任何人開嘅單都清得到相。
+--   ⭐ **P8 呢條路⛔ 冇咗 blocker。**
+--
+-- ⚠️⚠️ **但現場兩個人⛔ 唔係 admin：阿耀、阿聰。**
+--    而**阿耀係主力開單嗰個**（報價、見客），**阿聰主力做工程**
+--    ⇒ **阿聰去清一單阿耀開嘅工程，就會收到 `not_yours`。**
+--    ⛔ 呢個⛔ 唔係理論情況，係現場真係會發生嘅事。
+--
+-- ⇒ 所以 `worker/src/worker.mjs` 嗰句 `not_yours` 已經改到**指名**：
+--   「請找建立這一單的同事幫手，或者找管理員（Jason 或 Anna）代勞。」
+--
+-- ⛔⛔ **⇒ 改 `quote_admins`（加人／減人）嗰陣，⛔ 要返嚟改埋嗰一行。**
+--    ⚠️ ⛔ 冇尺守得住呢樣 —— 一個 Worker 嘅字串⛔ 對唔到 DB 一張表。
 
 -- ⇒ **預期見到**：一行，`create or replace function public.is_quote_admin() …` 嘅全文。
 --   ⚠️ 零行 ＝ 條 function 唔存在 ⇒ ⛔ 即刻停，話我知（第 2 段會撞 `42883`）。
