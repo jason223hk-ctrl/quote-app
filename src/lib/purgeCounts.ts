@@ -69,9 +69,27 @@ export function purgeCounts(
     seen.add(item.operationId)
   }
 
-  // ⚠️ 將來（P8 步 3）`quote_photos` 會多一個 `purged_at`。⛔ 到時要喺上面
-  //    再隔走「已經清咗」嗰啲 —— 佢哋冇 bytes 剩，⛔ 唔應該再數落「會消失」。
-  //    ⛔ 而家個 schema 冇呢個欄，所以呢度**冇扮有** —— 見計劃書 §7 步 3。
+  /**
+   * ✅ **2026-09-22：`quote_photos.purged_at` 已經加咗**（Jason 跑咗
+   * `docs/P8-purged_at-草稿.sql`）。⚠️ 呢度**照舊⛔ 冇隔走「已經清咗」嗰啲** ——
+   * ⛔ 而佢⛔ 唔係漏咗，下面係理由：
+   *
+   * ⭐ `purged_at` **只可能**出現喺一單**已經刪咗**嘅工程嘅相上面 ——
+   *   條 `quote_purge_stamp()` 入面第一道就係 `r.deleted_at is not null`
+   *   （`docs/P8-purged_at-草稿.sql` 第 2 段），⛔ 冇第二條路寫得低佢。
+   * ⭐ 而呢個 function 淨係俾刪工程彈窗叫，⚠️ 而嗰個彈窗**只會喺一單仲喺度
+   *   嘅工程度開得到**（刪咗嘅單根本唔會出喺清單／工程頁）。
+   * ⇒ 「一張 `purged_at` 有值嘅相被數入『會消失』」**今日撞唔到**。
+   *
+   * ⛔⛔ **但呢個⛔ 唔係一條尺，係一個推論。** 邊日有人做到「睇返已刪工程」
+   *   （P8 步 5 嗰行設定頁就行緊呢個方向），呢個推論即刻唔成立 ⇒
+   *   ⭐ **到嗰日一定要喺上面隔走 `purged_at` 有值嗰啲**，
+   *   否則畫面會講「會消失 N 張」，而其中幾張**早就冇咗 bytes**。
+   *
+   * ⚠️ 同一個形狀嘅第二個：`quote_photos.deleted_at`（見上面）——
+   *   彈窗隔走軟刪咗嗰啲，而 `/purge` ⛔ 唔隔 ⇒ 兩個數會唔同。
+   *   ⭐ 今日一樣撞唔到（冇任何一段 code 寫嗰個欄）。
+   */
 
   return { trees: liveTrees.length, photos: seen.size }
 }

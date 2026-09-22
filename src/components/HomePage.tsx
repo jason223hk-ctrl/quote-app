@@ -14,6 +14,10 @@ import { createPhotosApi, type PhotosApi } from '../lib/photos'
 import { createPriceApi, type PriceApi } from '../lib/prices'
 import { isOffice } from '../lib/office'
 import { liveRecordIds } from '../lib/orphanPhotos'
+import { photoStore } from '../lib/photoStore'
+import { purgeRecordPhotos } from '../lib/photoTransport'
+import { purgeAfterDelete } from '../lib/purgeAfterDelete'
+import { PHOTOS_REALLY_PURGED } from '../lib/deleteDialog'
 import { useAutoResume } from '../lib/useAutoResume'
 import { activeTab, type Nav, type Route } from '../ui/routes'
 import { BottomNav, userInfoFrom, type UserInfo } from '../ui/shell'
@@ -170,9 +174,43 @@ export function RecordsScreen({
       await withRefusalReason(api.records.softDelete(record.id), () =>
         refusalReason(record, userId),
       )
+
+      /**
+       * ⭐ P8 步 4：跟住落嚟先至清相 —— **① 雲端（`/purge`）② 最尾先部機**。
+       *    次序同點解全部喺 `src/lib/purgeAfterDelete.ts` 檔頭，
+       *    ⛔ 唔好喺呢度再寫一次（兩份講法一定會有一日唔一致）。
+       *
+       * ⛔⛔ **`PHOTOS_REALLY_PURGED` 今日仲係 `false` ⇒ 呢句乜都唔會做。**
+       *    ⚠️ 同一個 boolean 話事「彈窗講乜」同埋「實際做乜」——
+       *    ⛔ 唔准分做兩個掣，否則就會出現「畫面講永久刪除、實物一件都冇清」。
+       *
+       * ⛔⛔ **唔准 throw／唔准擋住下面嗰句 `reload()`** ——
+       *    單工程係真係刪咗嘅，清相順唔順利⛔ 唔改變呢件事。
+       */
+      const outcome = await purgeAfterDelete({
+        reallyPurged: PHOTOS_REALLY_PURGED,
+        recordId: record.id,
+        purge: (recordId) => purgeRecordPhotos(accessToken, recordId),
+        listLocal: photoStore.listByRecord,
+        removeLocal: photoStore.removeMany,
+      })
+      /**
+       * ⛔⛔ **今日淨係寫落 `console.error`，而呢個⛔ 唔夠 —— P8 步 5 要接住佢。**
+       *    ⚠️ 「清咗一半」係一個完全正常嘅回覆（一次最多清 10 張），
+       *      冇人講返就等於嗰啲 bytes 永遠留喺雲端。
+       *    ⭐ 守住呢一步嘅⛔ 唔係呢句註解，係 `PURGE_OUTCOME_SHOWN` 嗰條測試
+       *      （`src/lib/purgeAfterDelete.test.ts`）—— flip 嗰日會紅。
+       */
+      if (outcome.kind !== 'skipped' && outcome.kind !== 'cleared') {
+        console.error('[quote-app] purge after delete:', outcome.kind, outcome.message)
+      }
+      if (outcome.localProblem !== null) {
+        console.error('[quote-app] purge after delete:', outcome.localProblem)
+      }
+
       await reload()
     },
-    [api, userId, reload],
+    [api, userId, reload, accessToken],
   )
 
   /**

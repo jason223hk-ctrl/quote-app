@@ -198,8 +198,11 @@ for (const dir of DIRS) {
  * ⭐ 同「拆開 `tapChecked`」同一條規矩：**下限只准加。**
  *   ⛔ 唔准因為一個 run 跌咗就調低 —— ⚠️ 而**數目升咗而下限冇跟上，
  *   係同一個毛病嘅另一面**。
+ *
+ * ⭐ 672 → **679**：P8 步 4（前端 `/purge` ＋ 最後刪部機）加咗 7 句用家睇得到嘅字
+ *   （`src/lib/purgeAfterDelete.ts` 兩句、`src/lib/photoTransport.ts` 五句）。
  */
-const USER_LINE_FLOOR = 672
+const USER_LINE_FLOOR = 679
 
 /*
  * ── ⭐⭐ 覆蓋差：把尺究竟**睇唔到幾多** ──────────────────────
