@@ -14,11 +14,12 @@ README 比冇 README 更差：睇嘅人會以為線上冇嘢，然後放心改�
 
 ⛔ 部署 Worker、改 Cloudflare secrets 一律 Jason 親手做。
 
-## 三條路
+## 四條路
 
 - **`POST /sign`**（P3a）—— 簽 R2 上傳網址
 - **`POST /mirror`**（P3b）—— 抄一份上 Google Drive，寫返 `drive_file_id`
 - **`POST /read`**（P5，匯出 PDF）—— 出一條**淨係讀**嘅簽名網址，攞返張相嘅 bytes
+- **`POST /purge`**（P8 步 3）—— 一單工程刪咗之後，**真係清走**雲端嗰兩份相
 
   ⛔ 點解唔用 `/sign`：`/sign` 個 key 係 `{呼叫者 userId}/{影相編號}.jpg`，
   即係你淨係簽得到**自己**影嗰啲。阿耀影嘅相，Jason 喺辦公室匯出 PDF 就簽唔到，
@@ -72,6 +73,101 @@ POST /rename-tree     { "treeId": "…" }      Authorization: Bearer <用家個 
 ⚠️ **前端仲未接** —— 呢個 endpoint 而家係 inert，⛔ 冇人叫佢。
 P3f §4.6 兩個要出錯嘅位（樹木頁黃橫幅、設定頁診斷）係**新畫面元素**，
 ⇒ `CLAUDE.md` §2.11 要原型先行，⛔ 未做。
+
+## `/purge`（2026-09-20 加，⏳ **未部署**）
+
+一單工程刪咗之後，**真係清走**雲端嗰兩份相（**Jason 2026-09-14 拍板**，
+`docs/P8-真清相-計劃書.md`）。
+
+```
+POST /purge     { "recordId": "…" }      Authorization: Bearer <用家個 token>
+```
+
+⭐⭐ **佢係全個 app 唯一一條救唔返嘅路。** 其餘所有「刪除」都係寫一個
+`deleted_at`，撳錯咗改返個欄就有返；⛔ 呢條唔係。
+
+- ⛔ **由頭到尾用家自己個 token**（`CLAUDE.md` §2.9）—— ⛔ 冇 `service_role`。
+- ⛔ **`quote_records` 嗰行、`quote_photos` 嗰行都⛔ 唔刪**，只 stamp
+  `purged_at`。⭐ 零真刪對 DB row 嚟講仲然成立，變嘅淨係**實物**。
+
+### ⛔⛔ 兩道閘，喺掂任何 bytes 之前
+
+1. **母單一定要真係刪咗**（`quote_records.deleted_at` 有值）⇒ 唔係就 409。
+   ⚠️ `quote_records` 條 select policy 係 `using (true)` ⇒ **人人讀得晒**
+   ⇒ ⛔「攞到個 recordId」完全唔係一個權限。
+2. **問准** —— `quote_purge_stamp(photoId, p_dry_run = true)`。
+   ⭐ **同一條 function、同一段判斷、同一個出口**，而⛔ 一個字都唔寫。
+   唔准就掟錯 ⇒ ⛔ 一個 byte 都唔掂。
+   ⛔ 唔另外寫一套「邊個刪得」嘅講法 —— 兩套講法一定會有一日唔一致，
+   而唔一致嗰邊就係漏（CLAUDE.md §2.13）。
+
+⚠️ 閘一喺 Worker、閘二喺 DB 條 function 入面 —— ⭐ **兩個地方係特登嘅**：
+Worker 嗰道擋得早（慳 subrequest、出到中文原因），DB 嗰道**繞唔過**
+（就算有人直接叫 RPC 都一樣要過）。⛔ 唔准因為「重複咗」而拆走任何一道。
+
+### ⛔⛔ 點解要一個 function，⛔ 唔係直接 `PATCH`
+
+我本來就係直接 `PATCH quote_photos`。**⛔ 嗰個做法行唔通。**
+
+`quote_photos` 條 update policy 係 `can_edit_quote_record(record_id)`，
+而嗰條 function 入面有 **`r.deleted_at is null`，仲要喺 OR 括號外面**
+⇒ 連 `is_quote_admin()` 都繞唔到 ⇒ **一單已刪工程，冇任何人改得到佢啲相**
+⇒ 直接 PATCH **一定 0 行，而且⛔ 唔會報錯**（CLAUDE.md §2.6）。
+
+⇒ 改用 `public.quote_purge_stamp(uuid, boolean)`
+（`docs/P8-purged_at-草稿.sql` 第 2 段，⛔ Jason 親手跑）。
+
+⭐⭐ **Jason 2026-09-20 批嘅逐字係**：
+> 「一道好窄嘅後門，得一個用途：喺張相度打個『清咗』嘅剔，⛔ 刪唔到任何嘢。」
+
+⛔ **⛔ 唔係**「一個 `SECURITY DEFINER` 隨便點寫都得」。
+⚠️⚠️ **將來有人想加第二個 `SECURITY DEFINER`，⛔ 唔准攞今次當先例。**
+
+條 function 回**四個值，⛔ 唔准合埋**：
+`ok` / `record_not_deleted` / `not_yours` / `not_found`。
+⚠️ `not_found` ⛔ **唔係「拒絕」嘅一種** —— 佢係一個⛔ 唔應該發生嘅情況
+（Worker 啱啱先由 DB 讀返嗰個 id 出嚟），合埋咗就冇人會再問點解。
+
+⭐ `p_dry_run` 就係上面閘二。⛔ 唔睇 `locked`（Jason 2026-09-20 明文批：
+一單已經刪咗嘅工程，`locked` 冇意思）。
+
+### ⛔⛔ 次序係定死嘅
+
+```
+① 問准  →  ② R2 刪 bytes  →  ③ Drive 掉垃圾桶  →  ④ stamp purged_at
+（⑤ 部機 IndexedDB —— ⛔ 唔喺 Worker，前端做，⭐ 一定要最尾）
+```
+
+- ⭐ **R2 行先、Drive 行後**：掉咗入垃圾桶嘅 Drive 檔⛔ 唔算一份生存中嘅副本
+  （30 日就冇）。⇒「R2 最後刪」嗰個次序，喺刪 R2 嗰一刻 R2 係**唯一一份生存中**
+  嘅副本 —— 反而係危險嗰個。
+- ⛔ **④ 一定要最後**：`purged_at` 一寫就冇人再撳得返呢張相；寫咗但實物仲喺，
+  就變成「帳面清咗、實物留住」，而且**永遠冇人會再去清**。
+- ⭐ 中間任何一步掟錯 ⇒ `purged_at` 留空 ⇒ **嗰行就係「未清完」呢個狀態本身**。
+
+### 其餘
+
+- ⛔ Drive 係**掉垃圾桶**，⛔ 唔係真刪（Jason 2026-09-19 拍板）。多一道 30 日嘅網；
+  而「無法還原」呢句喺 **app 層面**仍然係真嘅 —— ⛔ 只有人手入垃圾桶先撈得返。
+- ⭐ **重試係安全嘅**：`purged_at` 已經有值就跳過。
+- ⛔ 一次最多 `PURGE_BATCH_MAX`（10）張，做唔晒回 `hitLimit: true`。
+  ⛔ **唔准靜靜咁清一半就報成功。**（`4 + 10×4 = 44` ≤ Cloudflare 個 50 subrequest 上限。）
+- R2／Drive 回 **404 ＝ 當清咗**（我哋要嘅係「嗰份 bytes 唔喺度」）；
+  ⛔ 403／500 ⛔ 唔算 —— 嗰啲係「我哋唔知佢仲喺唔喺度」。
+
+### ⛔⛔ deploy 之前一定要做嘅兩樣
+
+1. **跑 `docs/P8-purged_at-草稿.sql`** —— 佢做兩件事：
+   加 `quote_photos.purged_at`（而家**冇**呢個欄），同埋建 `quote_purge_stamp()`。
+   ⛔ 兩樣缺一，`/purge` 都係一張相都清唔到 —— 而且**⛔ 唔會報錯**。
+   ⚠️ 未建條 function 就叫 `/purge` 嘅話，PostgREST 回 404，
+   ⭐ Worker 會出「伺服器還未安裝清走相片的功能」，⛔ 唔會當佢係「你冇權」。
+2. **deploy 完當日**改 `src/lib/deleteDialog.ts` 個 `PHOTOS_REALLY_PURGED = true`。
+   ⛔ 唔准早過 deploy 改：改咗就變成「畫面講永久刪除，但實物一件都冇清」。
+   ⛔ 亦唔准拖過夜。
+
+⚠️ **前端仲未接** —— 同 `/rename-tree` 一樣，呢個 endpoint deploy 咗之後
+仍然係 inert，⛔ 冇人叫佢（計劃書 §7 步 4）。
 
 ## 部署要準備嘅嘢
 
@@ -142,6 +238,7 @@ deploy 咗之後 —— `src/lib/sync.ts` 嗰句 `message.includes('搵 Jason')`
 | 2026-09-19 | `77d5eeb9-d5da-40dd-8674-269746c5aa5e` | ✅ `/rename-tree` ＋ Drive 429 logging（等咗兩日） |
 | 2026-09-19 | `81c304b3-2f54-4d57-bed9-50b225dd2576` | ✅ worker 42 句書面語 |
 | 2026-09-20 | `c6863fd8-ff39-42ba-8bfc-6525ad68b743` | ✅ 「複製上 Drive 之後**核對不符**」（Jason 2026-09-19 收返「校驗」）—— ⭐ `FORBIDDEN` 條尺守嗰個決定終於上埋 worker |
+| ⏳ **待 deploy** | —— | `/purge`（P8 步 3）—— ⛔ **要先跑 `docs/P8-purged_at-草稿.sql`**（加欄 ＋ 建 `quote_purge_stamp()`） |
 
 ## 部署完之後
 
