@@ -132,6 +132,53 @@ select pg_get_functiondef(oid) as 原文
  where proname = 'is_quote_admin'
    and pronamespace = 'public'::regnamespace;
 
+-- ✅ **2026-09-22 Jason 跑咗，三條全部過到**（原文逐字）：
+--
+--   CREATE OR REPLACE FUNCTION public.is_quote_admin()
+--    RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path TO 'public'
+--   AS $function$
+--     select exists (select 1 from public.quote_admins where user_id = auth.uid());
+--   $function$
+--
+--   1. ⛔ 冇 `deleted_at` 之類嘅條件 ✅
+--   2. `SECURITY DEFINER` 讀 `quote_admins` ⇒ ⛔ 唔會撞返 RLS ✅
+--   3. 係 `SECURITY DEFINER` ✅
+--
+-- ⇒ **第 2 段條 function 可以照跑。呢條版咗。**
+
+
+-- ── ③-2 ⚠️⚠️ 但佢帶出一條新嘢：**`quote_admins` 入面有冇人** ──────
+--
+-- ⭐ `is_quote_admin()` 嘅意思就係「`auth.uid()` 喺唔喺 `quote_admins` 入面」。
+--
+-- ⚠️⚠️ **而呢個 repo 已經中過一次**：`docs/開發紀錄.md` 附錄 B
+--    **「建咗張權限表 ≠ 入面有人」**（PR #18）—— `quote_admins` 靜咗一個月，
+--    張表建咗、policy 齊、條 function 行得，⛔ **但入面一個人都冇**。
+--
+-- ⇒ **對 `/purge` 嘅實際影響**（閘二係 `v_mine or public.is_quote_admin()`）：
+--
+--   ⭐ **張表空 ⇒ 右邊嗰半永遠 false ⇒ 閘二退化成淨係 `v_mine`**
+--     —— 即係**淨係開單嗰個人清得到**。
+--
+--   · Jason 自己開嘅單 ⇒ ✅ 冇事。
+--   · ⚠️ **阿耀／聰開嗰單，Jason 刪咗之後想清相 ⇒ 會收到 `not_yours`。**
+--
+-- ⛔⛔ **呢個⛔ 唔係一個 bug** —— 條 function 照佢寫嘅做。
+--    ⭐ **但人要知**，否則會變成「點解我 admin 都清唔到」，
+--    而畫面上**⛔ 冇任何線索**話俾佢聽係 `quote_admins` 空咗。
+--
+-- ⇒ 跑呢句只讀（⭐ 一句就答到）：
+
+select count(*) as 幾個管理員 from public.quote_admins;
+
+-- ⇒ **預期見到**：一個數。
+--   · **0** ⇒ ⚠️ 閘二而家實際上淨係 `v_mine`。⛔ 唔攔住跑第 1／第 2 段，
+--     ⛔ 但任何「靠 admin 行得通」嘅嘢⛔ 都未可以當佢得。
+--   · **≥ 1** ⇒ ✅ 兩邊都行得通。⭐ 順手核對返係咪你預期嗰幾個人。
+--
+-- ⛔ 呢個數**⛔ 唔准估**。（CO 2026-09-22 明文：答案返到嚟之前，
+--    ⛔ 唔准寫任何依賴 admin 行得通嘅嘢。）
+
 -- ⇒ **預期見到**：一行，`create or replace function public.is_quote_admin() …` 嘅全文。
 --   ⚠️ 零行 ＝ 條 function 唔存在 ⇒ ⛔ 即刻停，話我知（第 2 段會撞 `42883`）。
 
