@@ -1,0 +1,306 @@
+<!doctype html>
+<html lang="zh-HK">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0D120E">
+<title>原型：P8 步 5 —— 「仲有 N 張未清」＋「繼續清」</title>
+<!--
+  ══════════════════════════════════════════════════════════════════
+  ⛔⛔ 呢個係原型。⛔ 唔駁 Supabase、⛔ 唔叫 /purge、⛔ 一個 byte 都唔會清。
+
+  ⛔⛔ 呢條分枝（claude/proto-purge-resume）**永遠唔 merge 入 main** ——
+     同 #20、#26、#35、#40 嗰批原型同一條規矩。佢淨係為咗俾 Cloudflare Pages
+     出一條 Branch Preview 網址，等 Jason 喺手機撳得到。
+
+  ⚠️ 點解要擺喺 `public/`：Vite 只會把 `public/` 抄入 `dist/`
+     ⇒ 擺喺 `docs/` 嗰張 Pages **由頭到尾唔會服務**。
+     ⚠️ 而 raw.githubusercontent.com 發 .html 係 `text/plain`
+     ⇒ 手機度會出一堆原碼。⭐ 兩條路都唔通，所以要呢一條。
+  ⚠️ 檔名用 ASCII —— 中文檔名喺手機瀏覽器有時會出事，⛔ 唔值得賭。
+
+  ⭐ 資料用真樣本（CLAUDE.md §2.11）：
+     「彩霞邨彩月樓外圍樹木修剪及移除工程（第二期）」、「沙頭角」、「Testing01」
+     —— 全部係 `docs/真人試機-清單.md` 同 `docs/P3f-全app版面-實作計劃.md`
+     入面出現過嘅真名，⛔ 唔係作出嚟嘅。
+     人名同權限亦係真：`quote_admins` 2026-09-22 實測得 2 個人（Jason、Anna），
+     ⛔ 阿耀同阿聰唔係 admin。
+  ══════════════════════════════════════════════════════════════════
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=Noto+Serif+TC:wght@600;700&display=swap">
+<style>
+  /* ⭐ 色、字體、卡全部抄返 public/proto-capture.html，⛔ 冇自己設計一套。 */
+  :root{
+    --mq-bg:#0D120E; --mq-bg-elevated:#111712;
+    --mq-surface-1:#171E18; --mq-surface-2:#1C241D;
+    --mq-olive:#84945D; --mq-olive-strong:#98A56B; --mq-moss:#68794D;
+    --mq-text:#F1EBDD; --mq-text-2:#BDB6A6; --mq-text-3:#96978E;
+    --mq-border:rgba(190,178,139,.28); --mq-border-strong:rgba(157,169,105,.44);
+    --mq-success:#8FA25D; --mq-warning:#B68A45; --mq-danger:#B35D4A; --mq-info:#6F8FA0;
+    --mq-serif:"Noto Serif TC","Source Han Serif TC","Songti TC",serif;
+    --mq-sans:"Noto Sans TC","PingFang TC","Microsoft JhengHei",sans-serif;
+    --mq-shadow:inset 0 1px 0 rgba(236,228,205,.05),0 1px 2px rgba(0,0,0,.42),
+                0 12px 26px -14px rgba(0,0,0,.52);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:#0D120E;font-family:var(--mq-sans);color:var(--mq-text);
+    font-size:16px;line-height:1.5;-webkit-font-smoothing:antialiased}
+  h1,h2,h3{font-family:var(--mq-serif);letter-spacing:.01em}
+
+  .banner{background:#FDF6E3;color:#6B5A34;font-size:13.5px;line-height:1.66;
+    padding:12px 16px;text-align:center;border-bottom:1px solid #E8DCC0}
+  .banner b{color:#4A3E1E}
+
+  .ctl{max-width:430px;margin:0 auto;padding:14px 16px 0}
+  .ctl .lbl{font-size:12px;color:var(--mq-text-3);margin:14px 0 6px;letter-spacing:.03em}
+  .ctl .lbl:first-child{margin-top:0}
+  .segs{display:flex;gap:6px}
+  .segs button{flex:1 1 0;padding:9px 8px;border-radius:11px;
+    border:1px solid var(--mq-border);background:rgba(28,36,29,.6);color:var(--mq-text-2);
+    font:inherit;font-size:13.5px;font-weight:600;cursor:pointer;text-align:center}
+  .segs button.on{background:linear-gradient(160deg,#8B9C60,#68794D);color:#0D120E;
+    border-color:var(--mq-border-strong)}
+  .segs button small{display:block;font-weight:400;font-size:11px;opacity:.88;margin-top:2px}
+
+  .cost{max-width:430px;margin:14px auto 0;padding:11px 14px;border-radius:12px;
+    background:rgba(182,138,69,.14);border:1px solid rgba(182,138,69,.42);
+    font-size:13px;line-height:1.7;color:#E6D2AC}
+  .cost b{color:#F4E3BE}
+  .cost ul{margin:6px 0 0;padding-left:1.1em}
+
+  /* ⛔⛔ 機殼釘死 390×727，⛔ 唔跟瀏覽器高度。
+     ⚠️ #40 個原型跟咗瀏覽器高度 ⇒ 電腦度乜都見到 ⇒ 驗咗等於冇驗。
+     ⭐ 727 係 Jason 2026-09-17 喺自己部機量到嘅真實可用高度。 */
+  .phone{width:390px;height:727px;margin:16px auto 40px;position:relative;
+    border-radius:26px;overflow:hidden;background:var(--mq-bg);
+    border:1px solid var(--mq-border);box-shadow:var(--mq-shadow)}
+  .phone .scroll{position:absolute;inset:0 0 62px 0;overflow-y:auto;
+    padding:14px 16px 20px;-webkit-overflow-scrolling:touch}
+  .nav{position:absolute;left:0;right:0;bottom:0;height:62px;display:flex;
+    background:var(--mq-bg-elevated);border-top:1px solid var(--mq-border)}
+  .nav div{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    font-size:11px;color:var(--mq-text-3);gap:3px}
+  .nav div.on{color:var(--mq-olive-strong)}
+  .nav i{font-style:normal;font-size:17px}
+
+  .head{font-size:19px;margin:2px 0 14px}
+  .card{background:var(--mq-surface-1);border:1px solid var(--mq-border);
+    border-radius:16px;padding:14px;margin-bottom:12px;box-shadow:var(--mq-shadow)}
+  .card__title{font-size:15px;margin:0 0 10px}
+  .acct-row{display:flex;justify-content:space-between;gap:10px;padding:5px 0;font-size:13.5px}
+  .acct-label{color:var(--mq-text-3)}
+  .acct-val{color:var(--mq-text-2);font-variant-numeric:tabular-nums}
+  .mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px}
+
+  .note-box{border-radius:11px;padding:10px 12px;font-size:13.5px;line-height:1.66;margin:10px 0}
+  .note-box--warn{background:rgba(182,138,69,.15);border:1px solid rgba(182,138,69,.44);color:#E7D4AF}
+  .note-box--bad{background:rgba(179,93,74,.16);border:1px solid rgba(179,93,74,.5);color:#F0C6BA}
+  .note-box--ok{background:rgba(143,162,93,.15);border:1px solid rgba(143,162,93,.45);color:#DCE6C2}
+  .muted{color:var(--mq-text-3);font-size:12.5px;line-height:1.66}
+
+  .button{display:block;width:100%;padding:12px 14px;border-radius:12px;font:inherit;
+    font-size:14.5px;font-weight:600;cursor:pointer;margin-top:8px;border:1px solid var(--mq-border)}
+  .button--secondary{background:rgba(28,36,29,.7);color:var(--mq-text)}
+  .button--danger{background:linear-gradient(160deg,#B35D4A,#8E4838);color:#FFF3EE;
+    border-color:rgba(179,93,74,.7)}
+  .button[disabled]{opacity:.55;cursor:default}
+
+  .rec{border-top:1px solid var(--mq-border);padding:10px 0 2px;font-size:13.5px}
+  .rec:first-of-type{border-top:0}
+  .rec .nm{color:var(--mq-text);line-height:1.5}
+  .rec .sub{color:var(--mq-text-3);font-size:12px;margin-top:2px}
+  .bar{height:5px;border-radius:3px;background:rgba(190,178,139,.18);margin-top:7px;overflow:hidden}
+  .bar i{display:block;height:100%;background:var(--mq-olive-strong);width:0;transition:width .3s}
+</style>
+
+<div class="banner">
+  <b>⛔ 樣板，唔會真係存嘢。</b> 呢版⛔ 唔駁資料庫、⛔ 唔叫 <code>/purge</code>、⛔ 一個 byte 都唔會清。<br>
+  撳得郁嘅嘢係真㗎 —— <b>包括要等</b>。
+</div>
+
+<div class="ctl">
+  <p class="lbl">丙 · 撳一次「繼續清」做幾多？（⭐ 呢條係要你用手指試嘅）</p>
+  <div class="segs" id="segBatch">
+    <button data-v="one" class="on">一批就停<small>10 張 → 要再撳</small></button>
+    <button data-v="rec">一單清晒<small>自己行落去</small></button>
+  </div>
+
+  <p class="lbl">丁 · 撳落去之前要唔要再確認一次？</p>
+  <div class="segs" id="segConfirm">
+    <button data-v="yes" class="on">要兩段式<small>同「清走傳唔到嘅相」一樣</small></button>
+    <button data-v="no">一撳就做<small>刪工程嗰陣確認過</small></button>
+  </div>
+
+  <p class="lbl">⚠️ 用邊個身分睇（⛔ 呢個⛔ 唔係俾你揀嘅，係要你見一次）</p>
+  <div class="segs" id="segWho">
+    <button data-v="jason" class="on">Jason<small>管理員，清得晒</small></button>
+    <button data-v="chung">阿聰<small>唔係 admin、唔係佢開單</small></button>
+  </div>
+</div>
+
+<div class="cost">
+  <b>⭐ 代價擺晒喺度，⛔ 冇收埋：</b>
+  <ul>
+    <li><b>撳落去要等。</b> 一批 10 張，樣板每批等 1.6 秒（真機量到一下 <b>1.9 秒</b>）。
+      ⚠️ <b>呢個數係作出嚟嘅，⛔ 未量過真嘢</b> —— 真數要 deploy 之後清嗰單假工程嗰陣先量得到。</li>
+    <li><b>彩霞邨嗰單 31 張</b> ⇒ 「一批就停」要撳 <b>4 次</b>；「一單清晒」量到等 <b>4.9 秒</b>（21 張，3 批）。</li>
+    <li><b>⚠️⚠️ 揀「要兩段式」嗰陣，兩粒掣喺 727 度都跌咗出摺線</b> ——
+      真機量到：「再點擊一次確認清除」底邊 <b>−62px</b>、「取消」<b>−117px</b>。
+      ⛔ 呢個⛔ 唔係樣板整爛咗，係<b>特登冇執</b>，等你撳落去親身見一次：
+      ⭐ 撳完第一下，望住原本嗰個位係<b>乜都冇</b>。
+      ⚠️ 2026-08-11 tree app 嗰單真實誤刪，成因就係「粒掣會郁」。
+      <br>（⭐ 真設定頁上面仲有「帳戶」「客戶簿」「單價設定」三塊 ⇒ <b>真機只會更差</b>，⛔ 唔會更好。）</li>
+    <li><b>阿聰撳落去係即刻彈錯，⛔ 唔使等</b> —— ⭐ 因為問准（閘二）喺掂 bytes 之前，
+      ⛔ 一個 byte 都冇掂過。</li>
+    <li><b>清走咗嘅⛔ 攞唔返。</b> R2 嗰份真刪、Drive 嗰份入垃圾桶（30 日）。</li>
+  </ul>
+</div>
+
+<div class="phone">
+  <div class="scroll">
+    <h1 class="head">設定</h1>
+
+    <div class="card">
+      <h2 class="card__title">診斷資料</h2>
+      <div class="acct-row"><span class="acct-label">版本</span>
+        <span class="acct-val mono">v0.1 · Build 9ea4d78</span></div>
+      <div class="acct-row"><span class="acct-label">Supabase</span>
+        <span class="acct-val mono">（樣板）</span></div>
+      <div class="acct-row"><span class="acct-label">環境變數</span>
+        <span class="acct-val">已設定</span></div>
+
+      <!-- ⭐ 呢一段係**而家已經有嘅**，擺喺度係為咗俾 Jason 見到新嗰行
+           同佢排埋一齊係咩樣。⛔ 呢個 PR 唔會郁佢。 -->
+      <p class="muted" style="margin-top:12px">
+        有 2 張相片無法上傳，而它們所屬的工程已經刪除，所以永遠都無法上傳。
+      </p>
+      <button class="button button--secondary">清除這 2 張</button>
+
+      <!-- ══ 新嗰段（P8 步 5）══ -->
+      <div id="zone" style="margin-top:18px;border-top:1px solid var(--mq-border);padding-top:14px">
+        <div id="summary"></div>
+        <div id="recs"></div>
+        <div id="msg"></div>
+        <div id="acts"></div>
+      </div>
+    </div>
+  </div>
+  <div class="nav">
+    <div><i>⌂</i>首頁</div><div><i>☰</i>工程</div><div class="on"><i>⚙</i>設定</div>
+  </div>
+</div>
+
+<script>
+/* ⛔ 樣板資料。⭐ 真名（見檔頭），⛔ 唔係作出嚟。
+   mine = 呢個人清唔清得到（真規矩：開單嗰個 或者 quote_admins 入面嘅人）。 */
+const SEED = [
+  { name:'彩霞邨彩月樓外圍樹木修剪及移除工程（第二期）', by:'阿耀', left:31 },
+  { name:'沙頭角', by:'阿耀', left:8 },
+  { name:'Testing01', by:'Jason', left:2 },
+]
+const BATCH = 10, MS = 1600
+let recs, mode='one', confirmMode='yes', who='jason', busy=false, stage='idle', note=null
+
+function reset(){ recs = SEED.map(r => ({...r, total:r.left})); note=null; stage='idle'; render() }
+
+/* ⭐ 真規矩：Jason 係 admin ⇒ 三單都清得；阿聰⛔ 唔係 admin、⛔ 唔係佢開單 ⇒ 一單都清唔到。 */
+const canClear = () => who === 'jason'
+
+function totals(){
+  const live = recs.filter(r => r.left > 0)
+  return { n: live.reduce((a,r)=>a+r.left,0), k: live.length, live }
+}
+
+function render(){
+  const { n, k, live } = totals()
+  const S = document.getElementById('summary'), R = document.getElementById('recs')
+  const M = document.getElementById('msg'), A = document.getElementById('acts')
+
+  /* ⛔⛔ N 係零就成段唔出（連粒掣都冇）—— ⚠️ 唔係 disable。
+     ⭐ 同「清走傳唔到嘅相」同一條規矩：一粒平時就企喺度嘅真刪掣，遲早有人得閒撳。 */
+  if (n === 0) {
+    S.innerHTML = '<p class="note-box note-box--ok">✅ 所有已刪工程的雲端相片都已經清走。</p>'
+      + '<p class="muted">（樣板：<a href="#" id="again" style="color:var(--mq-olive-strong)">再試一次</a>）</p>'
+    R.innerHTML = ''; M.innerHTML = ''; A.innerHTML = ''
+    document.getElementById('again').onclick = e => { e.preventDefault(); reset() }
+    return
+  }
+
+  S.innerHTML = '<p class="note-box note-box--warn">⚠️ 有 <b>'+k+'</b> 單已刪除的工程，'
+    + '合共 <b>'+n+'</b> 張相片仍然留在雲端，未清走。</p>'
+
+  R.innerHTML = live.map(r => {
+    const done = r.total - r.left
+    return '<div class="rec"><div class="nm">'+r.name+'</div>'
+      + '<div class="sub">'+r.by+' 開單 · 已清 '+done+' / '+r.total+' 張</div>'
+      + '<div class="bar"><i style="width:'+Math.round(done/r.total*100)+'%"></i></div></div>'
+  }).join('')
+
+  M.innerHTML = note ? '<p class="note-box note-box--'+note.k+'">'+note.t+'</p>' : ''
+
+  if (busy) {
+    A.innerHTML = '<button class="button button--danger" disabled>清除中⋯</button>'
+    return
+  }
+  if (stage === 'confirm') {
+    A.innerHTML = '<p class="note-box note-box--warn">這 '+(mode==='one'?Math.min(BATCH,live[0].left):live[0].left)
+      + ' 張相片清走之後就真的沒有了，⛔ 無法還原。</p>'
+      + '<button class="button button--danger" id="go">再點擊一次確認清除</button>'
+      + '<button class="button button--secondary" id="cancel">取消</button>'
+    document.getElementById('go').onclick = run
+    document.getElementById('cancel').onclick = () => { stage='idle'; note=null; render() }
+    return
+  }
+  A.innerHTML = '<button class="button button--secondary" id="go">繼續清</button>'
+  document.getElementById('go').onclick = () => {
+    if (confirmMode === 'yes') { stage='confirm'; note=null; render() }
+    else run()
+  }
+}
+
+async function run(){
+  stage='idle'
+  const first = totals().live[0]
+  if (!first) return render()
+
+  /* ⛔⛔ 阿聰：問准（閘二）喺掂 bytes 之前 ⇒ 即刻彈錯，⛔ 唔使等、⛔ 一個 byte 都冇掂過。
+     ⭐ 呢句字係 worker/src/worker.mjs 入面真嗰句，⛔ 唔係另外寫一句。 */
+  if (!canClear()) {
+    note = { k:'bad', t:'這一單不是你建立的，你不能清走它的相片。請找建立這一單的同事幫手，或者找管理員代勞。' }
+    return render()
+  }
+
+  busy = true; note = null; render()
+  let cleared = 0
+  do {
+    await new Promise(r => setTimeout(r, MS))   /* ⭐ 真係等，⛔ 唔即刻變綠 */
+    const n = Math.min(BATCH, first.left)
+    first.left -= n; cleared += n
+    if (mode === 'one') break
+    render()
+  } while (first.left > 0)
+
+  busy = false
+  note = first.left > 0
+    ? { k:'warn', t:'清走了 '+cleared+' 張。⚠️ 這一單還有 '+first.left+' 張留在雲端，請再點擊一次「繼續清」。' }
+    : { k:'ok',   t:'「'+first.name+'」的雲端相片已經全部清走（共 '+cleared+' 張）。' }
+  render()
+}
+
+document.getElementById('segBatch').onclick = e => {
+  const b = e.target.closest('button'); if (!b) return
+  mode = b.dataset.v; [...e.currentTarget.children].forEach(x=>x.classList.toggle('on',x===b)); render()
+}
+document.getElementById('segConfirm').onclick = e => {
+  const b = e.target.closest('button'); if (!b) return
+  confirmMode = b.dataset.v; [...e.currentTarget.children].forEach(x=>x.classList.toggle('on',x===b))
+  stage='idle'; render()
+}
+document.getElementById('segWho').onclick = e => {
+  const b = e.target.closest('button'); if (!b) return
+  who = b.dataset.v; [...e.currentTarget.children].forEach(x=>x.classList.toggle('on',x===b))
+  stage='idle'; note=null; render()
+}
+reset()
+</script>
