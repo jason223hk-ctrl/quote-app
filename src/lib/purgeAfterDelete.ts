@@ -96,17 +96,64 @@ export type PurgeReply = {
  * 今次清相去到邊。**四種，⛔ 唔准合埋。**
  *
  * ⚠️ `partial` 同 `refused` 喺「刪唔刪得部機」上面**行為一樣**（兩樣都唔刪），
- *    ⛔ 但佢哋⛔ 唔係同一件事：
- *      · `partial` ＝ **有 bytes 已經冇咗**，仲有手尾要跟（撳「繼續清」）。
- *      · `refused` ＝ **一個 byte 都冇掂過**，要搵人（權限）或者補嘢（未安裝）。
- *    ⭐ 兩句嘢要講唔同嘅下一步（CLAUDE.md §2.7）⇒ 所以分開兩個名。
+ *    ⛔ 但佢哋⛔ 唔係同一件事 —— ⭐ 兩句嘢要講**唔同嘅下一步**（CLAUDE.md §2.7）：
+ *      · `partial` ＝ **⛔ 唔可以講「乜都冇發生過」**。下一步係**再撳「繼續清」**。
+ *      · `refused` ＝ **個請求根本冇行到／行唔通**。下一步係**搵人**（權限）
+ *        或者**補嘢**（未 deploy）—— ⛔ 再撳幾多次都一樣。
+ *
+ * ⛔⛔⛔ **2026-09-27 修咗一個錯判 —— ⛔ 唔准改返轉頭，下面係佢點解存在。**
+ *
+ * ⚠️⚠️ 呢度本來寫 `if (reply.purged > 0 || reply.hitLimit) return 'partial'`，
+ *    而 `refused` 嗰段註解寫住 **「一個 byte 都冇掂過」**。
+ *    ⭐⭐ **CO 2026-09-27 問：真係？** ——
+ *    量咗（`worker/src/purgeRoute.test.mjs`「R2 刪咗、Drive 撲街」嗰條，
+ *    喺**真 Worker** 上面跑）：
+ *
+ *      ① 問准       過到，⛔ 一個字都冇寫
+ *      ② R2 DELETE  → 204 ⇒ `r2Gone(204)` 真 ⇒ ⛔ 唔 throw
+ *                   ⇒ ⭐⭐ **bytes 已經真係冇咗**
+ *      ③ Drive trash → 500 ⇒ `driveGone(500)` 假 ⇒ **掟錯**
+ *      ④ `purged += 1` ⛔ 行唔到 ⇒ catch ⇒ `failed.push(…)`
+ *
+ *    ⇒ reply ＝ `purged: 0`、`hitLimit: false`、`failed` 有一條
+ *    ⇒ 舊條件判佢做 **`refused`** ⇒ **嗰句「一個 byte 都冇掂過」係假嘅**，
+ *      而人會讀成「冇嘢發生過，去搵人開權限就得」。
+ *
+ * ⇒ ⭐ 所以 `failed.length > 0` 一樣算 `partial`。
+ *
+ * ⭐⭐ **改完之後，`refused` 淨係可能由前端自己砌出嚟**（`purgeRefused()`）——
+ *    Worker 嗰邊 `ok: failed.length === 0 && !hitLimit`
+ *    ⇒ **佢每一個 `ok: false` 都一定有 `failed` 或者 `hitLimit`** ⇒ 一定落 `partial`。
+ *
+ * ⚠️⚠️ **要講白：呢句「Worker 永遠落唔到 `refused`」⛔ 冇尺守住。**
+ *    ⛔ 我本來喺 `purgeAfterDelete.test.ts` 寫過一條「不變式測試」——
+ *    ⚠️ 佢喺測試入面**自己抄一次**條 `ok` 公式，再攞抄本去篩要檢查邊啲組合
+ *    ⇒ **把抄本改鬆，測試照樣全綠**（反證跑過，真係唔紅）。
+ *    ⭐ 即係附錄 B **D10 形狀一**：驗緊自己嗰個測試。已經拆咗。
+ *    ⇒ 撐住呢句嘅淨係 `worker/src/purgeRoute.test.mjs` 嗰條**具體 case**
+ *      （R2 刪咗、Drive 撲街）—— ⛔ 一個例，⛔ 唔係一條不變式。
+ *      **改咗 `worker.mjs` 嗰句 `ok:` ⇒ ⛔ 冇嘢會紅。**
+ *
+ * ⚠️⚠️ **但即係話 `refused` 仍然⛔ 唔等於「一個 byte 都冇掂過」** ——
+ *    前端砌嗰幾種入面有**兩種證明唔到**：
+ *      · **打唔到 Worker**（`fetch` 掟錯）—— ⚠️ 個請求**可能已經到咗**，
+ *        Worker 做晒嘢先斷線。
+ *      · **一個睇唔明嘅 200** —— ⚠️ 200 代表 Worker **真係行完**個 loop。
+ *    ⇒ ⛔ **所以「有冇掂過 bytes」呢個保證⛔ 唔喺呢個 kind 度，喺嗰句 `message` 度**
+ *      —— 嗰兩種嘅字要寫「**無法確定**」，⛔ 唔准寫「沒有清走」。
+ *      （`src/lib/photoTransport.ts`，有測試釘住。）
  */
 export type PurgeOutcomeKind = 'skipped' | 'cleared' | 'partial' | 'refused'
 
 export function purgeOutcomeKind(reply: PurgeReply): Exclude<PurgeOutcomeKind, 'skipped'> {
   if (reply.ok) return 'cleared'
-  // ⭐ 撞上限都算「動過手」—— ⚠️ 清咗嘅嗰幾張已經救唔返。
-  if (reply.purged > 0 || reply.hitLimit) return 'partial'
+  /**
+   * ⭐ 三樣任何一樣，都⛔ 唔可以講「乜都冇發生過」：
+   *   · `purged > 0`        —— 已經打咗剔
+   *   · `hitLimit`          —— 仲有未掃到嘅，要再撳
+   *   · `failed.length > 0` —— ⛔⛔ **失敗嗰張可能 R2 已經刪咗**（見上面）
+   */
+  if (reply.purged > 0 || reply.hitLimit || reply.failed.length > 0) return 'partial'
   return 'refused'
 }
 

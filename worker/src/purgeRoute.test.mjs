@@ -163,6 +163,39 @@ describe('⛔⛔ 閘二：RLS 拒絕 ⇒ 一個 byte 都唔准掂', () => {
    * ⚠️ 佢係一個**⛔ 唔應該發生**嘅情況（Worker 啱啱先由 DB 讀返嗰個 id 出嚟）
    *    ⇒ 合埋咗就變成「拒絕」嘅一種，而之後**冇人會再問點解**。
    */
+  /**
+   * ⭐⭐ **CO 2026-09-27 問嘅嗰個情況 —— ⛔ 佢組得到，⛔ 唔係理論。**
+   *
+   * R2 `DELETE` 回 204 ⇒ `r2Gone(204)` 真 ⇒ ⛔ 唔 throw ⇒ **bytes 已經真係冇咗**。
+   * 跟住 Drive trash 回 500 ⇒ `driveGone(500)` 假 ⇒ **掟錯** ⇒ 第 ④ 步
+   * （`purged += 1`）⛔ 行唔到 ⇒ 落到 `catch` 入 `failed`。
+   *
+   * ⇒ ⭐⭐ 個 reply 係 **`purged: 0`、`hitLimit: false`、`failed` 有一條**，
+   *   而**雲端嗰份 bytes 已經冇咗**。
+   *
+   * ⛔⛔ 呢個形狀就係 `src/lib/purgeAfterDelete.ts` 本來判錯做 `refused` 嗰個
+   *   —— 而 `refused` 嗰段註解寫住「一個 byte 都冇掂過」。⚠️ 嗰句係假嘅。
+   *   ⇒ 前端而家改咗：`failed.length > 0` 一樣算 `partial`。
+   *   ⭐ 呢條測試釘住嘅係**個 reply 真係砌得出呢個形狀**，
+   *     ⛔ 唔係前端點判 —— 嗰邊有佢自己嗰條。
+   */
+  it('⭐ R2 刪咗、Drive 撲街 ⇒ purged 仍然係 0，而 bytes 已經冇咗', async () => {
+    const { body, calls } = await purge({
+      over: { drive: () => new Response('{}', { status: 500 }) },
+    })
+    // ⭐ R2 真係行過（bytes 冇咗），而第 ④ 步 stamp ⛔ 冇行過。
+    expect(calls).toContain('r2-delete')
+    expect(calls).toContain('drive-trash')
+    expect(calls).not.toContain('stamp')
+
+    // ⛔⛔ 呢四行就係「refused 判錯」嗰個形狀本身。
+    expect(body.ok).toBe(false)
+    expect(body.purged).toBe(0)
+    expect(body.hitLimit).toBe(false)
+    expect(body.failed).toHaveLength(1)
+    expect(body.failed[0].why).toContain('Google Drive 回覆 500')
+  })
+
   it('⛔ `not_found` 出嘅話⛔ 唔准講成「你冇權」—— 要講明佢唔應該發生', async () => {
     const { body } = await purge({ over: { probe: () => reply('not_found') } })
     expect(body.failed[0].why).toContain('不應該發生')

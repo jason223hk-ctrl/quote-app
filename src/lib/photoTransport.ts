@@ -203,8 +203,18 @@ export async function purgeRecordPhotos(
   } catch (caught) {
     const detail = caught instanceof Error ? caught.message : String(caught)
     console.error('[quote-app] purge failed:', detail)
+    /**
+     * ⛔⛔ **⛔ 唔准寫「沒有清走」—— 嗰句係我哋證明唔到嘅。**
+     *
+     * ⚠️ `fetch` 掟錯⛔ 唔代表個請求冇到過 Worker ——
+     *    佢可能**做晒嘢先斷線**（回覆返唔到嚟）。
+     * ⇒ ⭐ 所以要講「**無法確定**」，並且講埋「再清一次係安全嘅」——
+     *   ⚠️ 冇後半句，人就唔敢再撳，而嗰啲 bytes 就永遠留喺雲端。
+     *   （重試安全係真嘅：R2 對已經冇咗嘅 key 回 404、Drive 對已經喺垃圾桶
+     *    嘅檔回 200，兩個都當「清咗」—— `worker/src/purge.mjs` 有測試釘住。）
+     */
     return purgeRefused(
-      `無法連接相片服務，雲端相片沒有清走（${detail}）。請檢查網絡連線，稍後到設定頁再清一次。`,
+      `無法連接相片服務，⛔ 無法確定雲端相片有沒有清走（${detail}）。請檢查網絡連線，稍後到設定頁再清一次 —— 重複清是安全的。`,
     )
   }
 

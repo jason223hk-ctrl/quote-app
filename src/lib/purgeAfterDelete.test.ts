@@ -87,8 +87,63 @@ describe('purgeOutcomeKind', () => {
     expect(purgeOutcomeKind(reply({ ok: false, purged: 0, hitLimit: true }))).toBe('partial')
   })
 
-  it('一張都冇清、又冇撞上限 ⇒ refused', () => {
-    expect(purgeOutcomeKind(reply({ ok: false, purged: 0 }))).toBe('refused')
+  /**
+   * ⭐⭐ **CO 2026-09-27 問出嚟嗰條 —— ⛔ 佢⛔ 唔係理論。**
+   *
+   * `worker/src/purgeRoute.test.mjs`「R2 刪咗、Drive 撲街」喺**真 Worker** 上面
+   * 量到嘅 reply 就係下面呢個形狀：R2 `DELETE` 回 204（⇒ **bytes 已經冇咗**），
+   * Drive trash 回 500 ⇒ 掟錯 ⇒ 第 ④ 步 stamp ⛔ 行唔到 ⇒ `purged` 留喺 0。
+   *
+   * ⛔⛔ 舊條件判佢做 `refused`，而 `refused` 寫住「一個 byte 都冇掂過」——
+   *    ⚠️ 嗰句係**假嘅**，而人會讀成「冇嘢發生過，去搵人開權限就得」。
+   */
+  it('⛔⛔ R2 刪咗但 Drive 撲街（purged 0、hitLimit false、failed 1）⇒ partial，⛔ 唔係 refused', () => {
+    const r = reply({
+      ok: false,
+      purged: 0,
+      hitLimit: false,
+      failed: [{ photoId: 'p-1', why: 'Google Drive 回覆 500，未能確認相片已經掉進垃圾桶。' }],
+    })
+    expect(purgeOutcomeKind(r)).toBe('partial')
+    expect(mayClearLocal(purgeOutcomeKind(r))).toBe(false)
+  })
+
+  it('一張都冇清、冇撞上限、⛔ 亦冇任何 failed ⇒ 先至係 refused', () => {
+    expect(purgeOutcomeKind(reply({ ok: false, purged: 0, failed: [] }))).toBe('refused')
+  })
+
+  /**
+   * ⭐⭐ **「唔可以講乜都冇發生過」呢個定義，逐個形狀掃一次。**
+   *
+   * ⛔⛔ **呢條本來寫成「Worker 條 `ok` 公式嘅不變式」，⛔ 而嗰個寫法係假嘅：**
+   *    佢喺測試入面**自己抄一次** `ok = failed.length === 0 && !hitLimit`，
+   *    再攞嗰個抄本去篩要檢查邊啲組合。
+   *    ⚠️ 反證一跑就穿：**把抄本改鬆，測試照樣全綠**
+   *      —— 因為改鬆之後，出事嗰啲組合全部變咗 `ok: true` 俾 `continue` 咗。
+   *    ⭐ 即係 `docs/開發紀錄.md` 附錄 B **D10 形狀一**（驗緊自己嗰個測試）。
+   *
+   * ⇒ 改成淨係講**呢個 function 自己**應該點：三樣任何一樣有值 ⇒ `partial`，
+   *   ⛔ 唔再借 Worker 條公式。⭐ 呢個版本反證紅得到。
+   *
+   * ⚠️⚠️ **要講白仲欠乜**：「Worker 永遠唔會回一個落 `refused` 嘅 reply」
+   *   呢句**仍然⛔ 冇尺**。佢靠 `worker/src/worker.mjs` 嗰句
+   *   `ok: failed.length === 0 && !hitLimit`，而嗰句**改咗⛔ 冇嘢會紅**。
+   *   ⭐ 撐住佢嘅淨係 `worker/src/purgeRoute.test.mjs` 嗰條具體 case
+   *     （R2 刪咗、Drive 撲街）—— ⛔ 一個例，⛔ 唔係一條不變式。
+   */
+  it('⭐ purged／hitLimit／failed 任何一樣有值 ⇒ partial；三樣都冇 ⇒ 先至 refused', () => {
+    for (const purged of [0, 1, 10]) {
+      for (const hitLimit of [true, false]) {
+        for (const failedN of [0, 1, 3]) {
+          const failed = Array.from({ length: failedN }, (_, i) => ({ photoId: `p-${i}`, why: 'x' }))
+          const happened = purged > 0 || hitLimit || failedN > 0
+          const kind = purgeOutcomeKind(reply({ ok: false, purged, hitLimit, failed }))
+          expect(kind, `purged=${purged} hitLimit=${hitLimit} failed=${failedN}`).toBe(
+            happened ? 'partial' : 'refused',
+          )
+        }
+      }
+    }
   })
 })
 

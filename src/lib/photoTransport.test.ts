@@ -111,9 +111,22 @@ describe('purgeRecordPhotos', () => {
     const out = await purgeRecordPhotos('tok', REC)
     expect(out.ok).toBe(false)
     expect(out.message).toContain('看不懂')
+    // ⛔ 同上：200 代表 Worker 真係行完 ⇒ ⛔ 唔准講死「相片沒有清走」。
+    //    ⚠️ 比對「相片沒有清走」⛔ 唔係「沒有清走」—— 見上面。
+    expect(out.message).toContain('無法確定')
+    expect(out.message).not.toContain('相片沒有清走')
   })
 
-  it('打唔到 Worker ⇒ ⛔ 唔 throw，出一句中文', async () => {
+  /**
+   * ⛔⛔ **兩句「唔確定」嘅字 —— ⛔ 唔准寫成「沒有清走」。**
+   *
+   * ⚠️ 呢兩種情況我哋**證明唔到 bytes 有冇被掂過**：
+   *   · `fetch` 掟錯 —— 個請求**可能已經到咗**，Worker 做晒嘢先斷線。
+   *   · 一個睇唔明嘅 200 —— **200 代表 Worker 真係行完**個 loop。
+   * ⇒ ⭐ 講死「沒有清走」係一句我哋冇證據嘅話，
+   *   而佢會令人以為雲端仲齊，⛔ 唔再撳「繼續清」。
+   */
+  it('打唔到 Worker ⇒ ⛔ 唔 throw；⛔ 唔准講「沒有清走」，要講「無法確定」', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn(async () => {
@@ -123,6 +136,19 @@ describe('purgeRecordPhotos', () => {
     const out = await purgeRecordPhotos('tok', REC)
     expect(out.ok).toBe(false)
     expect(out.message).toContain('無法連接相片服務')
+    expect(out.message).toContain('無法確定')
+    /**
+     * ⛔⛔ **比對嘅係「相片沒有清走」，⛔ 唔係「沒有清走」。**
+     * ⚠️ 啱嗰句係「⋯相片**有**沒有清走」—— 佢入面**包住**「沒有清走」四個字
+     *    ⇒ 用「沒有清走」去比對會**次次誤報**。
+     * ⭐ 同 `docs/P8-purged_at-草稿.sql` 第 3 段 ⑥ 嗰個 `ilike '%delete%'`
+     *   （個 body 入面有 `deleted_at`）係**一模一樣**嘅病 ——
+     *   ⇒ **一條會誤報嘅尺，等於冇尺。**
+     * ⭐ 兩句都真係量過先揀呢個 pattern，⛔ 唔係用眼睇。
+     */
+    expect(out.message).not.toContain('相片沒有清走')
+    // ⭐ 仲要講埋「再撳係安全嘅」—— 冇呢句，人就唔敢再撳。
+    expect(out.message).toContain('重複清是安全的')
   })
 
   it('⛔ 冇設定 VITE_PHOTO_WORKER_URL ⇒ ⛔ 連 fetch 都唔行', async () => {
