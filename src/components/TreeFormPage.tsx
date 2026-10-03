@@ -33,6 +33,11 @@ type Props = {
   onSave: (input: TreeInput) => Promise<void>
   onDelete: () => Promise<void>
   onBack: () => void
+  /**
+   * 儲存中嗰粒掣寫乜。⭐ 改咗樹牌、等緊 Drive 改名嗰陣，呼叫嗰邊傳
+   * 「正在更改 Drive 檔名⋯」入嚟（原型 PR #84「等改完名先返」）。⛔ 唔傳 ⇒「儲存中…」。
+   */
+  busyLabel?: string
 }
 
 export default function TreeFormPage({
@@ -43,6 +48,7 @@ export default function TreeFormPage({
   onSave,
   onDelete,
   onBack,
+  busyLabel,
 }: Props) {
   const [input, setInput] = useState<TreeInput>(() =>
     tree ? treeToInput(tree) : { ...EMPTY_TREE_INPUT, tree_no: suggestedTreeNo },
@@ -244,7 +250,7 @@ export default function TreeFormPage({
         <ErrorNotice message={error} />
 
         <button className="button" type="submit" disabled={busy !== null}>
-          {busy === 'save' ? '儲存中…' : '儲存'}
+          {busy === 'save' ? (busyLabel ?? '儲存中…') : '儲存'}
         </button>
       </form>
 

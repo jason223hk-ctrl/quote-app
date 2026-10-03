@@ -18,6 +18,7 @@ import PendingBar from '../../src/components/PendingBar'
 import { IconSprite } from '../../src/ui/Icon'
 import { BottomNav } from '../../src/ui/shell'
 import * as fx from './fixtures'
+import { RENAME_PENDING_KEY } from '../../src/lib/renamePending'
 import '../../src/styles/app.css'
 
 /**
@@ -61,6 +62,30 @@ const dialogPhotos = async () =>
     : []
 
 const noop = async () => {}
+
+/* ⭐ 「改名未完成」橫幅（P3f §4.6）：先喺呢部「機」寫低一個失敗記錄先 render。
+   ⛔ 唔叫 Worker —— 記錄係直接寫入 localStorage，同真 app 改名失敗之後嘅樣一模一樣。 */
+if (screen === 'renamefail') {
+  localStorage.setItem(
+    RENAME_PENDING_KEY,
+    JSON.stringify({
+      [fx.TREES[0].id]: {
+        treeId: fx.TREES[0].id,
+        recordId: 'r1',
+        treeNo: fx.TREES[0].tree_no,
+        left: 2,
+        reasons: [
+          `Drive 上已經有另一個檔案叫「${fx.TREES[0].tree_no}_Whole View_01_Before.jpg」，⛔ 不會冒險修改（改了兩個檔案就會同名）。請截圖並聯絡 Jason。`,
+        ],
+        hitLimit: false,
+        running: false,
+        at: '2026-10-04T01:00:00.000Z',
+      },
+    }),
+  )
+} else {
+  localStorage.removeItem(RENAME_PENDING_KEY)
+}
 
 const body =
   screen === 'settings' ? (
@@ -160,6 +185,17 @@ const body =
     <EnvPhotosScreen api={fx.photosApi} accessToken="" record={fx.RECORD} onBack={() => {}} />
   ) : screen === 'client' ? (
     <ClientFormScreen record={fx.RECORD} onSave={noop} onBack={() => {}} />
+  ) : screen === 'renamefail' ? (
+    <TreePhotosScreen
+      photos={fx.photosApi}
+      accessToken=""
+      recordId="r1"
+      recordName="彩"
+      tree={fx.TREES[0]}
+      onEdit={() => {}}
+      onDelete={() => {}}
+      onBack={() => {}}
+    />
   ) : screen === 'treephotos' ? (
     <TreePhotosScreen
       photos={fx.photosApi}
