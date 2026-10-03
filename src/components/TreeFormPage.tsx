@@ -10,6 +10,7 @@ import {
   LEGACY_MITIGATION_OPTIONS,
 } from '../lib/options'
 import { blockedReason } from '../lib/removalExclusive'
+import { TREE_DELETE_NOTE } from '../lib/deleteTreeDialog'
 import {
   EMPTY_TREE_INPUT,
   treeToInput,
@@ -285,7 +286,7 @@ export default function TreeFormPage({
               刪除這棵樹
             </button>
           )}
-          <p className="danger-zone__note">刪除只會記下刪除時間，資料庫內不會真正刪除。</p>
+          <p className="danger-zone__note">{TREE_DELETE_NOTE}</p>
         </div>
       )}
       </ScrollBody>

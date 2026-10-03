@@ -595,6 +595,22 @@ const SCREENS = {
     ],
   },
 
+  /* ⭐⭐ 樹木頁右上角粒 `×`：⛔ 唔准撳一下就刪，⛔ 刪唔到唔准冇聲。
+     ⚠️ 2026-10-03 之前兩樣都中：撳 `×` 即刻刪（冇確認），
+     刪唔到就 `void afterWrite(…)` 食咗個錯（docs/void-掃描-2026-09-19.md）。
+     ⇒ 先撳 `×`，要見到彈窗；再撳「刪除」，要見到紅字貼住粒掣。 */
+  treedelfail: {
+    screen: 'treedelfail',
+    query: '',
+    tapThenSee: {
+      first: 'tree-delete',
+      firstNeeds: 'tree-delete-dialog',
+      testid: 'tree-delete-confirm',
+      needs: 'tree-delete-error',
+      why: '刪樹俾伺服器拒絕',
+    },
+  },
+
   dialoglong: {
     // ⚠️ 同上面用同一個畫面，⛔ 唔係另一個 component —— 一模一樣嘅 code，
     //    淨係內容唔同。咁對出嚟嘅先算數。
@@ -1351,7 +1367,22 @@ for (const [name, spec] of Object.entries(SCREENS)) {
   if (spec.tapThenSee) {
     const one = spec.tapThenSee
     tapChecked += 1
-    await real.locator(`[data-testid="${one.testid}"]`).click()
+    /* ⭐ 兩段式嘅掣（例如刪樹）：先撳 `first`，要見到 `firstNeeds`，
+       ⛔ 撳第一下就已經做咗嘢 ＝ 冇兩段式 ⇒ 紅。 */
+    let firstOk = true
+    if (one.first) {
+      await real.locator(`[data-testid="${one.first}"]`).click()
+      await real.waitForTimeout(400)
+      firstOk = await real.evaluate(
+        (need) => document.querySelector(`[data-testid="${need}"]`) !== null,
+        one.firstNeeds,
+      )
+      if (!firstOk) {
+        tapBad += 1
+        console.log(`  ✗ ⛔⛔ 撳「${one.first}」之後冇出「${one.firstNeeds}」—— ⛔ 冇兩段式確認`)
+      }
+    }
+    if (firstOk) await real.locator(`[data-testid="${one.testid}"]`).click()
     await real.waitForTimeout(800)
     const r = await real.evaluate(([need, btn]) => {
       const el = document.querySelector(`[data-testid="${need}"]`)
@@ -2066,7 +2097,7 @@ const FLOORS = [
   ['粒掣夠大撳', sizeChecked, 2],
   ['撳完⛔ 唔變藍', blueChecked, 4],
   ['打完字存唔到要出聲', typedChecked, 5],
-  ['撳完做唔到要出聲', tapChecked, 1],
+  ['撳完做唔到要出聲', tapChecked, 2],
   ['⛔ 冇得撳走', escapeChecked, 2],
   ['中心點撳到自己', centreChecked, 9],
   ['一開就見到', firstChecked, 8],

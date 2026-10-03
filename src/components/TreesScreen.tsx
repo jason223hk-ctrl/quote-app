@@ -127,7 +127,9 @@ export default function TreesScreen({ api, photos, accessToken, record, onBack }
         recordName={record.name}
         tree={tree}
         onEdit={() => setView({ kind: 'form', id: tree.id })}
-        onDelete={() => void afterWrite(() => api.softDelete(tree.id))}
+        // ⛔ 唔准再寫 `void afterWrite(…)`：`afterWrite` 冇 catch，刪唔到就一隻字都冇
+        //    （docs/void-掃描-2026-09-19.md）。⭐ 交返個 promise 俾彈窗，佢會出聲。
+        onDelete={() => afterWrite(() => api.softDelete(tree.id))}
         onBack={() => setView({ kind: 'list' })}
       />
     )
