@@ -472,6 +472,71 @@ async function readUrl(request, env, origin) {
   }
 }
 
+/**
+ * P10：抄 Drive 之前先喺 DB 攞租約（`docs/P10-Drive鎖-設計.md`）。
+ *
+ * ⭐ 租約 2 分鐘：一張相由 R2 抄去 Drive 正常十幾秒；Worker 死咗（例如手機熄咗）
+ *    最多鎖住張相 2 分鐘，之後第二個人攞得返。⚠️ AI 代揀，待 Jason 確認。
+ */
+const MIRROR_LEASE_SECONDS = 120
+
+/** ⛔ 唔係錯：另一部裝置抄緊。前端見到 `busy: true` 就唔會當失敗、唔會數多一次。 */
+const MIRROR_BUSY_MESSAGE = '另一部裝置正在把這張相片複製到 Drive，完成後會自動顯示，不用再按。'
+const MIRROR_DENIED_MESSAGE =
+  '無法登記複製這張相片：你沒有修改這一單的權限，或者工程已經鎖定或刪除。請截圖，並用 WhatsApp 聯絡 Jason。'
+
+/**
+ * @returns `'claimed' | 'busy' | 'done' | 'denied' | 'missing' | 'unavailable'`
+ *   ⭐ `unavailable` ＝ DB 未有呢條 function（404，SQL 未跑）⇒ 照舊冇鎖咁行，靠 #78 收斂。
+ *   ⛔ 其他錯 ⇒ throw（同其他讀 DB 失敗一樣處理）—— ⛔ 唔准當「未裝」。
+ */
+async function claimMirror(env, token, photoId, claimId) {
+  const res = await fetch(`${env.SUPABASE_URL}/rest/v1/rpc/quote_claim_mirror`, {
+    method: 'POST',
+    headers: {
+      apikey: env.SUPABASE_PUBLISHABLE_KEY,
+      authorization: `Bearer ${token}`,
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({ p_photo_id: photoId, p_claim_id: claimId, p_lease_seconds: MIRROR_LEASE_SECONDS }),
+  })
+  if (res.status === 404) {
+    console.error('[mirror] quote_claim_mirror not installed (404) — running without claim')
+    return 'unavailable'
+  }
+  if (!res.ok) throw new Error(`資料庫回覆 ${res.status}（登記複製）`)
+  const state = await res.json()
+  if (['claimed', 'busy', 'done', 'denied', 'missing'].includes(state)) return state
+  throw new Error(`資料庫回覆了無法辨認的結果（登記複製）：${String(state).slice(0, 40)}`)
+}
+
+/** 交還**自己**嗰個租約。⛔ 交唔到唔緊要（2 分鐘後自己過期），⛔ 唔准令成次失敗。 */
+async function releaseMirror(env, token, photoId, claimId) {
+  try {
+    const res = await fetch(
+      `${env.SUPABASE_URL}/rest/v1/quote_photos?id=eq.${photoId}&mirror_claim_id=eq.${claimId}`,
+      {
+        method: 'PATCH',
+        headers: {
+          apikey: env.SUPABASE_PUBLISHABLE_KEY,
+          authorization: `Bearer ${token}`,
+          'content-type': 'application/json',
+          prefer: 'return=minimal',
+        },
+        body: JSON.stringify({ mirror_claim_id: null, mirror_claim_until: null }),
+      },
+    )
+    if (!res.ok) console.error(`[mirror] release claim failed: ${res.status}`)
+  } catch (err) {
+    console.error('[mirror] release claim failed:', String(err?.message || err).slice(0, 200))
+  }
+}
+
+/** ⚠️ `drive_file_id` 係 `text not null default ''` ⇒ `''`／淨係空格 ＝ 未抄（同 null 一樣睇）。 */
+function driveIdOf(photo) {
+  return typeof photo?.drive_file_id === 'string' ? photo.drive_file_id.trim() : ''
+}
+
 async function mirror(request, env, origin) {
   const auth = request.headers.get('authorization') ?? ''
   const userId = await userIdFrom(request, env)
@@ -488,6 +553,9 @@ async function mirror(request, env, origin) {
   }
 
   const userToken = auth.slice('Bearer '.length)
+  // ⭐ P10 租約：攞到就係個 uuid；寫完「抄咗」嗰陣一齊清（`settled`），其餘出口一律喺 `finally` 交還。
+  let held = null
+  let settled = false
 
   try {
     // ⛔ 由頭到尾都係用家個 token。
@@ -496,7 +564,9 @@ async function mirror(request, env, origin) {
     if (!photo) return json({ error: 'not found' }, 404, origin)
 
     // 已經上咗就當成功 —— 同 P3a 個 23505 一樣，重試唔會整多一份。
-    if (photo.drive_synced_at) {
+    // ⚠️ `drive_synced_at` 有值但 `drive_file_id` 係 `''` ⇒ ⛔ 唔算抄咗（2026-10-03 工程「彩」見過一行 `''`）
+    //    ⇒ 行落去，`listMirroredCopies` 會用 `quotePhotoId` 揾返嗰份 Drive 檔、補返個 id。
+    if (photo.drive_synced_at && driveIdOf(photo) !== '') {
       return json({ ok: true, alreadyDone: true, driveFileId: photo.drive_file_id }, 200, origin)
     }
     if (!photo.r2_synced_at) {
@@ -535,6 +605,24 @@ async function mirror(request, env, origin) {
       await patchPhoto(env, userToken, photo.id, { drive_error: why })
       return json({ ok: false, message: why }, 409, origin)
     }
+
+    /* ⭐⭐ P10：先攞租約，攞到先好掂 Drive。
+       ⛔ `busy` ⇒ 另一部裝置抄緊 ⇒ ⛔ 唔寫 `drive_error`（唔係錯），回 409 ＋ `busy: true`。
+       ⭐ `unavailable`（SQL 未跑）⇒ 照舊冇鎖咁行；#78 個「上完再收斂」照樣兜底。 */
+    const claimId = crypto.randomUUID()
+    const claim = await claimMirror(env, userToken, photo.id, claimId)
+    if (claim === 'busy') {
+      return json({ ok: false, busy: true, message: MIRROR_BUSY_MESSAGE }, 409, origin)
+    }
+    if (claim === 'done') {
+      const fresh = await pg(env, userToken, `quote_photos?id=eq.${photo.id}&select=drive_file_id`)
+      return json({ ok: true, alreadyDone: true, driveFileId: driveIdOf(fresh[0]) }, 200, origin)
+    }
+    if (claim === 'missing') return json({ error: 'not found' }, 404, origin)
+    if (claim === 'denied') {
+      return json({ ok: false, message: MIRROR_DENIED_MESSAGE }, 403, origin)
+    }
+    if (claim === 'claimed') held = claimId
 
     const gtoken = await googleToken(env)
     const quota = await driveQuota(gtoken)
@@ -621,7 +709,10 @@ async function mirror(request, env, origin) {
       drive_file_id: fileId,
       drive_synced_at: new Date().toISOString(),
       drive_error: '',
+      // ⭐ 同一下清埋租約（⛔ 冇攞過就唔寫：SQL 未跑嗰陣根本冇呢兩個欄）。
+      ...(held ? { mirror_claim_id: null, mirror_claim_until: null } : {}),
     })
+    settled = true
 
     // ⭐ `dedupe`：今次見到幾多份多出嚟（`extra`）、掉咗幾多份（`trashed`）。前端唔使理。
     return json({ ok: true, alreadyDone: false, driveFileId: fileId, filename, quota, dedupe }, 200, origin)
@@ -634,6 +725,9 @@ async function mirror(request, env, origin) {
       /* 連寫錯誤都寫唔入，就只可以靠回覆講 */
     }
     return json({ ok: false, message }, 502, origin)
+  } finally {
+    // ⛔ 失敗／半路返回 ⇒ 交還租約，唔使等 2 分鐘。
+    if (held && !settled) await releaseMirror(env, userToken, body.photoId, held)
   }
 }
 

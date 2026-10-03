@@ -248,6 +248,8 @@ export default function PhotoSlot({
       }
 
       const result = await mirrorPhoto(accessToken, row.id)
+      // ⭐ 另一部裝置抄緊（P10）⇒ ⛔ 唔數多一次、⛔ 唔記錯誤：佢抄完，下次 reload 就見到。
+      if (!result.ok && result.busy) return result
       if (before) {
         await photoStore.put({
           ...before,
