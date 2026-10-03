@@ -72,7 +72,7 @@
   {
     "file": "src/components/PhotoSlot.tsx",
     "text": "retry(item.operationId)",
-    "why": "⛔ 內部冇 catch（void 掃描 2026-09-19「內部⛔ 冇 catch」）。PR #81 修緊 —— #81 merge 嗰陣要剷走呢行。"
+    "why": "⛔ 內部冇 catch（void 掃描 2026-09-19「內部⛔ 冇 catch」第 3 個）。PR #81 喺 retry() 入面加咗 catch —— #81 merge 之後呢行照留，但 why 要改做「已驗：retry() 內部 catch ＋ setError」。"
   },
   {
     "file": "src/components/PriceScreen.tsx",
