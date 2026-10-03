@@ -74,7 +74,7 @@ POST /rename-tree     { "treeId": "…" }      Authorization: Bearer <用家個 
 P3f §4.6 兩個要出錯嘅位（樹木頁黃橫幅、設定頁診斷）係**新畫面元素**，
 ⇒ `CLAUDE.md` §2.11 要原型先行，⛔ 未做。
 
-## `/purge`（2026-09-20 加，⏳ **未部署**）
+## `/purge`（2026-09-20 加，✅ **2026-10-03 已部署**，Version `e08449ea`；⚠️ 前端未接）
 
 一單工程刪咗之後，**真係清走**雲端嗰兩份相（**Jason 2026-09-14 拍板**，
 `docs/P8-真清相-計劃書.md`）。
@@ -238,7 +238,7 @@ deploy 咗之後 —— `src/lib/sync.ts` 嗰句 `message.includes('搵 Jason')`
 | 2026-09-19 | `77d5eeb9-d5da-40dd-8674-269746c5aa5e` | ✅ `/rename-tree` ＋ Drive 429 logging（等咗兩日） |
 | 2026-09-19 | `81c304b3-2f54-4d57-bed9-50b225dd2576` | ✅ worker 42 句書面語 |
 | 2026-09-20 | `c6863fd8-ff39-42ba-8bfc-6525ad68b743` | ✅ 「複製上 Drive 之後**核對不符**」（Jason 2026-09-19 收返「校驗」）—— ⭐ `FORBIDDEN` 條尺守嗰個決定終於上埋 worker |
-| ⏳ **待 deploy** | —— | `/purge`（P8 步 3）—— ⛔ **要先跑 `docs/P8-purged_at-草稿.sql`**（加欄 ＋ 建 `quote_purge_stamp()`） |
+| 2026-10-03 | `e08449ea-b7ff-4e8a-87cb-0d7c3e02eee2` | ✅ `/purge`（P8 步 3）—— SQL（`purged_at` 欄 ＋ `quote_purge_stamp()`）2026-10-03 核對過已經喺 DB。⚠️ 前端（步 4）仲未接，⇒ `PHOTOS_REALLY_PURGED` 保持 `false` |
 
 ## 部署完之後
 
