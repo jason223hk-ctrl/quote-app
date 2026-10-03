@@ -45,6 +45,7 @@ const reply = (body, status = 200) =>
  */
 function stub(over = {}) {
   const calls = []
+  const trashed = []
   const fake = vi.fn(async (input, init = {}) => {
     const url = typeof input === 'string' ? input : String(input)
     const method = (init.method || 'GET').toUpperCase()
@@ -78,18 +79,37 @@ function stub(over = {}) {
       calls.push('r2-delete')
       return over.r2 ? over.r2() : new Response(null, { status: 204 })
     }
+    if (url.includes('googleapis.com/drive/v3/files?')) {
+      const q = new URL(url).searchParams.get('q') || ''
+      if (q.includes("'root' in parents")) {
+        calls.push('list-root')
+        return over.roots ? over.roots() : reply({ files: [] })
+      }
+      if (q.includes("mimeType = 'application/vnd.google-apps.folder'")) {
+        calls.push('list-folder')
+        return over.folders ? over.folders(q) : reply({ files: [] })
+      }
+      calls.push('list-children')
+      return over.children ? over.children(q) : reply({ files: [] })
+    }
     if (url.includes('googleapis.com/drive/v3/files/')) {
+      const id = decodeURIComponent(url.split('/drive/v3/files/')[1].split('?')[0])
+      trashed.push(id)
+      if (id.startsWith('folder-') || id.startsWith('root-')) {
+        calls.push('trash-folder')
+        return over.folderTrash ? over.folderTrash(id) : reply({ id, trashed: true })
+      }
       calls.push('drive-trash')
-      return over.drive ? over.drive() : reply({ id: 'drv-1', trashed: true })
+      return over.drive ? over.drive(id) : reply({ id, trashed: true })
     }
     calls.push('⛔ 估唔到嘅外呼：' + method + ' ' + url)
     return new Response('', { status: 500 })
   })
-  return { calls, fake }
+  return { calls, fake, trashed }
 }
 
 async function purge({ over = {}, recordId = RECORD } = {}) {
-  const { calls, fake } = stub(over)
+  const { calls, fake, trashed } = stub(over)
   const real = globalThis.fetch
   globalThis.fetch = fake
   try {
@@ -101,7 +121,7 @@ async function purge({ over = {}, recordId = RECORD } = {}) {
       }),
       ENV,
     )
-    return { res, body: await res.json(), calls }
+    return { res, body: await res.json(), calls, trashed }
   } finally {
     globalThis.fetch = real
   }
@@ -195,9 +215,12 @@ describe('⛔⛔ 次序：問准 → R2 → Drive → stamp', () => {
       'r2-delete',
       'drive-trash',
       'stamp',
+      // ⭐ 2026-10-03：最後一轉先揾工程資料夾（呢度揾唔到根資料夾 ⇒ 停）。
+      'list-root',
     ])
     expect(body.ok).toBe(true)
     expect(body.purged).toBe(1)
+    expect(body.folder.status).toBe('none')
   })
 
   /*
@@ -242,7 +265,7 @@ describe('⛔⛔ 清唔乾淨 ⇒ 唔准 stamp', () => {
 })
 
 describe('重試係安全嘅', () => {
-  it('已經有 purged_at ⇒ ⛔ 唔再刪一次，亦⛔ 唔攞 Google token', async () => {
+  it('已經有 purged_at ⇒ ⛔ 唔再刪一次（Google token 淨係用嚟執工程資料夾）', async () => {
     const { body, calls } = await purge({
       over: {
         photos: () =>
@@ -253,7 +276,10 @@ describe('重試係安全嘅', () => {
     })
     expect(calls).not.toContain('r2-delete')
     expect(calls).not.toContain('drive-trash')
-    expect(calls).not.toContain('google-token')
+    expect(calls).not.toContain('probe')
+    expect(calls).not.toContain('stamp')
+    // ⭐ 2026-10-03：重試都會再執一次工程資料夾 ⇒ 會攞 token，⛔ 但淨係喺相全部清完之後。
+    expect(calls.slice(-2)).toEqual(['google-token', 'list-root'])
     expect(body.ok).toBe(true)
     expect(body.alreadyDone).toBe(1)
     expect(body.purged).toBe(0)
@@ -305,8 +331,9 @@ describe('⛔ 一批做唔晒 ⇒ 要講', () => {
     const { calls } = await purge()
     const setup = ['whoami', 'read-record', 'read-photos', 'google-token']
     expect(calls.slice(0, 4)).toEqual(setup)
-    expect(calls.slice(4)).toEqual(['probe', 'r2-delete', 'drive-trash', 'stamp'])
-    expect(calls.length - setup.length).toBe(4)
+    expect(calls.slice(4, 8)).toEqual(['probe', 'r2-delete', 'drive-trash', 'stamp'])
+    // ⭐ 2026-10-03：之後係工程資料夾嗰步（呢度揾唔到根資料夾 ⇒ 得 1 個）。
+    expect(calls.slice(8)).toEqual(['list-root'])
     // ⭐ 換算返：setup 4 ＋ 10 張 × 4 ＝ 44 ≤ 50
     expect(4 + 10 * 4).toBeLessThanOrEqual(50)
   })
@@ -388,5 +415,165 @@ describe('⛔ 入面嘅嘢唔啱就要擋', () => {
     const { res, calls } = await purge({ recordId: '../../etc' })
     expect(res.status).toBe(400)
     expect(calls).not.toContain('read-record')
+  })
+})
+
+/* ══════════════════════════════════════════════════════════════════
+ * ⭐ 2026-10-03 Jason 拍板：成單清晒 ⇒ Drive 工程資料夾都掉垃圾桶。
+ * ⛔ 但資料夾入面有唔屬於呢單嘅嘢 ⇒ 資料夾留低，淨係掉呢單嘅檔。
+ * ══════════════════════════════════════════════════════════════════ */
+describe('⭐ 工程資料夾', () => {
+  const PHOTO2 = '44444444-4444-4444-8444-444444444444'
+  const twoPhotos = () =>
+    reply([
+      { id: PHOTO, r2_key: 'user-1/a.jpg', drive_file_id: 'drv-1', purged_at: null },
+      { id: PHOTO2, r2_key: 'user-1/b.jpg', drive_file_id: 'drv-2', purged_at: null },
+    ])
+  const record = () =>
+    reply([{ id: RECORD, deleted_at: '2026-10-03T13:55:00Z', record_date: '2026-10-03', name: '測試單' }])
+  const roots = () => reply({ files: [{ id: 'root-1', name: 'Quote App Photos' }] })
+  const folders = () => reply({ files: [{ id: 'folder-1', name: '2026-10-03_測試單' }] })
+  const own = (id, photoId) => ({ id, mimeType: 'image/jpeg', appProperties: { quotePhotoId: photoId } })
+
+  it('⭐ 資料夾已經空（相啱啱掉咗）⇒ 掉成個資料夾', async () => {
+    const { body, calls, trashed } = await purge({
+      over: { photos: twoPhotos, record, roots, folders, children: () => reply({ files: [] }) },
+    })
+    expect(body.ok).toBe(true)
+    expect(body.folder.status).toBe('trashed')
+    expect(trashed).toContain('folder-1')
+    expect(trashed).not.toContain('root-1')
+    // ⛔ 資料夾一定喺所有 stamp 之後
+    expect(calls.lastIndexOf('stamp')).toBeLessThan(calls.indexOf('trash-folder'))
+  })
+
+  it('⭐ 資料夾入面淨係得呢單嘅重複副本 ⇒ 一樣掉成個資料夾（重複副本一齊走）', async () => {
+    const { body, trashed } = await purge({
+      over: {
+        photos: twoPhotos,
+        record,
+        roots,
+        folders,
+        children: () => reply({ files: [own('dup-1', PHOTO), own('dup-2', PHOTO), own('dup-3', PHOTO2)] }),
+      },
+    })
+    expect(body.folder.status).toBe('trashed')
+    expect(trashed).toContain('folder-1')
+    // ⭐ 掉資料夾就夠 ⇒ ⛔ 唔使逐個掉
+    expect(trashed).not.toContain('dup-1')
+  })
+
+  it('⛔ 有唔屬於呢單嘅檔 ⇒ 資料夾留低，淨係掉呢單嘅檔', async () => {
+    const { body, trashed } = await purge({
+      over: {
+        photos: twoPhotos,
+        record,
+        roots,
+        folders,
+        children: () =>
+          reply({
+            files: [
+              own('dup-1', PHOTO),
+              { id: 'other-job', mimeType: 'image/jpeg', appProperties: { quotePhotoId: 'someone-else' } },
+              { id: 'hand-added', mimeType: 'application/pdf' },
+            ],
+          }),
+      },
+    })
+    expect(body.ok).toBe(true)
+    expect(body.folder.status).toBe('kept')
+    expect(body.folder.trashedFiles).toBe(1)
+    expect(trashed).toContain('dup-1')
+    expect(trashed).not.toContain('folder-1')
+    expect(trashed).not.toContain('other-job')
+    expect(trashed).not.toContain('hand-added')
+    expect(body.message).toContain('保留了資料夾')
+  })
+
+  it('⛔ 一頁睇唔晒（nextPageToken）⇒ 乜都唔掂', async () => {
+    const { body, trashed } = await purge({
+      over: {
+        photos: twoPhotos,
+        record,
+        roots,
+        folders,
+        children: () => reply({ files: [own('dup-1', PHOTO)], nextPageToken: 'more' }),
+      },
+    })
+    expect(body.ok).toBe(true)
+    expect(body.folder.status).toBe('unknown')
+    expect(trashed).not.toContain('folder-1')
+    expect(trashed).not.toContain('dup-1')
+  })
+
+  it('⛔ hitLimit 嗰轉⛔ 唔掂資料夾', async () => {
+    const many = Array.from({ length: 11 }, (_, i) => ({
+      id: `5555555${i}-5555-4555-8555-555555555555`,
+      r2_key: `user-1/${i}.jpg`,
+      drive_file_id: `drv-${i}`,
+      purged_at: null,
+    }))
+    const { body, calls } = await purge({
+      over: { photos: () => reply(many), record, roots, folders, children: () => reply({ files: [] }) },
+    })
+    expect(body.hitLimit).toBe(true)
+    expect(body.folder.status).toBe('skipped')
+    expect(calls).not.toContain('list-root')
+    expect(calls).not.toContain('trash-folder')
+  })
+
+  it('⛔ 有相清唔到 ⇒ ⛔ 唔掂資料夾', async () => {
+    const { body, calls } = await purge({
+      over: { record, roots, folders, r2: () => new Response('', { status: 403 }) },
+    })
+    expect(body.ok).toBe(false)
+    expect(body.folder.status).toBe('skipped')
+    expect(calls).not.toContain('list-root')
+  })
+
+  it('⭐ Drive 執資料夾出錯 ⇒ ⛔ 唔影響個 purge 回覆（相已經清晒）', async () => {
+    const { res, body } = await purge({
+      over: {
+        photos: twoPhotos,
+        record,
+        roots,
+        folders,
+        children: () => new Response('{"error":{"code":500}}', { status: 500 }),
+      },
+    })
+    expect(res.status).toBe(200)
+    expect(body.ok).toBe(true)
+    expect(body.purged).toBe(2)
+    expect(body.folder.status).toBe('error')
+    expect(body.message).toContain('工程資料夾未能清走')
+  })
+
+  it('⭐ 掉資料夾回 500 ⇒ 一樣唔影響', async () => {
+    const { body } = await purge({
+      over: {
+        photos: twoPhotos,
+        record,
+        roots,
+        folders,
+        children: () => reply({ files: [] }),
+        folderTrash: () => new Response('', { status: 500 }),
+      },
+    })
+    expect(body.ok).toBe(true)
+    expect(body.folder.status).toBe('error')
+  })
+
+  it('⭐ 最壞情況（10 張 ＋ 掉資料夾）外呼⛔ 唔超過 50', async () => {
+    const ten = Array.from({ length: 10 }, (_, i) => ({
+      id: `6666666${i}-6666-4666-8666-666666666666`,
+      r2_key: `user-1/${i}.jpg`,
+      drive_file_id: `drv-${i}`,
+      purged_at: null,
+    }))
+    const { body, calls } = await purge({
+      over: { photos: () => reply(ten), record, roots, folders, children: () => reply({ files: [] }) },
+    })
+    expect(body.folder.status).toBe('trashed')
+    expect(calls.length).toBeLessThanOrEqual(50)
   })
 })

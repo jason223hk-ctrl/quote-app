@@ -29,6 +29,8 @@ export type PurgeResponse = {
   remaining: number
   hitLimit: boolean
   failed: { photoId: string; why: string }[]
+  /** ⭐ 2026-10-03：Drive 工程資料夾點處理（Worker 新版先有）。⛔ 唔影響 `ok`。 */
+  folder?: { status: string; trashedFiles?: number; why?: string }
   message: string
 }
 
@@ -185,6 +187,10 @@ export async function purgeRecordFully(
       return { ok: false, purged, localRemoved: 0, message: failureMessage(body) }
     }
     if (body.ok) {
+      // ⭐ 資料夾執唔到⛔ 唔算失敗（相已經清晒），但要留低線索。
+      if (body.folder && (body.folder.status === 'error' || body.folder.status === 'unknown')) {
+        console.error('[quote-app] purge: drive job folder not cleared:', body.folder)
+      }
       finalMessage = body.message
       break
     }

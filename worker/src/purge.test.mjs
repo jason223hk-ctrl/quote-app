@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest'
 import {
   PURGE_BATCH_MAX,
   driveGone,
+  folderNote,
+  folderVerdict,
   purgePlan,
   purgeSummary,
   r2Gone,
@@ -153,5 +155,43 @@ describe('purgeSummary：⛔ 「清咗一半」⛔ 唔准講成「清好咗」',
       purgeSummary({ purged: 1, alreadyDone: 0, nothingToClear: 0, failed: 2, hitLimit: true }),
     ]
     for (const msg of all) expect(msg).not.toMatch(/[A-Za-z]/)
+  })
+})
+
+describe('folderVerdict：工程資料夾點處理', () => {
+  const own = (id, photoId) => ({ id, mimeType: 'image/jpeg', appProperties: { quotePhotoId: photoId } })
+
+  it('空 ⇒ 掉資料夾', () => {
+    expect(folderVerdict([], ['p1'])).toEqual({ action: 'trash-folder' })
+  })
+
+  it('全部係呢單嘅（包括重複副本）⇒ 掉資料夾', () => {
+    expect(folderVerdict([own('a', 'p1'), own('b', 'p1'), own('c', 'p2')], ['p1', 'p2'])).toEqual({
+      action: 'trash-folder',
+    })
+  })
+
+  it('⛔ 第二單嘅相／冇 quotePhotoId／子資料夾 ⇒ 唔掉資料夾，淨係掉自己嘅', () => {
+    const verdict = folderVerdict(
+      [
+        own('a', 'p1'),
+        own('x', 'other'),
+        { id: 'y', mimeType: 'image/jpeg' },
+        { id: 'z', mimeType: 'application/vnd.google-apps.folder', appProperties: { quotePhotoId: 'p1' } },
+      ],
+      ['p1'],
+    )
+    expect(verdict).toEqual({ action: 'trash-files', fileIds: ['a'], foreign: 3 })
+  })
+
+  it('⛔ 一頁睇唔晒 ⇒ unknown', () => {
+    expect(folderVerdict([], ['p1'], false)).toEqual({ action: 'unknown' })
+  })
+
+  it('folderNote：trashed／none 唔講嘢；kept／error 要講', () => {
+    expect(folderNote({ status: 'trashed' })).toBeNull()
+    expect(folderNote({ status: 'none' })).toBeNull()
+    expect(folderNote({ status: 'kept' })).toContain('保留了資料夾')
+    expect(folderNote({ status: 'error' })).toContain('未能清走')
   })
 })

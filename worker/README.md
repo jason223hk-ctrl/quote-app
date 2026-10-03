@@ -145,6 +145,22 @@ Worker 嗰道擋得早（慳 subrequest、出到中文原因），DB 嗰道**繞
   就變成「帳面清咗、實物留住」，而且**永遠冇人會再去清**。
 - ⭐ 中間任何一步掟錯 ⇒ `purged_at` 留空 ⇒ **嗰行就係「未清完」呢個狀態本身**。
 
+### ⭐ 工程資料夾（2026-10-03 加，Jason 拍板，⏳ **未 deploy**）
+
+成單清晒（冇失敗、冇 `hitLimit`）之後，Drive `Quote App Photos/<日期>_<工程名>` 個資料夾**都掉垃圾桶**
+（30 日內撈得返）。掉資料夾 ＝ 入面嘢一齊走 ⇒ 連以前 bug 整出嚟嘅**重複副本**都清埋。
+
+- ⛔ 淨係揾**根資料夾入面**、名 ＝ `projectFolderName(record_date, name)` 嗰個（同 `/mirror` `ensureFolder()` 同一個 query，⛔ 唔開新）。⛔ 根資料夾一律唔掂。
+- 掉之前睇晒入面：全部係呢單嘅相（`appProperties.quotePhotoId` ∈ 呢單嘅相 id）或者空 ⇒ 掉資料夾；
+  ⛔ 有任何一樣唔係（同日同名嘅另一單、人手放入去嘅檔、子資料夾）⇒ 資料夾留低，淨係掉呢單嘅檔；
+  ⛔ 一頁睇唔晒（`nextPageToken`）⇒ 乜都唔掂。判斷喺 `purge.mjs` `folderVerdict()`。
+- ⛔ `hitLimit` 嗰轉唔掂資料夾；一張相都未上過雲端嘅單⛔ 唔攞 Google token。
+- ⛔ Drive 出事**唔影響 `ok`**（相已經清晒、`purged_at` 已寫）：回覆多咗 `folder: { status, trashedFiles }`
+  （`trashed` / `kept` / `none` / `unknown` / `error` / `skipped`），句 `message` 會加一句。
+- 外呼：最壞情況 `4 + 10×4 + 4 = 48` ≤ 50（有測試量）。逐個掉自己嘅檔嗰陣，用晒額度就停（`status: 'error'`）。
+- ⚠️ 已知未做：資料夾執唔到（`error`）而相已經全部清晒嘅話，設定頁⛔ 唔會出「繼續清」——
+  要再叫一次 `/purge`（例如再撳一次刪除彈窗）先會再執。
+
 ### 其餘
 
 - ⛔ Drive 係**掉垃圾桶**，⛔ 唔係真刪（Jason 2026-09-19 拍板）。多一道 30 日嘅網；

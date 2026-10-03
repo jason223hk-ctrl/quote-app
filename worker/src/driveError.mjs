@@ -51,6 +51,7 @@ export const WHERE = {
   listFolder: 'files.list（檢索資料夾）',
   createFolder: 'files.create（開資料夾）',
   listMirrored: 'files.list（檢索這張相片上次複製的檔案）',
+  listFolderChildren: 'files.list（檢索工程資料夾內的檔案）',
   listClash: 'files.list（檢索同名檔案）',
   upload: 'files.create（上載相片）',
   getSize: 'files.get（上載後核對大小）',

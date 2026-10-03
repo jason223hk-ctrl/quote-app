@@ -18,7 +18,15 @@ import {
   sitePhotoFilename,
 } from './names.mjs'
 import { RENAME_BATCH_MAX, needsRename, renamePlan, renameSummary } from './rename.mjs'
-import { PURGE_BATCH_MAX, driveGone, purgePlan, purgeSummary, r2Gone } from './purge.mjs'
+import {
+  PURGE_BATCH_MAX,
+  driveGone,
+  folderNote,
+  folderVerdict,
+  purgePlan,
+  purgeSummary,
+  r2Gone,
+} from './purge.mjs'
 import { WHERE, driveFailure, redact } from './driveError.mjs'
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -838,6 +846,95 @@ async function driveTrash(token, fileId) {
 }
 
 /**
+ * 揾資料夾，**⛔ 唔開新嘅**（同 `ensureFolder()` 同一個 query，淨係唔 create）。
+ * 回 id（由細到大，同 `ensureFolder()` 揀「最細嗰個」一致）。
+ */
+async function findFolders(token, name, parentId) {
+  const q = [
+    `name = '${escapeQ(name)}'`,
+    `mimeType = 'application/vnd.google-apps.folder'`,
+    'trashed = false',
+    parentId ? `'${parentId}' in parents` : `'root' in parents`,
+  ].join(' and ')
+  return (await driveList(token, q, WHERE.listFolder)).map((f) => f.id).sort()
+}
+
+/** 資料夾入面（未入垃圾桶）嘅嘢。⭐ 帶埋 `nextPageToken`：一頁睇唔晒就⛔ 唔准判斷。 */
+async function folderChildren(token, folderId) {
+  const q = [`'${escapeQ(folderId)}' in parents`, 'trashed = false'].join(' and ')
+  const url = `${DRIVE}/files?q=${encodeURIComponent(q)}&spaces=drive&fields=nextPageToken,files(id,mimeType,appProperties)&pageSize=100`
+  const res = await fetch(url, { headers: { authorization: `Bearer ${token}` } })
+  if (!res.ok) throw await driveThrow(WHERE.listFolderChildren, res)
+  const body = await res.json()
+  return { files: body.files || [], complete: !body.nextPageToken }
+}
+
+/** 一個 request 最多幾多個外呼（Cloudflare 上限）。 */
+const SUBREQUEST_MAX = 50
+/** 一次最多睇幾多個同名工程資料夾（`ensureFolder` 撞車會開多過一個）。 */
+const FOLDER_CANDIDATES_MAX = 3
+
+/**
+ * ⭐ 2026-10-03 Jason 拍板：成單清晒之後，Drive 個**工程資料夾**都掉垃圾桶。
+ * 判斷喺 `purge.mjs` `folderVerdict()`（同一個檔頭有晒理由）。
+ *
+ * ⛔ 淨係喺**最後一轉**（冇失敗、冇 hitLimit）先叫。
+ * ⛔ 唔會 throw —— Drive 出事淨係回 `status: 'error'`，⛔ 唔影響「相清咗未」。
+ * ⛔ 根資料夾一律唔掂：淨係掉**根資料夾入面**、名 ＝ `projectFolderName()` 嘅嗰個。
+ *
+ * @param budget  仲剩幾多個外呼可以用（Cloudflare 50 個上限減咗已經用咗嘅）
+ */
+async function purgeFolder(env, gtoken, record, ownPhotoIds, budget) {
+  let left = budget
+  const take = () => {
+    if (left <= 0) throw new Error('budget')
+    left -= 1
+  }
+  const result = { status: 'none', trashedFiles: 0 }
+  try {
+    take()
+    const roots = await findFolders(gtoken, env.DRIVE_ROOT_FOLDER_NAME, null)
+    if (roots.length === 0) return result
+    take()
+    const folders = (
+      await findFolders(gtoken, projectFolderName(record.record_date, record.name), roots[0])
+    ).slice(0, FOLDER_CANDIDATES_MAX)
+
+    for (const folderId of folders) {
+      // ⛔ 雙保險：⛔ 永遠唔掂根資料夾。
+      if (roots.includes(folderId)) continue
+      take()
+      const { files, complete } = await folderChildren(gtoken, folderId)
+      const verdict = folderVerdict(files, ownPhotoIds, complete)
+      if (verdict.action === 'unknown') {
+        result.status = 'unknown'
+        continue
+      }
+      if (verdict.action === 'trash-folder') {
+        take()
+        const status = await driveTrash(gtoken, folderId)
+        if (!driveGone(status)) throw new Error(`Google Drive 回覆 ${status}（資料夾）`)
+        if (result.status === 'none') result.status = 'trashed'
+        continue
+      }
+      // 有唔屬於呢單嘅嘢 ⇒ 資料夾留低，淨係掉屬於呢單嘅檔（重複副本）。
+      for (const fileId of verdict.fileIds) {
+        take()
+        const status = await driveTrash(gtoken, fileId)
+        if (!driveGone(status)) throw new Error(`Google Drive 回覆 ${status}（檔案）`)
+        result.trashedFiles += 1
+      }
+      if (result.status !== 'unknown') result.status = 'kept'
+    }
+    return result
+  } catch (err) {
+    const why = String(err?.message || err)
+    console.error('[purge] folder cleanup failed:', why.slice(0, 300))
+    return { ...result, status: 'error', why: why === 'budget' ? '外呼數量到頂' : why.slice(0, 300) }
+  }
+}
+
+/**
  * P8 步 3：一單工程刪咗之後，**真係清走雲端嗰兩份相**。
  *
  * ⛔⛔ 次序、點解、同埋三種相點分，全部喺 `worker/src/purge.mjs` 檔頭。
@@ -883,7 +980,7 @@ async function purgeRecord(request, env, origin) {
     const records = await pg(
       env,
       userToken,
-      `quote_records?id=eq.${body.recordId}&select=id,deleted_at`,
+      `quote_records?id=eq.${body.recordId}&select=id,deleted_at,record_date,name`,
     )
     const record = records[0]
     if (!record) {
@@ -959,13 +1056,48 @@ async function purgeRecord(request, env, origin) {
       }
     }
 
-    const message = purgeSummary({
+    let message = purgeSummary({
       purged,
       alreadyDone: plan.done.length,
       nothingToClear: plan.nothing.length,
       failed: failed.length,
       hitLimit,
     })
+
+    /* ⭐ 最後一轉（冇失敗、冇 hitLimit）先掉工程資料夾 —— 見 `purgeFolder()`。
+       ⛔ hitLimit 嗰轉唔掂：入面仲有相未清（未 stamp），掉咗就同次序講唔埋。 */
+    let folder = { status: 'skipped', trashedFiles: 0 }
+    /* ⭐ 一張相都未上過雲端（冇 `r2_key` 又冇 `drive_file_id`）⇒ `/mirror` 從來冇行過
+       ⇒ 冇資料夾 ⇒ ⛔ 唔使攞 Google token（只剩部機一份嘅工程⛔ 唔應該因為 Google 出事而受影響）。 */
+    const everInCloud = (photos ?? []).some(
+      (photo) =>
+        (typeof photo.r2_key === 'string' && photo.r2_key.trim() !== '') ||
+        (typeof photo.drive_file_id === 'string' && photo.drive_file_id.trim() !== ''),
+    )
+    if (failed.length === 0 && !hitLimit && everInCloud) {
+      // 外呼數：setup 3（whoami、讀單、讀相）＋ Google token ＋ 每張相實際用咗嘅。
+      let used = 3 + (gtoken ? 1 : 0)
+      for (const item of batch) used += 2 + (item.r2Key ? 1 : 0) + (item.driveFileId && gtoken ? 1 : 0)
+      let token = gtoken
+      try {
+        if (!token) {
+          used += 1
+          token = await googleToken(env)
+        }
+        folder = await purgeFolder(
+          env,
+          token,
+          record,
+          (photos ?? []).map((photo) => photo.id),
+          SUBREQUEST_MAX - used,
+        )
+      } catch (err) {
+        console.error('[purge] folder cleanup: google token failed:', String(err?.message || err).slice(0, 300))
+        folder = { status: 'error', trashedFiles: 0, why: String(err?.message || err).slice(0, 300) }
+      }
+      const note = folderNote(folder)
+      if (note) message = `${message}${note}`
+    }
 
     return json(
       {
@@ -978,6 +1110,9 @@ async function purgeRecord(request, env, origin) {
         remaining: queue.length - batch.length,
         hitLimit,
         failed,
+        // ⭐ 工程資料夾點處理（`trashed` / `kept` / `none` / `unknown` / `error` / `skipped`）。
+        //    ⛔ 唔影響 `ok`：相已經全部清走。
+        folder,
         message,
       },
       200,
