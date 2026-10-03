@@ -1,0 +1,357 @@
+<!doctype html>
+<html lang="zh-HK">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0D120E">
+<title>原型：改樹牌之後點樣叫 /rename-tree、失敗點樣出（P3f §4.6）</title>
+<!--
+  ══════════════════════════════════════════════════════════════════
+  ⛔⛔ 呢個係原型。⛔ 唔駁 Supabase、⛔ 唔叫 Worker、⛔ 唔郁 Drive。
+     Worker `/rename-tree` 嘅回應係**照真 Worker 嘅形狀作出嚟**：
+     `ok / renamed / hitLimit / failed[{photoId, why}] / cannot`
+     （見 `worker/src/worker.mjs` renameTree、`worker/src/rename.mjs`），
+     撞名嗰句 `why` 抄足 Worker 原文。
+
+  ⛔⛔ 呢條分枝（claude/proto-rename-tree）**永遠唔 merge 入 main**。
+     淨係為咗 Cloudflare Pages 出 Branch Preview 網址。
+
+  ⭐ Preview 網址唔喺 Worker 個 ALLOWED_ORIGIN ⇒ 呢版⛔ 一個 Worker 請求都冇，
+     全部係樣板，冇網都撳得。
+
+  ⭐ Spec：`docs/P3f-全app版面-實作計劃.md` §4.6（Jason 2026-08-24 揀「兩樣都要」）
+     1. 樹木頁頂黃色橫幅（只喺真係失敗先出）＋「再試」
+     2. 設定頁診斷多一行「改名未完成」＋ 總結句
+     3. 改返成功 ⛔ 兩個位一齊清
+     ⚠️ spec 原句係口語，畫面要書面語 ⇒ 轉咗（AI 代揀，待 Jason 確認）。
+
+  ⭐ 檔名照 `names.mjs` 個 `photoFilename()`：`{樹牌}_{工序}_{01/03/05}_Before.jpg`
+  ══════════════════════════════════════════════════════════════════
+-->
+<style>
+  :root{
+    --mq-bg:#0D120E; --mq-bg-elevated:#111712;
+    --mq-surface-1:#171E18; --mq-surface-2:#1C241D;
+    --mq-olive:#84945D; --mq-olive-strong:#98A56B; --mq-moss:#68794D;
+    --mq-text:#F1EBDD; --mq-text-2:#BDB6A6; --mq-text-3:#96978E;
+    --mq-border:rgba(190,178,139,.28); --mq-border-strong:rgba(157,169,105,.44);
+    --mq-warning:#B68A45; --mq-danger:#B35D4A;
+    --mq-serif:"Noto Serif TC","Source Han Serif TC","Songti TC",serif;
+    --mq-sans:"Noto Sans TC","PingFang TC","Microsoft JhengHei",sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:#0D120E;font-family:var(--mq-sans);color:var(--mq-text);font-size:16px;line-height:1.5}
+  .banner{background:#FDF6E3;color:#6B5A34;font-size:13.5px;line-height:1.66;padding:12px 16px;text-align:center;border-bottom:1px solid #E8DCC0}
+  .banner b{color:#4A3E1E}
+  .fp{font-family:ui-monospace,Menlo,monospace;font-size:12px;color:#8A7A52}
+  .ctl{max-width:430px;margin:0 auto;padding:14px 16px 0}
+  .lbl{font-size:12px;color:var(--mq-text-3);margin:14px 0 6px}
+  .segs{display:flex;gap:6px}
+  .segs button{flex:1 1 0;padding:9px 6px;border-radius:11px;border:1px solid var(--mq-border);background:rgba(28,36,29,.6);color:var(--mq-text-2);font:inherit;font-size:13px;font-weight:600;cursor:pointer}
+  .segs button.on{background:linear-gradient(160deg,#8B9C60,#68794D);color:#0D120E;border-color:var(--mq-border-strong)}
+  .segs button small{display:block;font-weight:400;font-size:11px;opacity:.88;margin-top:2px}
+  .cost{max-width:430px;margin:14px auto 0;padding:11px 14px;border-radius:12px;background:rgba(182,138,69,.14);border:1px solid rgba(182,138,69,.42);font-size:13px;line-height:1.7;color:#E6D2AC}
+  .cost b{color:#F4E3BE} .cost ul{margin:6px 0 0;padding-left:1.1em}
+  /* ⛔ 機殼釘死 390×727（照之前原型嘅做法），⛔ 唔跟瀏覽器。 */
+  .phone{width:390px;height:727px;margin:16px auto 40px;position:relative;border-radius:26px;overflow:hidden;background:var(--mq-bg);border:1px solid var(--mq-border)}
+  .top{height:56px;display:flex;align-items:center;justify-content:space-between;padding:0 16px;border-bottom:1px solid var(--mq-border)}
+  .top h1{font-family:var(--mq-serif);font-size:20px;margin:0}
+  .chip{width:44px;height:44px;border-radius:22px;border:1px solid var(--mq-border);background:var(--mq-surface-1);color:var(--mq-text);font-size:18px;cursor:pointer}
+  .scroll{position:absolute;top:57px;left:0;right:0;bottom:62px;overflow-y:auto;padding:12px 14px 20px}
+  .nav{position:absolute;left:0;right:0;bottom:0;height:62px;display:flex;background:var(--mq-bg-elevated);border-top:1px solid var(--mq-border)}
+  .nav div{flex:1;display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--mq-text-3)}
+  .nav div.on{color:var(--mq-olive-strong)}
+  .filterline{font-size:12.5px;color:var(--mq-text-2);background:rgba(132,148,93,.14);border:1px solid var(--mq-border);border-radius:10px;padding:7px 10px;margin-bottom:10px}
+  .card{background:var(--mq-surface-1);border:1px solid var(--mq-border);border-radius:16px;padding:12px 14px;margin-bottom:10px}
+  .ptop{display:flex;justify-content:space-between;gap:10px}
+  .ptitle{font-family:var(--mq-serif);font-size:16.5px;line-height:1.35}
+  .status{font-size:12px;color:var(--mq-text-2);white-space:nowrap;border:1px solid var(--mq-border);border-radius:99px;padding:1px 8px;height:fit-content}
+  .meta{display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px;font-size:12.5px;color:var(--mq-text-3);margin-top:6px}
+  .meta i{width:3px;height:3px;border-radius:2px;background:var(--mq-text-3);display:inline-block}
+  .who{color:var(--mq-text-2)}
+  .who--none{color:var(--mq-warning)}
+  .empty{color:var(--mq-text-3);font-size:13.5px;text-align:center;padding:30px 10px}
+  .scrim{position:absolute;inset:0;background:rgba(0,0,0,.5);display:none;align-items:flex-start;justify-content:center;padding-top:64px}
+  .scrim.show{display:flex}
+  .pop{width:358px;background:var(--mq-surface-2);border:1px solid var(--mq-border-strong);border-radius:16px;padding:14px}
+  .pop label{display:block;font-size:12.5px;color:var(--mq-text-3);margin:10px 0 4px}
+  .pop label:first-child{margin-top:0}
+  .pop input,.pop select{width:100%;padding:10px;border-radius:10px;border:1px solid var(--mq-border);background:var(--mq-bg);color:var(--mq-text);font:inherit;font-size:16px}
+  .acts{display:flex;gap:8px;margin-top:14px}
+  .acts button{flex:1;padding:11px;border-radius:12px;font:inherit;font-size:14.5px;font-weight:600;cursor:pointer;border:1px solid var(--mq-border)}
+  .ghost{background:transparent;color:var(--mq-text)}
+  .primary{background:linear-gradient(160deg,#8B9C60,#68794D);color:#0D120E}
+  .wait{color:var(--mq-text-3);font-style:italic}
+  .segs{flex-wrap:wrap}
+  .segs button{min-width:calc(50% - 3px)}
+  .yellow{background:rgba(182,138,69,.16);border:1px solid rgba(182,138,69,.55);border-radius:14px;padding:11px 13px;margin-bottom:12px;font-size:14px;line-height:1.6;color:#F0DDB4}
+  .yellow .why{font-size:12.5px;color:#D9C49A;margin-top:4px}
+  .yellow button{margin-top:8px;padding:9px 18px;border-radius:11px;border:1px solid rgba(182,138,69,.6);background:transparent;color:#F4E3BE;font:inherit;font-size:14px;font-weight:600;cursor:pointer}
+  .yellow button:disabled{opacity:.6}
+  .info{font-size:12.5px;color:var(--mq-text-3);background:rgba(132,148,93,.10);border:1px dashed var(--mq-border);border-radius:12px;padding:9px 11px;margin-top:10px}
+  .files{margin:6px 0 0;padding:0;list-style:none;font-family:ui-monospace,Menlo,monospace;font-size:11.5px;line-height:1.75}
+  .files .old{color:#E0A36A} .files .new{color:var(--mq-olive-strong)} .files .off{color:var(--mq-text-3)}
+  .field{display:block;margin-bottom:12px} .field span{display:block;font-size:12.5px;color:var(--mq-text-3);margin-bottom:4px}
+  .field input{width:100%;padding:11px;border-radius:11px;border:1px solid var(--mq-border);background:var(--mq-bg);color:var(--mq-text);font:inherit;font-size:16px}
+  .warn{display:block;font-size:12.5px;color:var(--mq-warning);margin-top:4px}
+  .btn{width:100%;padding:13px;border-radius:13px;font:inherit;font-size:15.5px;font-weight:600;cursor:pointer;border:1px solid var(--mq-border-strong);background:linear-gradient(160deg,#8B9C60,#68794D);color:#0D120E;margin-top:6px}
+  .btn:disabled{opacity:.65}
+  .btn2{background:transparent;color:var(--mq-text);border:1px solid var(--mq-border)}
+  .row{display:flex;justify-content:space-between;gap:10px;font-size:14px;padding:8px 0;border-bottom:1px solid rgba(190,178,139,.14)}
+  .row span:first-child{color:var(--mq-text-3)}
+  .sum{font-size:13.5px;margin-top:10px;line-height:1.6}
+  .sum.bad{color:#F0DDB4} .sum.ok{color:var(--mq-olive-strong)}
+  .toast{position:absolute;left:16px;right:16px;bottom:74px;background:#2A3328;border:1px solid var(--mq-border-strong);border-radius:12px;padding:10px 12px;font-size:13.5px;display:none}
+  .toast.show{display:block}
+  .back{background:none;border:none;color:var(--mq-text-2);font:inherit;font-size:14px;cursor:pointer;padding:0}
+</style>
+
+<div class="banner">
+  <b>⛔ 樣板，唔會真係存嘢。</b> ⛔ 唔叫 Worker、⛔ 唔郁 Drive。Drive 回應係照真 Worker 嘅格式作出嚟。<br>
+  試法：撳「改樹」→ 把 <b>12</b> 改做 <b>21</b> → 儲存 → 睇樹木頁頂同「設定」頁。<br>
+  <span class="fp">指紋：e6f7e21</span>
+</div>
+
+<div class="ctl">
+  <p class="lbl">情況（樣板扮出嚟）</p>
+  <div class="segs" id="segCase">
+    <button data-v="ok" class="on">全部順利<small>6 張全改</small></button>
+    <button data-v="net">中途斷網<small>改到第 3 張停</small></button>
+    <button data-v="clash">撞名<small>同工程已有 #21</small></button>
+    <button data-v="many">15 張相<small>超過一次 12 張</small></button>
+  </div>
+
+  <p class="lbl">甲 · 撳「儲存」之後</p>
+  <div class="segs" id="segWhen">
+    <button data-v="wait" class="on">等改完名先返<small>撳完要等</small></button>
+    <button data-v="bg">即刻返，背後改<small>唔使等</small></button>
+  </div>
+
+  <p class="lbl">乙 · 一次改唔晒（超過 12 張）</p>
+  <div class="segs" id="segMore">
+    <button data-v="auto" class="on">自動接住改<small>直至改完</small></button>
+    <button data-v="manual">出橫幅<small>等人撳「再試」</small></button>
+  </div>
+
+  <p class="lbl">丙 · 「改名未完成」記喺邊</p>
+  <div class="segs" id="segKeep">
+    <button data-v="local" class="on">只記喺呢部手機<small>唔使 SQL</small></button>
+    <button data-v="db">記入資料庫<small>要跑 SQL 草稿</small></button>
+  </div>
+</div>
+
+<div class="cost">
+  <b>⭐ 代價擺晒喺度，⛔ 冇收埋：</b>
+  <ul>
+    <li><b>甲 · 等改完名先返</b>：Worker 每次要時間（樣板等 <b>1.6 秒</b> 一次，⚠️ 作出嚟嘅數，⛔ 未量過真 Drive）。15 張要叫兩次 ≈ 3.2 秒。<b>斷網就要等到逾時先知</b>。</li>
+    <li><b>甲 · 背後改</b>：即刻返樹木頁，但<b>改名進行中嗰陣熄 app</b>，嗰次就冇結果。⇒ 樣板做法：叫之前先記低「改名中」，成功先清 —— 熄咗 app 下次開都見到橫幅。</li>
+    <li><b>乙 · 自動接住改</b>：多叫幾次 Worker；⚠️ 要設上限（樣板 5 次）免得死循環。<b>出橫幅</b>：要人撳多一下，而佢唔撳就一直係半新半舊。</li>
+    <li><b>丙 · 只記喺呢部手機</b>：⛔ <b>第二部手機、辦公室部電腦都見唔到</b>（設定頁撳「扮另一部手機」睇）。清咗 app 資料就冇咗記錄，但 Drive 仍然半新半舊。</li>
+    <li><b>丙 · 記入資料庫</b>：要你跑 SQL（PR 入面 `docs/P3f-改名未完成-草稿.sql`，⛔ 我冇跑），即係 <code>quote_trees</code> 加一欄；離線同步嗰邊亦要跟住改。</li>
+    <li><b>撞名</b>：重試幾多次都一樣失敗 —— Worker 特登唔改（改咗兩個檔案就同名），要人手處理。</li>
+  </ul>
+</div>
+
+<div class="phone">
+  <div class="top" id="top"></div>
+  <div class="scroll" id="body"></div>
+  <div class="nav">
+    <div id="navWork" class="on" style="cursor:pointer">工程</div>
+    <div>同步</div>
+    <div id="navSet" style="cursor:pointer">設定</div>
+  </div>
+  <div class="toast" id="toast"></div>
+</div>
+
+<script>
+  const PROJECT = '彩霞邨彩月樓外圍樹木修剪及移除工程（第二期）';
+  const TOKENS = { whole:'Whole View', thin:'Crown Thinning', raise:'Crown Raising', close:'Close Up', removal:'Removal' };
+  const nn = (seq) => String(2 * seq - 1).padStart(2, '0');                 // = names.mjs pairedNumber
+  const fname = (no, tok, seq) => `${no}_${TOKENS[tok]}_${nn(seq)}_Before.jpg`;   // = photoFilename
+
+  function makePhotos(n) {
+    const kinds = [['whole',1],['thin',1],['thin',2],['raise',1],['close',1],['close',2]];
+    const extra = ['removal','raise','thin','close','removal','raise','thin','close','removal'];
+    const out = kinds.map(([t,s], i) => ({ id:'p'+i, tok:t, seq:s }));
+    for (let i = 0; out.length < n; i++) {
+      const t = extra[i % extra.length];
+      const seq = out.filter((p) => p.tok === t).length + 1;
+      out.push({ id:'p'+out.length, tok:t, seq });
+    }
+    return out;
+  }
+
+  const st = {
+    case:'ok', when:'wait', more:'auto', keep:'local',
+    screen:'tree', otherDevice:false,
+    treeNo:'12', photos:[], drive:{},       // drive[photoId] = Drive 上面而家個名
+    notMirrored:1,                          // 一張未上 Drive（之後會直接用新樹牌）
+    pending:null,                           // { treeNo, left, why[] } —— 「改名未完成」記錄
+    busy:false, netCalls:0, calls:0,
+  };
+
+  function reset() {
+    st.treeNo = '12'; st.photos = makePhotos(st.case === 'many' ? 15 : 6);
+    st.drive = {}; for (const p of st.photos) st.drive[p.id] = fname('12', p.tok, p.seq);
+    st.pending = null; st.busy = false; st.netCalls = 0; st.calls = 0; st.screen = 'tree';
+    render();
+  }
+
+  /* ── 扮 Worker /rename-tree：一次最多 12 張，回應形狀同真 Worker 一樣 ── */
+  const RENAME_BATCH_MAX = 12;
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  async function fakeRenameTree() {
+    await sleep(1600);
+    st.calls += 1;
+    const todo = st.photos.filter((p) => st.drive[p.id] !== fname(st.treeNo, p.tok, p.seq));
+    const batch = todo.slice(0, RENAME_BATCH_MAX);
+    const hitLimit = todo.length > batch.length;
+    let renamed = 0; const failed = [];
+    const netDown = st.case === 'net' && st.netCalls === 0;
+    batch.forEach((p, i) => {
+      const want = fname(st.treeNo, p.tok, p.seq);
+      if (netDown && i >= 2) { failed.push({ photoId:p.id, why:'TypeError: Failed to fetch' }); return; }
+      if (st.case === 'clash' && (p.tok === 'whole' || (p.tok === 'close' && p.seq === 1))) {
+        failed.push({ photoId:p.id, why:`Drive 上已經有另一個檔案叫「${want}」，⛔ 不會冒險修改（改了兩個檔案就會同名）。請截圖並聯絡 Jason。` });
+        return;
+      }
+      st.drive[p.id] = want; renamed += 1;
+    });
+    if (st.case === 'net') st.netCalls += 1;
+    const left = todo.length - renamed;
+    return { ok: failed.length === 0 && !hitLimit, treeNo: st.treeNo, renamed, hitLimit, failed, cannot: [], left };
+  }
+
+  /* ── App 呢邊（將來嘅真 code 要做嘅嘢）── */
+  async function renameFlow() {
+    // ⭐ 叫之前先記低「改名中」—— 熄咗 app 都唔會唔見。
+    st.pending = { treeNo: st.treeNo, left: st.photos.length, why: [], running: true };
+    render();
+    let res;
+    for (let i = 0; i < 5; i++) {                 // ⚠️ 上限 5 次，免得死循環
+      res = await fakeRenameTree();
+      if (!(res.hitLimit && res.failed.length === 0 && st.more === 'auto')) break;
+    }
+    if (res.ok) {
+      st.pending = null;                          // ⭐ 成功 ⇒ 兩個位一齊清
+      toast(`Drive 那邊 ${res.renamed} 張相片的檔名已經一併修改。`);
+    } else {
+      const why = [...new Set(res.failed.map((f) => f.why).filter((w) => /[\u4e00-\u9fff]/.test(w)))];
+      st.pending = { treeNo: res.treeNo, left: res.left, why, hitLimit: res.hitLimit, running: false };
+    }
+  }
+
+  async function save(newNo) {
+    if (st.busy) return;
+    st.busy = true; render();
+    await sleep(500);                             // 寫 quote_trees.tree_no（樣板）
+    const changed = newNo !== st.treeNo;
+    st.treeNo = newNo;
+    if (!changed) { st.busy = false; st.screen = 'tree'; render(); return; }
+    if (st.when === 'wait') {
+      st.busyText = '正在更改 Drive 檔名⋯';
+      render();
+      await renameFlow();
+      st.busy = false; st.busyText = null; st.screen = 'tree'; render();
+    } else {
+      st.busy = false; st.screen = 'tree'; render();
+      renameFlow().then(render);
+    }
+  }
+
+  async function retry() {
+    if (st.busy) return;
+    st.busy = true; render();
+    await renameFlow();
+    st.busy = false; render();
+  }
+
+  let tt = null;
+  function toast(msg) {
+    const el = document.getElementById('toast');
+    el.textContent = msg; el.classList.add('show');
+    clearTimeout(tt); tt = setTimeout(() => el.classList.remove('show'), 2600);
+  }
+
+  /* ── 畫面 ── */
+  const pendingSeen = () => (st.keep === 'local' && st.otherDevice) ? null : st.pending;
+
+  function bannerHtml() {
+    const p = pendingSeen();
+    if (!p || p.running) return '';
+    const why = p.why.map((w) => `<div class="why">${w}</div>`).join('');
+    const more = p.hitLimit ? '<div class="why">一次最多處理 12 張，尚有未處理的。</div>' : '';
+    return `<div class="yellow" data-testid="rename-banner">有 ${p.left} 張相片的檔名未能更改，Drive 上仍然是舊樹牌。${why}${more}
+      <div><button id="btnRetry" ${st.busy ? 'disabled' : ''}>${st.busy ? '再試中⋯' : '再試'}</button></div></div>`;
+  }
+
+  function filesHtml() {
+    const rows = st.photos.map((p) => {
+      const cur = st.drive[p.id];
+      const cls = cur.startsWith(st.treeNo + '_') ? 'new' : 'old';
+      return `<li class="${cls}">${cur}</li>`;
+    }).join('');
+    return `<div class="info">（樣板額外顯示，真 app ⛔ 冇呢格）Drive 上面而家叫乜 —— <span style="color:#98A56B">綠＝新樹牌</span>，<span style="color:#E0A36A">橙＝仲係舊</span>：
+      <ul class="files">${rows}<li class="off">（另有 ${st.notMirrored} 張未上 Drive —— 之後上載會直接用新樹牌，⛔ 唔使改）</li></ul></div>`;
+  }
+
+  function render() {
+    const top = document.getElementById('top'), body = document.getElementById('body');
+    document.getElementById('navWork').classList.toggle('on', st.screen !== 'set');
+    document.getElementById('navSet').classList.toggle('on', st.screen === 'set');
+
+    if (st.screen === 'tree') {
+      top.innerHTML = `<div><button class="back" id="btnBackList">‹ 樹木清單</button><h1 style="font-size:18px">樹 #${st.treeNo}</h1></div>`;
+      const running = st.pending && st.pending.running && st.when === 'bg';
+      body.innerHTML = bannerHtml() +
+        `<div class="card"><div class="ptitle">樹 #${st.treeNo}</div>
+           <div class="meta"><span>${PROJECT}</span></div>
+           <div class="meta"><span>相片 ${st.photos.length + st.notMirrored} 張</span><i></i><span>修剪、近景</span></div>
+           ${running ? '<div class="meta"><span class="wait">（背後正在更改 Drive 檔名⋯）</span></div>' : ''}
+         </div>
+         <button class="btn btn2" id="btnEdit" ${st.busy ? 'disabled' : ''}>改樹</button>` + filesHtml();
+      document.getElementById('btnEdit').onclick = () => { st.screen = 'form'; render(); };
+      const r = document.getElementById('btnRetry'); if (r) r.onclick = retry;
+    } else if (st.screen === 'form') {
+      top.innerHTML = `<div><button class="back" id="btnBackTree">‹ 返樹木頁</button><h1 style="font-size:18px">改樹 #${st.treeNo}</h1></div>`;
+      body.innerHTML = `<div class="card">
+          <label class="field"><span>樹編號</span><input id="inNo" inputmode="numeric" value="${st.treeNo === '12' ? '21' : st.treeNo}" ${st.busy ? 'disabled' : ''}>
+          ${st.case === 'clash' ? '<span class="warn" id="dupWarn">這個編號與另一棵樹相同。仍然可以儲存，只要之後分得出是哪一棵即可。</span>' : ''}</label>
+          <p class="meta" style="margin:0 0 6px">（樣板已經幫你填咗 21）</p>
+          <button class="btn" id="btnSave" ${st.busy ? 'disabled' : ''}>${st.busy ? (st.busyText || '儲存中…') : '儲存'}</button>
+        </div>`;
+      document.getElementById('btnSave').onclick = () => save(document.getElementById('inNo').value.trim() || st.treeNo);
+    } else {
+      top.innerHTML = '<h1>設定</h1>';
+      const p = pendingSeen();
+      const line = p ? `#${p.treeNo} · ${p.left} 張${p.running ? '（進行中）' : ''}` : '無';
+      const sum = p && !p.running
+        ? '<p class="sum bad">有問題：1 個樹牌的 Drive 檔名修改到一半停止，請返回該棵樹點擊「再試」。</p>'
+        : '<p class="sum ok">沒有問題：全部相片已上傳，沒有待處理項目。</p>';
+      body.innerHTML = `<div class="card"><div class="ptitle" style="margin-bottom:6px">診斷資料</div>
+          <div class="row"><span>版本</span><span>樣板</span></div>
+          <div class="row"><span>改名未完成</span><span data-testid="diag-rename">${line}</span></div>
+          ${sum}
+        </div>
+        <button class="btn btn2" id="btnOther">${st.otherDevice ? '返回自己部手機' : '扮另一部手機（例：辦公室）'}</button>
+        <div class="info">${st.otherDevice ? (st.keep === 'local' ? '⚠️ 而家扮緊另一部機：「只記喺呢部手機」⇒ 呢度<b>睇唔到</b>改名未完成，但 Drive 其實仲係半新半舊。' : '而家扮緊另一部機：「記入資料庫」⇒ 呢度一樣睇到。') : '撳上面粒掣，睇下第二部機見唔見到。'}</div>`;
+      document.getElementById('btnOther').onclick = () => { st.otherDevice = !st.otherDevice; render(); };
+    }
+    const bt = document.getElementById('btnBackTree'); if (bt) bt.onclick = () => { if (!st.busy) { st.screen = 'tree'; render(); } };
+    const bl = document.getElementById('btnBackList'); if (bl) bl.onclick = () => toast('樣板：樹木清單未做。');
+  }
+
+  document.getElementById('navWork').onclick = () => { st.otherDevice = false; if (!(st.busy && st.screen === 'form')) { st.screen = 'tree'; render(); } };
+  document.getElementById('navSet').onclick = () => { if (!(st.busy && st.screen === 'form')) { st.screen = 'set'; render(); } };
+
+  function seg(id, key, again) {
+    const box = document.getElementById(id);
+    box.addEventListener('click', (e) => {
+      const b = e.target.closest('button'); if (!b) return;
+      for (const x of box.querySelectorAll('button')) x.classList.toggle('on', x === b);
+      st[key] = b.dataset.v;
+      again ? reset() : render();
+    });
+  }
+  seg('segCase', 'case', true); seg('segWhen', 'when', true); seg('segMore', 'more', true); seg('segKeep', 'keep', false);
+  reset();
+</script>
