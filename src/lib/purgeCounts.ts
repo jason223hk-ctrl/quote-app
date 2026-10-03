@@ -62,16 +62,14 @@ export function purgeCounts(
     if (row.record_id !== recordId) continue
     // ⛔ 已經軟刪咗嗰啲唔算 —— 佢哋喺畫面上面早就冇咗。
     if (row.deleted_at !== null) continue
+    // ⭐ P8 步 4：已經清走咗嘅（`purged_at` 有值）冇 bytes 剩，⛔ 唔再數落「會消失」。
+    if (row.purged_at) continue
     seen.add(row.operation_id)
   }
   for (const item of local) {
     if (item.recordId !== recordId) continue
     seen.add(item.operationId)
   }
-
-  // ⚠️ 將來（P8 步 3）`quote_photos` 會多一個 `purged_at`。⛔ 到時要喺上面
-  //    再隔走「已經清咗」嗰啲 —— 佢哋冇 bytes 剩，⛔ 唔應該再數落「會消失」。
-  //    ⛔ 而家個 schema 冇呢個欄，所以呢度**冇扮有** —— 見計劃書 §7 步 3。
 
   return { trees: liveTrees.length, photos: seen.size }
 }

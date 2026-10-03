@@ -204,3 +204,62 @@ export function purgeSummary({ purged, alreadyDone, nothingToClear, failed, hitL
 
   return `⚠️ 雲端相片只清走了一部分：${bits.join('、')}。剩下的仍然在雲端，請再點擊一次「繼續清」。`
 }
+
+/* ─────────────────────────────────────────────────────────────────────────────
+ * ⭐ 2026-10-03 Jason 拍板：**成單工程刪咗，Drive 個工程資料夾都要走**
+ *   （掉垃圾桶，30 日內撈得返 —— 同相一樣）。
+ *
+ * ⭐ 掉個資料夾 ＝ 入面所有嘢一齊入垃圾桶 ⇒ 連 2026-10-03 嗰次 bug 整出嚟嘅
+ *   **重複副本**都一齊清走（`/purge` 本來淨係 trash 行入面嗰個 `drive_file_id`）。
+ *
+ * ⛔⛔ 但個資料夾**唔一定淨係屬於呢一單**：資料夾名係 `projectFolderName(日期, 工程名)`，
+ *    另一單同日同名嘅工程會**共用同一個資料夾**；亦可能有人手放咗嘢入去。
+ *    ⇒ 掉之前逐個睇入面嘅嘢：
+ *      · 全部都係**呢一單嘅相**（`appProperties.quotePhotoId` ∈ 呢單嘅相 id）或者係空 ⇒ 掉成個資料夾
+ *      · 有**任何一樣唔係**（第二單嘅相、冇 quotePhotoId 嘅檔、子資料夾）⇒ ⛔ 唔掉資料夾，
+ *        淨係掉入面屬於呢一單嘅檔（即係重複副本），資料夾留低
+ *      · 一頁睇唔晒（`nextPageToken`）⇒ ⛔ 唔知入面有乜 ⇒ 乜都唔掂
+ * ⛔ 根資料夾（`DRIVE_ROOT_FOLDER_NAME`）一律唔掂。
+ * ───────────────────────────────────────────────────────────────────────────── */
+
+const FOLDER_MIME = 'application/vnd.google-apps.folder'
+
+/**
+ * 一個工程資料夾點處理。**純邏輯。**
+ *
+ * @param children  `files.list` 攞返嘅（未入垃圾桶）入面嘅嘢：`{ id, mimeType, appProperties }`
+ * @param ownPhotoIds  呢一單**所有** `quote_photos.id`
+ * @param complete  `false` ＝ 一頁睇唔晒 ⇒ ⛔ 唔准判斷
+ * @returns `{ action: 'trash-folder' }` ／ `{ action: 'trash-files', fileIds, foreign }` ／ `{ action: 'unknown' }`
+ */
+export function folderVerdict(children, ownPhotoIds, complete = true) {
+  if (!complete) return { action: 'unknown' }
+  const own = new Set(ownPhotoIds)
+  const mine = []
+  let foreign = 0
+  for (const child of children ?? []) {
+    const photoId = child?.appProperties?.quotePhotoId
+    if (child?.mimeType !== FOLDER_MIME && typeof photoId === 'string' && own.has(photoId)) {
+      mine.push(child.id)
+    } else {
+      foreign += 1
+    }
+  }
+  if (foreign === 0) return { action: 'trash-folder' }
+  return { action: 'trash-files', fileIds: mine, foreign }
+}
+
+/**
+ * 資料夾嗰步講嘅話。⛔ 唔影響「相清咗未」（`ok`）—— 相已經全部清走、`purged_at` 已經寫咗。
+ * ⭐ `null` ＝ 冇嘢要講。
+ */
+export function folderNote(result) {
+  if (!result) return null
+  if (result.status === 'kept') {
+    return '工程資料夾內還有不屬於這一單的檔案，所以保留了資料夾，只清走了這一單的檔案。'
+  }
+  if (result.status === 'error' || result.status === 'unknown') {
+    return '⚠️ Google Drive 的工程資料夾未能清走（相片本身已經清走）。可以稍後再點擊「繼續清」，或者截圖並聯絡 Jason。'
+  }
+  return null
+}

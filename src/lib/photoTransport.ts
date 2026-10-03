@@ -116,7 +116,30 @@ export type MirrorResult = { ok: true; alreadyDone: boolean } | { ok: false; mes
  * ⛔ bytes 唔會經前端 —— 呢度淨係傳一個相片 id 過去，
  * Worker 自己由 R2 讀返出嚟原封不動上 Drive。
  */
-export async function mirrorPhoto(accessToken: string, photoId: string): Promise<MirrorResult> {
+/**
+ * ⛔⛔ 同一個 tab 入面，同一張相嘅 `/mirror` 一次只准有一個喺度行。
+ *
+ * ⚠️ 2026-10-03 Jason 真機（PR #77 preview）：**同一張相喺 Drive 出咗 4 份**。
+ *    成因：`PhotoSlot` 影完即刻抄（`send()`）、每一格 `PhotoSlot` 嘅自動補鏡像、
+ *    同埋背景 `mirrorOnce()`，三條路各有各嘅「試過未」記錄，會**同時**叫同一張相；
+ *    而 Worker `/mirror` 係「先查有冇 → 冇就上」，中間冇鎖 ⇒ 撞埋一齊就每個都上一份。
+ * ⭐ 修法：呢度係**全部三條路嘅唯一出口** ⇒ 喺呢度做 single-flight：
+ *    第二個叫嘅人攞返**同一個 promise**，⛔ 唔會多發一個請求。行完（成功／失敗）就放。
+ * ⚠️ 淨係擋得住同一個 tab。兩部機／兩個 tab 同時抄，要 Worker 嗰邊收斂（PR #77 跟進項）。
+ */
+const mirrorInFlight = new Map<string, Promise<MirrorResult>>()
+
+export function mirrorPhoto(accessToken: string, photoId: string): Promise<MirrorResult> {
+  const running = mirrorInFlight.get(photoId)
+  if (running) return running
+  const call = mirrorPhotoOnce(accessToken, photoId).finally(() => {
+    mirrorInFlight.delete(photoId)
+  })
+  mirrorInFlight.set(photoId, call)
+  return call
+}
+
+async function mirrorPhotoOnce(accessToken: string, photoId: string): Promise<MirrorResult> {
   const base = photoWorkerBase()
   if (base === '') return { ok: false, message: WORKER_MISSING_MESSAGE }
 

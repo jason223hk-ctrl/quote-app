@@ -4,6 +4,7 @@ import {
   DUPLICATE_NOT_FOUND_MESSAGE,
   MAX_DRIVE_ATTEMPTS,
   pickMirrorBatch,
+  rowsForSlot,
   PHOTO_STATUS_HINT,
   photoCanRetry,
   photoHint,
@@ -531,5 +532,28 @@ describe('allocateSeq', () => {
     await expect(
       createPhotosApi(client, 'user-1').allocateSeq('rec', null, null),
     ).rejects.not.toThrow(/permission denied/)
+  })
+})
+
+describe('rowsForSlot —— 自動補鏡像淨係揀呢一格嘅相', () => {
+  const r = (id: string, tree_id: string | null, mitigation: string | null) =>
+    ({ id, tree_id, mitigation }) as unknown as QuotePhoto
+
+  it('⛔ 同一版幾格唔會搶同一批：每格淨係見到自己嘅', () => {
+    const rows = [r('a', 't1', null), r('b', 't1', 'prune'), r('c', 't2', null), r('d', null, null)]
+    expect(rowsForSlot(rows, 't1', null).map((x) => x.id)).toEqual(['a'])
+    expect(rowsForSlot(rows, 't1', 'prune').map((x) => x.id)).toEqual(['b'])
+    expect(rowsForSlot(rows, null, null).map((x) => x.id)).toEqual(['d'])
+  })
+
+  it('⭐ 篩完先揀三張 ⇒ 第二格嘅相唔會俾第一格揀走', () => {
+    const synced = { r2_synced_at: 'x', drive_synced_at: null }
+    const mk = (id: string, tree: string, at: string) =>
+      ({ ...synced, id, tree_id: tree, mitigation: null, created_at: at }) as unknown as QuotePhoto
+    const rows = [mk('t1-a', 't1', '1'), mk('t1-b', 't1', '2'), mk('t1-c', 't1', '3'), mk('t2-a', 't2', '4')]
+    const forT2 = pickMirrorBatch(rowsForSlot(rows, 't2', null), () => 0)
+    expect(forT2.map((x) => x.id)).toEqual(['t2-a'])
+    const forT1 = pickMirrorBatch(rowsForSlot(rows, 't1', null), () => 0)
+    expect(forT1.map((x) => x.id)).toEqual(['t1-a', 't1-b', 't1-c'])
   })
 })

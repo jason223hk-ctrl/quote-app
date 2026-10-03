@@ -74,7 +74,7 @@ POST /rename-tree     { "treeId": "…" }      Authorization: Bearer <用家個 
 P3f §4.6 兩個要出錯嘅位（樹木頁黃橫幅、設定頁診斷）係**新畫面元素**，
 ⇒ `CLAUDE.md` §2.11 要原型先行，⛔ 未做。
 
-## `/purge`（2026-09-20 加，⏳ **未部署**）
+## `/purge`（2026-09-20 加，✅ **2026-10-03 已部署**，Version `e08449ea`）
 
 一單工程刪咗之後，**真係清走**雲端嗰兩份相（**Jason 2026-09-14 拍板**，
 `docs/P8-真清相-計劃書.md`）。
@@ -145,6 +145,22 @@ Worker 嗰道擋得早（慳 subrequest、出到中文原因），DB 嗰道**繞
   就變成「帳面清咗、實物留住」，而且**永遠冇人會再去清**。
 - ⭐ 中間任何一步掟錯 ⇒ `purged_at` 留空 ⇒ **嗰行就係「未清完」呢個狀態本身**。
 
+### ⭐ 工程資料夾（2026-10-03 加，Jason 拍板，⏳ **未 deploy**）
+
+成單清晒（冇失敗、冇 `hitLimit`）之後，Drive `Quote App Photos/<日期>_<工程名>` 個資料夾**都掉垃圾桶**
+（30 日內撈得返）。掉資料夾 ＝ 入面嘢一齊走 ⇒ 連以前 bug 整出嚟嘅**重複副本**都清埋。
+
+- ⛔ 淨係揾**根資料夾入面**、名 ＝ `projectFolderName(record_date, name)` 嗰個（同 `/mirror` `ensureFolder()` 同一個 query，⛔ 唔開新）。⛔ 根資料夾一律唔掂。
+- 掉之前睇晒入面：全部係呢單嘅相（`appProperties.quotePhotoId` ∈ 呢單嘅相 id）或者空 ⇒ 掉資料夾；
+  ⛔ 有任何一樣唔係（同日同名嘅另一單、人手放入去嘅檔、子資料夾）⇒ 資料夾留低，淨係掉呢單嘅檔；
+  ⛔ 一頁睇唔晒（`nextPageToken`）⇒ 乜都唔掂。判斷喺 `purge.mjs` `folderVerdict()`。
+- ⛔ `hitLimit` 嗰轉唔掂資料夾；一張相都未上過雲端嘅單⛔ 唔攞 Google token。
+- ⛔ Drive 出事**唔影響 `ok`**（相已經清晒、`purged_at` 已寫）：回覆多咗 `folder: { status, trashedFiles }`
+  （`trashed` / `kept` / `none` / `unknown` / `error` / `skipped`），句 `message` 會加一句。
+- 外呼：最壞情況 `4 + 10×4 + 4 = 48` ≤ 50（有測試量）。逐個掉自己嘅檔嗰陣，用晒額度就停（`status: 'error'`）。
+- ⚠️ 已知未做：資料夾執唔到（`error`）而相已經全部清晒嘅話，設定頁⛔ 唔會出「繼續清」——
+  要再叫一次 `/purge`（例如再撳一次刪除彈窗）先會再執。
+
 ### 其餘
 
 - ⛔ Drive 係**掉垃圾桶**，⛔ 唔係真刪（Jason 2026-09-19 拍板）。多一道 30 日嘅網；
@@ -166,8 +182,9 @@ Worker 嗰道擋得早（慳 subrequest、出到中文原因），DB 嗰道**繞
    ⛔ 唔准早過 deploy 改：改咗就變成「畫面講永久刪除，但實物一件都冇清」。
    ⛔ 亦唔准拖過夜。
 
-⚠️ **前端仲未接** —— 同 `/rename-tree` 一樣，呢個 endpoint deploy 咗之後
-仍然係 inert，⛔ 冇人叫佢（計劃書 §7 步 4）。
+⭐ **前端接咗（P8 步 4／5 PR，⛔ 未 merge 之前正式版仍然冇人叫佢）**：
+`src/lib/purgeRecord.ts` 會 loop `hitLimit`、有失敗即停、`ok: true` 先刪部機；
+404 `{error:'not found'}`（條路唔存在）同 404 `{ok:false,message}`（揾唔到工程）分開兩句。
 
 ## 部署要準備嘅嘢
 
@@ -238,7 +255,7 @@ deploy 咗之後 —— `src/lib/sync.ts` 嗰句 `message.includes('搵 Jason')`
 | 2026-09-19 | `77d5eeb9-d5da-40dd-8674-269746c5aa5e` | ✅ `/rename-tree` ＋ Drive 429 logging（等咗兩日） |
 | 2026-09-19 | `81c304b3-2f54-4d57-bed9-50b225dd2576` | ✅ worker 42 句書面語 |
 | 2026-09-20 | `c6863fd8-ff39-42ba-8bfc-6525ad68b743` | ✅ 「複製上 Drive 之後**核對不符**」（Jason 2026-09-19 收返「校驗」）—— ⭐ `FORBIDDEN` 條尺守嗰個決定終於上埋 worker |
-| ⏳ **待 deploy** | —— | `/purge`（P8 步 3）—— ⛔ **要先跑 `docs/P8-purged_at-草稿.sql`**（加欄 ＋ 建 `quote_purge_stamp()`） |
+| 2026-10-03 | `e08449ea-b7ff-4e8a-87cb-0d7c3e02eee2` | ✅ `/purge`（P8 步 3）—— DB 欄 ＋ `quote_purge_stamp()` 同日驗過 |
 
 ## 部署完之後
 

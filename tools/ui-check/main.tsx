@@ -69,6 +69,11 @@ const body =
       userId="00000000-0000-0000-0000-000000000000"
       recordCount={6}
       photos={fx.photosApi}
+      // ⭐ P8 步 5：平時嗰個樣 ＝ 冇「刪了一半」嗰行。
+      purge={{
+        run: async () => ({ ok: true, purged: 0, localRemoved: 0, message: '' }),
+        listHalfPurged: async () => [],
+      }}
       // ⛔ `null` ＝ 唔知邊啲工程仲喺度 ⇒ 孤兒相嗰行唔會出。
       //    ⭐ 對數要量嘅係「平時嗰個樣」，⛔ 唔係一個有警示行嘅樣。
       liveRecordIds={null}
@@ -153,7 +158,7 @@ const body =
       <RecordCard
         record={fx.RECORD}
         onOpen={() => {}}
-        swipeDelete={{ run: async () => {}, apis: fx.purgeApis }}
+        swipeDelete={{ run: async () => {}, dismissed: () => false, apis: fx.purgeApis }}
       />
     </div>
   ) : screen === 'env' ? (

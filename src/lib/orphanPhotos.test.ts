@@ -194,3 +194,13 @@ describe('orphanNote', () => {
     expect(text).not.toContain('⚠️')
   })
 })
+
+describe('P8：已經清走咗嘅孤兒相', () => {
+  it('⭐ 仍然收埋（⛔ 唔准走返入同步頁），但⛔ 唔再數落「另有 N 張」', () => {
+    const live = new Set<string>()
+    const purged = row({ operation_id: 'gone', purged_at: '2026-10-03T09:00:00Z' })
+    const notYet = row({ operation_id: 'still' })
+    expect(splitOrphanRows([purged, notYet], live).hidden).toHaveLength(2)
+    expect(orphanPhotoCount([purged, notYet], [], live)).toBe(1)
+  })
+})

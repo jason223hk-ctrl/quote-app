@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { Session, SupabaseClient } from '@supabase/supabase-js'
 import {
   createRecordsApi,
@@ -14,6 +14,10 @@ import { createPhotosApi, type PhotosApi } from '../lib/photos'
 import { createPriceApi, type PriceApi } from '../lib/prices'
 import { isOffice } from '../lib/office'
 import { liveRecordIds } from '../lib/orphanPhotos'
+import { listHalfPurged } from '../lib/halfPurged'
+import { photoStore } from '../lib/photoStore'
+import { photoWorkerBase } from '../lib/photoTransport'
+import { callPurgeOnce, purgeRecordFully, type PurgeApi } from '../lib/purgeRecord'
 import { useAutoResume } from '../lib/useAutoResume'
 import { activeTab, type Nav, type Route } from '../ui/routes'
 import { BottomNav, userInfoFrom, type UserInfo } from '../ui/shell'
@@ -43,6 +47,31 @@ export type QuoteApi = {
   photos: PhotosApi
   prices: PriceApi
   clients: ClientsApi
+  /** P8 步 4／5：清走已刪工程嘅雲端相（Worker `/purge`）。見 `src/lib/purgeRecord.ts`。 */
+  purge: PurgeApi
+}
+
+/**
+ * ⭐ 每次叫 `/purge` 之前**即時**問 Supabase 攞 token（佢過期會自己 refresh）——
+ *   ⛔ 唔用 render 嗰陣個 `session.access_token`：清幾十張相要幾分鐘，中途過期就 401。
+ */
+function createPurgeApi(client: SupabaseClient): PurgeApi {
+  return {
+    run: (recordId) =>
+      purgeRecordFully(recordId, {
+        callOnce: async (id) => {
+          const { data } = await client.auth.getSession()
+          return callPurgeOnce(id, {
+            base: photoWorkerBase(),
+            token: data.session?.access_token ?? null,
+            fetch: (url, init) => fetch(url, init),
+          })
+        },
+        listLocal: photoStore.listByRecord,
+        removeLocal: photoStore.removeMany,
+      }),
+    listHalfPurged: () => listHalfPurged(client),
+  }
 }
 
 export default function HomePage({ client, session }: Props) {
@@ -54,6 +83,7 @@ export default function HomePage({ client, session }: Props) {
       photos: createPhotosApi(client, session.user.id),
       prices: createPriceApi(client, session.user.id),
       clients: createClientsApi(client, session.user.id),
+      purge: createPurgeApi(client),
     }),
     [client, session.user.id],
   )
@@ -165,14 +195,48 @@ export function RecordsScreen({
    * ⛔ 失敗要 throw：個彈窗接住之後會出返嗰句，⛔ 唔准食咗佢變「撳咗冇反應」。
    * ⛔ 成功之後⛔ 唔轉頁 —— 人仲喺清單度，張卡走咗就係咁多。
    */
+  /**
+   * ⭐ P8 步 4：軟刪完之後**即刻**叫 `/purge` 清走雲端兩份相，全部清完先刪部機嗰份。
+   *
+   * ⛔⛔ 清唔晒（冇網、清咗一半、`not_yours`⋯）⇒ **throw**，個彈窗會出返嗰句，
+   *    ⛔ 唔准講成功。嗰陣單嘢**已經軟刪咗**，所以記低喺 `softDeleted`：
+   *    再撳一次「永久刪除」⇒ ⛔ 唔會再寫 `deleted_at`（已刪嘅單寫唔到，會俾人拒），
+   *    淨係由頭再叫 `/purge`（已經清咗嘅會 skip）＝ 繼續清。
+   *    ⭐ 走咗都唔怕：設定頁「診斷資料」會出「刪了一半」嗰行（步 5）。
+   */
+  const softDeleted = useRef(new Set<string>())
   const deleteRecord = useCallback(
     async (record: QuoteRecord) => {
-      await withRefusalReason(api.records.softDelete(record.id), () =>
-        refusalReason(record, userId),
-      )
+      if (!softDeleted.current.has(record.id)) {
+        await withRefusalReason(api.records.softDelete(record.id), () =>
+          refusalReason(record, userId),
+        )
+        softDeleted.current.add(record.id)
+      }
+      const result = await api.purge.run(record.id)
+      if (!result.ok) {
+        throw new Error(
+          `${result.message}（在這個視窗再點擊「永久刪除」就會繼續清；關閉後亦可以到「設定 → 診斷資料」點擊「繼續清」。）`,
+        )
+      }
+      softDeleted.current.delete(record.id)
       await reload()
     },
     [api, userId, reload],
+  )
+
+  /**
+   * 彈窗撳「取消」之後。⭐ 如果單嘢其實已經軟刪咗（清相清到一半），
+   * 重新攞清單，回 `true`（工程詳情頁就要離開）。
+   */
+  const dismissDelete = useCallback(
+    (record: QuoteRecord) => {
+      if (!softDeleted.current.has(record.id)) return false
+      softDeleted.current.delete(record.id)
+      void reload()
+      return true
+    },
+    [reload],
   )
 
   /**
@@ -186,9 +250,10 @@ export function RecordsScreen({
   const swipeDelete = useMemo(
     () => ({
       run: deleteRecord,
+      dismissed: dismissDelete,
       apis: { listTrees: api.trees.list, listRows: api.photos.listByRecord },
     }),
-    [deleteRecord, api],
+    [deleteRecord, dismissDelete, api],
   )
 
   async function afterWrite(write: () => Promise<QuoteRecord>, next: (saved: QuoteRecord) => Route) {
@@ -394,6 +459,7 @@ export function RecordsScreen({
             userId={userId}
             recordCount={records.length}
             photos={api.photos}
+            purge={api.purge}
             liveRecordIds={liveIds}
             onRefresh={reload}
             onOpenPrices={() => nav.go({ name: 'prices' })}

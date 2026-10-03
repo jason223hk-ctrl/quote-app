@@ -6,6 +6,7 @@ import {
   PHOTO_STATUS_LABEL,
   newOperationId,
   pickMirrorBatch,
+  rowsForSlot,
   sha256Hex,
   statusOfRow,
   type PhotoStatus,
@@ -268,7 +269,8 @@ export default function PhotoSlot({
    */
   useEffect(() => {
     if (!workerReady || rows.length === 0) return
-    const batch = pickMirrorBatch(rows, attemptsOf).filter(
+    // ⛔ 淨係揀**呢一格**嘅相（`rowsForSlot`）—— 唔係嘅話同一版幾格會搶同一批。
+    const batch = pickMirrorBatch(rowsForSlot(rows, treeId, mitigation), attemptsOf).filter(
       (row) => !triedRef.current.has(row.id),
     )
     if (batch.length === 0) return
@@ -287,7 +289,7 @@ export default function PhotoSlot({
     }
     // rows 一變就再睇有冇嘢要補；補完 reload 會令 rows 再變，
     // 但嗰陣 pickMirrorBatch 會回空，所以唔會無限行落去。
-  }, [rows, workerReady, attemptsOf, runMirror, reload])
+  }, [rows, treeId, mitigation, workerReady, attemptsOf, runMirror, reload])
 
   async function send(item: PendingPhoto) {
     // ⛔⛔ 背景自動重傳有機會啱啱都揀中同一張。⛔ 兩條路一齊上會撞

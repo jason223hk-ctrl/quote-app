@@ -36,6 +36,12 @@ export type QuotePhoto = {
   created_by: string
   created_at: string
   deleted_at: string | null
+  /**
+   * P8：雲端兩份（R2 ＋ Drive）已經清走嘅時間。⛔ 淨係 Worker `/purge`
+   * 經 `quote_purge_stamp()` 寫。有值 ＝ 呢張相冇 bytes 剩。
+   * ⚠️ 選填：舊測試資料冇呢個欄；`undefined` 當 `null`（未清）。
+   */
+  purged_at?: string | null
 }
 
 /**
@@ -191,6 +197,21 @@ export const MAX_DRIVE_ATTEMPTS = 3
 
 /** ⛔ 一次補三張。唔准一次過發成個工程嘅請求 —— 地盤網絡差，三十個會一齊死。 */
 export const MIRROR_BATCH_SIZE = 3
+
+/**
+ * 屬於某一格（某棵樹 ＋ 某個工序；環境相兩樣都係 `null`）嘅相。
+ *
+ * ⭐ `PhotoSlot` 自動補鏡像要先用呢個篩，⛔ 唔准用成單工程嘅相：
+ *    一版有幾格，每格都揀「成單最舊三張」⇒ 幾格同時搶同一批相（2026-10-03 Drive 出 4 份）。
+ *    條件同 `PhotoSlot` `mergeItems()` 顯示嗰邊一樣。
+ */
+export function rowsForSlot(
+  rows: QuotePhoto[],
+  treeId: string | null,
+  mitigation: string | null,
+): QuotePhoto[] {
+  return rows.filter((row) => row.tree_id === treeId && (row.mitigation ?? null) === mitigation)
+}
 
 /**
  * 揀邊幾張相今次補鏡像。
