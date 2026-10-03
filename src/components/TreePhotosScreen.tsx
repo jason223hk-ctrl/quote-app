@@ -3,6 +3,7 @@ import { MITIGATION_OPTIONS, MITIGATION_OTHER, REMOVAL_OPTION } from '../lib/opt
 import type { PhotosApi } from '../lib/photos'
 import type { QuoteTree } from '../lib/trees'
 import PhotoSlot from './PhotoSlot'
+import DeleteTreeDialog from './DeleteTreeDialog'
 import { BackChip, BotanicalHeader, ChipButton, HeaderTitle, ScrollBody } from '../ui/shell'
 import { ICONS } from '../ui/Icon'
 
@@ -14,7 +15,11 @@ type Props = {
   tree: QuoteTree
   /** 撳個樹牌號 → 開改樹（原型：撳個名本身就開，⛔ 冇鉛筆仔）。 */
   onEdit: () => void
-  onDelete: () => void
+  /**
+   * ⛔ 失敗要 throw —— 訊息會出喺刪樹彈窗入面。
+   * ⚠️ 本來係 `() => void`，叫嘅人用 `void afterWrite(…)`，刪唔到就一隻字都冇。
+   */
+  onDelete: () => Promise<void>
   onBack: () => void
 }
 
@@ -24,6 +29,7 @@ type Props = {
  * 由上到下：全景相一格，跟住揀咗幾多個工序就幾多格。
  * ⭐ 撳個樹牌號 ＝ 開「改樹」（原型原文註解：唔要鉛筆仔，撳個名本身就開）。
  * ⭐ 右上角 `×` ＝ 刪除這棵樹（P3f §3.7），⛔ 唔喺改樹入面。
+ *    ⛔ 撳 `×` ⛔ 唔會即刻刪 —— 先出 `DeleteTreeDialog`（CLAUDE.md §2.5、P3f §2.3）。
  *
  * ⛔ 揀咗「移除」嗰格照出，但冇拍攝／相簿 —— 寫住「全景相已經足夠，唔使再影」
  *    （Jason 2026-08-24）。⚠️ 同一棵樹嘅其他工序照樣要影。
@@ -44,6 +50,7 @@ export default function TreePhotosScreen({
    *    喺 `src/lib/photoRefresh.ts`，四條各有測試釘住。
    */
   const [refreshToken, setRefreshToken] = useState(0)
+  const [confirmingDelete, setConfirmingDelete] = useState(false)
 
   const picked = tree.mitigations ?? []
 
@@ -71,7 +78,7 @@ export default function TreePhotosScreen({
             sub={recordName}
           />
         }
-        right={<ChipButton icon={ICONS.del} label="刪除這棵樹" testid="tree-delete" onClick={onDelete} />}
+        right={<ChipButton icon={ICONS.del} label="刪除這棵樹" testid="tree-delete" onClick={() => setConfirmingDelete(true)} />}
       />
 
       <ScrollBody
@@ -110,6 +117,16 @@ export default function TreePhotosScreen({
           <p className="hint">尚未勾選工序。請點擊上方的樹牌號進入「改樹」勾選，這裡就會出現拍攝格。</p>
         )}
       </ScrollBody>
+
+      {confirmingDelete && (
+        <DeleteTreeDialog
+          treeNo={tree.tree_no}
+          recordName={recordName}
+          onCancel={() => setConfirmingDelete(false)}
+          // ⭐ 成功嗰陣上一層會轉去樹木清單，呢版連彈窗一齊冇咗，⛔ 唔使自己關。
+          onConfirm={onDelete}
+        />
+      )}
     </>
   )
 }

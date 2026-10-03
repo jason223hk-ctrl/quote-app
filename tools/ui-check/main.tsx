@@ -160,7 +160,7 @@ const body =
     <EnvPhotosScreen api={fx.photosApi} accessToken="" record={fx.RECORD} onBack={() => {}} />
   ) : screen === 'client' ? (
     <ClientFormScreen record={fx.RECORD} onSave={noop} onBack={() => {}} />
-  ) : screen === 'treephotos' ? (
+  ) : screen === 'treephotos' || screen === 'treedelfail' ? (
     <TreePhotosScreen
       photos={fx.photosApi}
       accessToken=""
@@ -168,7 +168,13 @@ const body =
       recordName="彩"
       tree={fx.TREES[0]}
       onEdit={() => {}}
-      onDelete={() => {}}
+      /* ⭐ `?screen=treedelfail` ⇒ 刪樹俾伺服器拒絕。
+         ⚠️ 樹木頁粒 `×` 本來撳一下即刻刪，而刪唔到**一隻字都冇**
+         （`void afterWrite(…)`，⛔ 冇 catch）。要一把尺睇住佢出聲。 */
+      onDelete={async () => {
+        if (screen === 'treedelfail')
+          throw new Error('無法修改這棵樹。可能所屬工程已經鎖定，或者不是你建立的工程。')
+      }}
       onBack={() => {}}
     />
   ) : screen === 'treeremoval' || screen === 'treeboth' ? (
