@@ -1,5 +1,9 @@
 -- ══════════════════════════════════════════════════════════════════
--- C：`quote_people` 入四行人名（阿耀／聰／Isaac／Anna）
+-- C：`quote_people` 入五行人名（阿耀／聰／Isaac／Anna／Jason）
+--
+-- ⭐ 2026-10-04 加咗 **Jason** 一行（Jason 睇完原型 PR #83 拍板「補返 Jason 一行」）。
+--    ⚠️ 本來淨係四個人 ⇒ Jason 開嘅單卡上冇名、搜尋揀唔到佢。
+--    ⛔ 檔名照留「四行」—— 改檔名會令 PR #66 嘅舊連結失效；內容以呢度為準。
 --
 -- ⛔⛔ **草稿。Jason 親手跑。⛔ AI 唔准代跑，亦唔准分段偷步**（CLAUDE.md §3）。
 --
@@ -67,9 +71,9 @@ select id, email, created_at, last_sign_in_at
 --      （Anna 最有機會係呢個情況。）
 --    · 有人用咗第二個 email 開帳號嘅話，要用**佢真係嗰個**，⛔ 唔係你以為嗰個。
 --
--- ── ② 把下面四行嘅 email 改成真嘅 ───────────────────────────────────
+-- ── ② 把下面五行嘅 email 改成真嘅 ───────────────────────────────────
 --
--- ⛔⛔ 下面四個 email 係**位置佔住先**，⛔ 唔係真資料，⛔ 唔准照跑。
+-- ⛔⛔ 下面五個 email 係**位置佔住先**，⛔ 唔係真資料，⛔ 唔准照跑。
 --    ⭐ 個顯示名照你想喺工程卡上面見到嗰個寫（「阿耀」就寫「阿耀」）。
 --    ⚠️ 未開帳號嗰個**照留喺度** —— 第 3 段會逐個報返「揾唔到」，
 --       ⛔ 好過你靜靜咁刪咗一行然後唔記得。
@@ -88,7 +92,8 @@ with 要入嘅人 (email, display_name) as (
     ('阿耀嘅email@example.com',  '阿耀'),   -- ⛔ 改我
     ('聰嘅email@example.com',    '聰'),     -- ⛔ 改我
     ('isaac嘅email@example.com', 'Isaac'),  -- ⛔ 改我
-    ('anna嘅email@example.com',  'Anna')    -- ⛔ 改我
+    ('anna嘅email@example.com',  'Anna'),   -- ⛔ 改我
+    ('jason嘅email@example.com', 'Jason')   -- ⛔ 改我（2026-10-04 加）
 )
 insert into public.quote_people (user_id, display_name)
 select u.id, p.display_name
@@ -103,7 +108,7 @@ on conflict (user_id) do update
        updated_at   = now();
 
 -- ⚠️ 撞到 `21000 ON CONFLICT DO UPDATE command cannot affect row a second time`？
---    ⇒ 即係上面四行入面**有兩行寫咗同一個 email**（貼漏咗改）。
+--    ⇒ 即係上面五行入面**有兩行寫咗同一個 email**（貼漏咗改）。
 --    ⭐ 呢個錯係**好事** —— 佢擋住咗「兩個人共用一個帳號」嗰種靜靜咁錯。
 --    改返個 email，再跑一次就得。
 
@@ -119,17 +124,18 @@ on conflict (user_id) do update
 
 -- ── ① 逐個報：邊個入到、邊個揾唔到帳號 ───────────────────────────────
 --
--- ⛔⛔ 呢句係成份嘢最重要嗰句。⚠️ 四行入面**每一行都要出一句**，
+-- ⛔⛔ 呢句係成份嘢最重要嗰句。⚠️ 五行入面**每一行都要出一句**，
 --    而且要出得明明白白 ——「揾唔到」⛔ 唔准靠「總數少咗一個」去估。
 --
--- ⚠️ 記得把 email 改成同第 2 段**一模一樣**嗰四個。
+-- ⚠️ 記得把 email 改成同第 2 段**一模一樣**嗰五個。
 
 with 要入嘅人 (email, display_name) as (
   values
     ('阿耀嘅email@example.com',  '阿耀'),   -- ⛔ 改我（同上面一樣）
     ('聰嘅email@example.com',    '聰'),     -- ⛔ 改我
     ('isaac嘅email@example.com', 'Isaac'),  -- ⛔ 改我
-    ('anna嘅email@example.com',  'Anna')    -- ⛔ 改我
+    ('anna嘅email@example.com',  'Anna'),   -- ⛔ 改我
+    ('jason嘅email@example.com', 'Jason')   -- ⛔ 改我（2026-10-04 加）
 )
 select
   p.display_name                                   as 想入嘅名,
@@ -148,7 +154,7 @@ select
   left join public.quote_people qp on qp.user_id = u.id
  order by p.display_name;
 
--- ── ② 張表而家總共有幾多人（⭐ 預期：4，⚠️ 除非有人未開帳號）────────
+-- ── ② 張表而家總共有幾多人（⭐ 預期：5，⚠️ 除非有人未開帳號）────────
 select count(*) as 總人數,
        string_agg(display_name, '、' order by display_name) as 逐個
   from public.quote_people;
