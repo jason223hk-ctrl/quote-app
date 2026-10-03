@@ -62,7 +62,21 @@ export function purgeCounts(
     if (row.record_id !== recordId) continue
     // ⛔ 已經軟刪咗嗰啲唔算 —— 佢哋喺畫面上面早就冇咗。
     if (row.deleted_at !== null) continue
-    // ⭐ P8 步 4：已經清走咗嘅（`purged_at` 有值）冇 bytes 剩，⛔ 唔再數落「會消失」。
+    /**
+     * ⭐ P8 步 4：已經清走咗嘅（`purged_at` 有值）冇 bytes 剩，⛔ 唔再數落「會消失」。
+     *
+     * ⚠️ 2026-09-22（PR #74）本來寫低：「今日撞唔到，因為 `purged_at` 淨係會出喺
+     *   已刪工程嘅相，而彈窗只喺未刪嘅工程開得到 ⇒ 唔使隔」，再加一句
+     *   「邊日睇得返已刪工程，就一定要隔」。⭐ #77 嘅「繼續清」（同一單已刪工程
+     *   喺彈窗再撳一次）正正就係嗰日 ⇒ 所以而家**真係要隔**，⛔ 呢行唔准拆。
+     *
+     * ⚠️ 同一個形狀嘅第二個（⛔ 未處理，今日撞唔到）：`quote_photos.deleted_at` ——
+     *   上面隔走軟刪咗嘅相，但 Worker `/purge` ⛔ 唔睇呢個欄（照清成單所有相）
+     *   ⇒ 彈窗講嘅「會消失 N 張」可能少過 `/purge` 實際清嘅數。
+     *   2026-10-04 查過：`src/` ⛔ 冇任何 code 寫 `quote_photos.deleted_at`
+     *   （只有 records／trees／clients 會寫）⇒ 今日兩個數一樣。
+     *   ⭐ 邊日加「刪單張相」，呢度同 Worker 要一齊諗。
+     */
     if (row.purged_at) continue
     seen.add(row.operation_id)
   }

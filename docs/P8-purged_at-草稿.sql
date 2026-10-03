@@ -3,8 +3,31 @@
 --
 -- ⛔⛔ **草稿。Jason 親手跑。⛔ AI 唔准代跑，亦唔准分段偷步**（CLAUDE.md §3）。
 --
--- ⚠️⚠️ **第 0 段有一條問題，答咗先好跑第 1 段。**
---    ⛔ 佢唔係細節 —— 答錯嗰邊，成條 `/purge` 由頭到尾一張相都清唔到。
+-- ✅✅ **已經跑咗 —— ⛔ 唔使再跑。** 2026-09-22 Jason 跑完成份，七句驗收全部過；
+--    2026-10-03 Worker `/purge` deploy 嗰日再驗過一次 DB 欄同 `quote_purge_stamp()`。
+--    （由 PR #74 搬過嚟，2026-10-04；#74 已關。）
+--
+--    ⚠️ 呢份留喺 repo 係做**紀錄**同**將來重建 DB 嘅底稿**，⛔ 唔係待辦。
+--    跑多次都唔會壞嘢（`if not exists`／`create or replace`），但⛔ 冇理由再跑。
+--
+-- ✅ **第 0 段嗰幾條只讀查詢全部答咗**（2026-09-20 ～ 09-22，Jason 逐句跑）——
+--    ⛔ **唔好因為佢哋答咗就跳過唔睇**：`can_edit_quote_record()` 同
+--    `is_quote_admin()` 嘅原文就係第 2 段條 function 點解要咁寫嘅全部理由。
+--
+-- ✅ **2026-09-22 七句驗收實測數**（Jason 個真 DB）：
+--    ① `purged_at` / `timestamp with time zone` / 可空 `YES` / default **NULL**
+--    ② 總相數 **31**、已清走 **0**、未清走 **31**
+--       ⭐ 即係**加個欄嗰下⛔ 冇掉過任何一張現有相**
+--    ③ 見第 3 段 ③（⚠️ 個預期值當日寫錯咗，已經照實測改返）
+--    ④ 三條 policy：`_insert`／`_select`／`_update`，⛔ 一條 DELETE 都冇
+--    ⑤ `quote_purge_stamp` / `prosecdef = true` / 收 `p_photo_id uuid,
+--       p_dry_run boolean` / 回 `text`
+--    ⑥ `有冇delete`／`有冇drop`／`有冇truncate` —— **三個都係 `false`**
+--       ⭐⭐ 呢句就係 Jason 批嗰句（「刪唔到任何嘢」）嘅驗收，
+--       而佢係**喺佢自己個真 DB 度量到**嘅 —— ⛔ 唔係本機 cluster、⛔ 唔係讀 code。
+--    ⑦ 得 `authenticated` / `EXECUTE`（⛔ 冇 `anon`）
+--
+-- ⛔ 跑完咗⛔ 唔代表清得到相 —— 次序見最底「三樣我要寫低」第一點。
 --
 -- ⛔⛔⛔ **一次跑一段。⛔ 唔准成份貼落去。**
 --
@@ -445,8 +468,37 @@ select count(*) as 總相數,
        count(*) filter (where purged_at is null)     as 未清走
   from public.quote_photos;
 
--- ③ GRANT ⛔ 冇變（⭐ 預期：`authenticated` 有 SELECT／INSERT／UPDATE，
---    ⛔ 冇 DELETE、⛔ 冇 anon、⛔ 冇 service_role）
+-- ③ GRANT ⛔ 冇變
+--
+--    ⭐⭐ **2026-09-22 喺 Jason 個真 DB 度實測到嘅兩行，⇒ 呢個就係基準：**
+--
+--        anon          → REFERENCES, TRIGGER
+--        authenticated → INSERT, REFERENCES, SELECT, TRIGGER, UPDATE
+--
+--    ⇒ **預期：**
+--      · `anon` **會出現**，而且**淨係** `REFERENCES, TRIGGER`
+--        —— ⭐ 呢兩個係 Supabase 開表嗰陣自己派嘅預設，**⛔ 冇害**
+--        （`REFERENCES` ＝ 開 foreign key 指過嚟；`TRIGGER` ＝ 開 trigger。
+--         ⛔ 兩個都讀唔到、寫唔到任何一行資料。）
+--      · ⛔⛔ **但 `anon` ⛔ 唔准有任何 `SELECT`／`INSERT`／`UPDATE`／`DELETE`**
+--        —— 見到其中一個就係出事，⛔ 即刻停，截圖搵 Jason。
+--      · `authenticated` 有 `INSERT`／`SELECT`／`UPDATE` ＋ `REFERENCES`／`TRIGGER`，
+--        ⛔ **唔准有 `DELETE`**（CLAUDE.md §2.1 零真刪）。
+--      · ⛔ 冇 `service_role`（2026-08-22 revoke 咗，見 CLAUDE.md §2.9）。
+--
+--    ⚠️⚠️ **點解要寫到咁死 —— ⛔ 唔准淨係記住結論**
+--
+--    呢一句本來寫住「⛔ 冇 anon」。**2026-09-22 Jason 真係跑咗，`anon` 出咗嚟。**
+--    ⭐ 安全上完全冇事（得 `REFERENCES, TRIGGER`）—— ⛔ **但條尺寫錯咗預期值。**
+--
+--    ⚠️ 而一條寫錯咗預期值嘅尺，下一個跑呢句嘅人只有兩個結局：
+--      **嚇一嚇**（以為出咗事，去搵人），或者**學識「呢行唔使理」**。
+--    ⛔⛔ 而第二個結局先至係真正嘅代價：**真係有人俾咗 `anon` 一個 `SELECT`
+--    嗰日，佢照樣唔理。**
+--
+--    ⭐ 同一個病 2026-09-21 喺下面 ⑥ 中過一次（`ilike '%delete%'` 一定誤報，
+--    因為個 body 入面有 `deleted_at`）—— ⇒ **一條會誤報嘅尺，等於冇尺。**
+--
 --    ⚠️ 隔走 `postgres`（owner 有齊係正常）——
 --    ⛔ 淨係數總數分唔出「owner 有」同「authenticated 有」（2026-08-22 中過）。
 select grantee as 邊個, string_agg(privilege_type, ', ' order by privilege_type) as 有咩權
@@ -527,17 +579,39 @@ select grantee as 邊個, privilege_type as 咩權
 -- ⛔ 三樣我要寫低
 -- ══════════════════════════════════════════════════════════════════
 --
--- ⚠️ 一 · **加完呢個欄，⛔ 仲未清到任何相。**
---    `/purge` 要**你喺 Terminal 跑 `npx wrangler deploy`** 先生效
---    （Worker ⛔ 唔經 GitHub，`docs/雲端做嘢-規矩.md` §四）。
---    ⇒ 次序：**呢份 SQL → `wrangler deploy` → 同日改
---      `PHOTOS_REALLY_PURGED = true`**。⛔ 唔准拖過夜。
+-- ⚠️ 一 · **加完呢個欄，⛔ 仲未清到任何相。** 要 Worker ＋ 前端兩樣都上咗先清。
+--    （Worker ⛔ 唔經 GitHub，要你喺 Terminal 跑 `npx wrangler deploy`，
+--     `docs/雲端做嘢-規矩.md` §四。）
 --
--- ⚠️ 二 · **`PHOTOS_REALLY_PURGED` 而家仲係 `false`**
---    （`src/lib/deleteDialog.ts:48`）。即係話彈窗而家講嘅係「刪除工程？」，
---    ⛔ 唔係「永久刪除？」。⭐ 咁樣係啱嘅 —— **而家真係未清相**。
---    ⛔ 唔准早過 Worker deploy 就改佢：改咗就變成「畫面講永久刪除，
---       但實物一件都冇清」，⚠️ 而嗰個係最衰嗰種假話。
+--    ⇒ **次序（六步，按 2026-10-04 實況改寫；原版由 PR #74 搬過嚟）：**
+--
+--      ① 呢份 SQL                                  ✅ 2026-09-22
+--      ② `npx wrangler deploy`（`/purge`）          ✅ 2026-10-03，Version `e08449ea`
+--      ③ **PR #77 merge** —— 步 4（前端叫 `/purge`）＋ 步 5（「仲有 N 張未清」＋
+--         「繼續清」）＋ `PHOTOS_REALLY_PURGED = true`，**三樣同一個 merge**
+--         ⚠️ merge 之前先把 `PURGE_FEATURE_SINCE` 改做 merge 時間（#77 寫明）
+--      ④ 確認線上前端真係新嗰份（⛔ merge ≠ 上咗線）
+--      ⑤ **再 `wrangler deploy` 一次**，帶埋「工程資料夾掉垃圾桶」（#77 commit
+--         `475225a`，⏳ 未 deploy）—— ⭐ 要喺 ⑥ 之前
+--      ⑥ 第一次真清，喺**一單假工程**上面（見下面第三點）
+--
+--    ⚠️ **同原版唔同嘅地方**：原版係「SQL → 步 4 merge → 步 5 → deploy → 同日 flip」。
+--      實際係 Worker **先** deploy 咗（②）。⭐ 冇害：前端未叫 `/purge` ⇒ 冇人寫
+--      `purged_at`、冇相被清。而「畫面講永久刪除、實物冇清」個中間態而家係**零** ——
+--      因為 flip 同步 4 喺同一個 merge 入面（③），⛔ 冇得一樣上、一樣未上。
+--
+--    ⛔⛔ **步 5 一定要同步 4 一齊上（唔准拆開 merge）** —— 理由係一個**量過嘅數**：
+--      `/purge` 一次清 **10 張**，而 ② 嗰句 2026-09-22 量到 `quote_photos` 有 **31 張**
+--      ⇒ 一單工程要分幾轉先清得晒（CO 2026-09-23 原話：「清咗一半」**必定發生**）。
+--      ⭐ #77 而家會自動叫下一轉（`PURGE_ROUNDS_MAX`），⚠️ 但任何一轉失敗／冇網就停
+--      ⇒ 「清咗一半」仍然係一個**真實會撞到**嘅狀態，要步 5 講「仲有 N 張未清」。
+--
+--    ⚠️ ⑤ 唔做都⛔ 唔會清錯嘢 —— 只係清完之後 Drive 個工程資料夾留低（空或者半空）。
+--       但喺 ⑤ 之前清咗嘅單，之後⛔ 唔會再有人返嚟掉佢個資料夾。
+--
+-- ⚠️ 二 · **`PHOTOS_REALLY_PURGED`**（`src/lib/deleteDialog.ts`）：main 上面仲係 `false`，
+--    #77 改咗做 `true`。⛔ 唔准喺步 4 未上嗰陣單獨改佢：改咗就變成「畫面講永久刪除，
+--    但實物一件都冇清」，⚠️ 而嗰個係最衰嗰種假話。
 --
 -- ⚠️ 三 · **第一次真清，一定要喺一單假工程上面做**（永久例外）。
 --    ⛔ 唔准攞真工程試。清完之後兩邊對數：
