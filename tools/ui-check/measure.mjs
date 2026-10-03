@@ -504,6 +504,13 @@ const SCREENS = {
          字疊埋咗，佢一樣撳得落，⛔ 一樣綠
      ⇒ **又一次：一把尺量唔到嘅嘢，佢綠燈證明唔到佢冇事。**
         （附錄 B「`ui:check` 綠燈 ≠ 個掣仲用得」係同一個病。） */
+  /* ⭐ 改樹牌之後 Drive 檔名改唔晒（P3f §4.6 第 1 點）：樹木頁頂條黃色橫幅。
+     ⛔ 要量：真係出咗、一開就喺捲動區睇得到（⛔ 唔准俾 header 蓋住）。 */
+  renamefail: {
+    query: '',
+    inView: [{ what: 'rename-banner', inside: 'tree-photos-scroll' }],
+  },
+
   longname: {
     query: '',
     overlap: [{ a: 'proj-title', b: 'proj-side', why: '工程名壓住右邊粒狀態標籤' }],
@@ -2060,7 +2067,7 @@ const FLOORS = [
   ['撳得到嘅檢查', hitChecked, 294],
   ['彈窗掣位', sameSpot + sameSpotBad, 2],
   ['真滑鼠拖', dragChecked, 1],
-  ['訊息睇得到', seenChecked, 1],
+  ['訊息睇得到', seenChecked, 2],
   ['數唔到就鎖住', lockChecked, 7],
   ['兩件嘢冇疊埋', overlapChecked, 2],
   ['粒掣夠大撳', sizeChecked, 2],

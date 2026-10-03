@@ -12,6 +12,8 @@ import type { PhotosApi } from '../lib/photos'
 import { BackChip, BotanicalHeader, HeaderTitle, ScrollBody } from '../ui/shell'
 import { Icon, ICONS } from '../ui/Icon'
 import { regionLabel } from '../lib/labels'
+import { clearPending, listPending } from '../lib/renamePending'
+import { needsDriveRename, renameTreeFiles } from '../lib/renameTree'
 import TreeFormPage from './TreeFormPage'
 import TreePhotosScreen from './TreePhotosScreen'
 
@@ -57,6 +59,8 @@ export default function TreesScreen({ api, photos, accessToken, record, onBack }
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [view, setView] = useState<View>({ kind: 'list' })
+  /** 改咗樹牌之後等緊 Drive 改名。 */
+  const [renaming, setRenaming] = useState(false)
   /** 每棵樹幾多張相。⛔ null ＝ 數唔到，唔准扮 0。 */
   const [photoCounts, setPhotoCounts] = useState<Record<string, number> | null>(null)
 
@@ -64,7 +68,14 @@ export default function TreesScreen({ api, photos, accessToken, record, onBack }
     setLoading(true)
     setError(null)
     try {
-      setTrees(await api.list(record.id))
+      const list = await api.list(record.id)
+      setTrees(list)
+      /* ⭐ 呢單入面已經刪咗嘅樹 ⇒「改名未完成」冇意義，清走
+         （⛔ 唔係就永遠喺設定頁）。放喺度係因為兩條刪樹路都會行 reload。 */
+      const alive = new Set(list.map((tree) => tree.id))
+      for (const item of listPending(new Date())) {
+        if (item.recordId === record.id && !alive.has(item.treeId)) clearPending(item.treeId)
+      }
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : String(caught))
     } finally {
@@ -103,9 +114,14 @@ export default function TreesScreen({ api, photos, accessToken, record, onBack }
       ? (trees.find((tree) => tree.id === view.id) ?? null)
       : null
 
-  async function afterWrite(write: () => Promise<QuoteTree>, next: View = { kind: 'list' }) {
+  async function afterWrite(
+    write: () => Promise<QuoteTree>,
+    next: View = { kind: 'list' },
+    then?: (saved: QuoteTree) => Promise<unknown>,
+  ) {
     const saved = await write()
     await reload()
+    if (then) await then(saved)
     // 儲存咗一棵樹就入返佢個相片頁 —— 影相先係現場真正要做嘅嘢。
     setView(next.kind === 'photos' && next.id === '' ? { kind: 'photos', id: saved.id } : next)
   }
@@ -143,11 +159,31 @@ export default function TreesScreen({ api, photos, accessToken, record, onBack }
           .filter((tree) => tree.id !== editing?.id)
           .map((tree) => tree.tree_no.trim())
           .filter((no) => no !== '')}
+        busyLabel={renaming ? '正在更改 Drive 檔名⋯' : undefined}
         onSave={(input: TreeInput) =>
           afterWrite(
             () =>
               editing ? api.update(editing.id, input) : api.create(record.id, input, trees.length),
             { kind: 'photos', id: editing ? editing.id : '' },
+            /* ⭐ P3f §4：改咗樹牌 ⇒ 連 Drive 舊檔名一齊改。
+               ⭐ 等改完先返樹木頁（原型 PR #84 預設；AI 代揀，待 Jason 確認）。
+               ⛔ 淨係「改舊樹、樹牌真係變咗」先叫 —— 新樹冇舊檔、樹牌冇變冇嘢改。
+               ⛔ `renameTreeFiles` 唔 throw：改名失敗⛔ 唔准令儲存變失敗（樹牌已經存咗），
+                  失敗會變成樹木頁頂條橫幅 ＋ 設定頁一行。 */
+            async (saved) => {
+              if (!editing || needsDriveRename(editing.tree_no, saved.tree_no) === false) return
+              setRenaming(true)
+              try {
+                await renameTreeFiles({
+                  accessToken,
+                  treeId: saved.id,
+                  recordId: record.id,
+                  treeNo: saved.tree_no,
+                })
+              } finally {
+                setRenaming(false)
+              }
+            },
           )
         }
         onDelete={() =>

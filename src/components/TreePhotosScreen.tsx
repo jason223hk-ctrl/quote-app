@@ -3,6 +3,7 @@ import { MITIGATION_OPTIONS, MITIGATION_OTHER, REMOVAL_OPTION } from '../lib/opt
 import type { PhotosApi } from '../lib/photos'
 import type { QuoteTree } from '../lib/trees'
 import PhotoSlot from './PhotoSlot'
+import RenameBanner from './RenameBanner'
 import { BackChip, BotanicalHeader, ChipButton, HeaderTitle, ScrollBody } from '../ui/shell'
 import { ICONS } from '../ui/Icon'
 
@@ -79,6 +80,9 @@ export default function TreePhotosScreen({
         compact
         onRefresh={async () => setRefreshToken((n) => n + 1)}
       >
+        {/* ⭐ P3f §4.6：改樹牌之後 Drive 檔名改唔晒，先至出。 */}
+        <RenameBanner tree={tree} recordId={recordId} accessToken={accessToken} />
+
         <PhotoSlot
           api={photos}
           accessToken={accessToken}

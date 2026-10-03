@@ -10,6 +10,8 @@ import {
 import { photoStore, localStorageAvailable } from '../lib/photoStore'
 import type { PhotosApi } from '../lib/photos'
 import { configResult } from '../lib/supabase'
+import { diagLine, diagSummary } from '../lib/renamePending'
+import { useRenamePending } from '../lib/useRenamePending'
 import { BotanicalHeader, ScrollBody, UserPill, type UserInfo } from '../ui/shell'
 import { Icon, ICONS } from '../ui/Icon'
 import { VERSION_LABEL } from '../ui/version'
@@ -61,6 +63,9 @@ export default function SettingsScreen({
    *
    * ⚠️ 攞唔到就當零 —— ⛔ 唔准出一個估出嚟嘅數。
    */
+  /** P3f §4.6 第 2 點：「改名未完成」（⛔ 只係呢部機嘅記錄，見 `renamePending.ts`）。 */
+  const renamePending = useRenamePending()
+  const renameSummary = diagSummary(renamePending)
   const [orphans, setOrphans] = useState(0)
   /**
    * 「傳唔到、而且母單已經刪咗」嗰批（**乙類·卡死**）幾多張。
@@ -242,6 +247,17 @@ export default function SettingsScreen({
             <span className="acct-label">環境變數</span>
             <span className="acct-val">{configResult.ok ? '已設定' : '未設定'}</span>
           </div>
+          <div className="acct-row">
+            <span className="acct-label">改名未完成</span>
+            <span className="acct-val" data-testid="diag-rename">
+              {diagLine(renamePending)}
+            </span>
+          </div>
+          {renameSummary !== null && (
+            <p className="note-box note-box--warn" data-testid="diag-rename-summary">
+              {renameSummary}
+            </p>
+          )}
 
           {/* ⛔ N 係零就成行唔出 —— 見上面 `orphans` 嗰段。 */}
           {orphanLine !== null && (
