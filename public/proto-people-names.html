@@ -1,0 +1,265 @@
+<!doctype html>
+<html lang="zh-HK">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0D120E">
+<title>原型：工程卡出建立人 ＋ 搜尋揀建立人（#66 第 2 步）</title>
+<!--
+  ══════════════════════════════════════════════════════════════════
+  ⛔⛔ 呢個係原型。⛔ 唔駁 Supabase、⛔ 唔讀 quote_people、⛔ 唔叫 Worker。
+     人名、工程全部係寫死喺呢個檔入面嘅樣板。
+
+  ⛔⛔ 呢條分枝（claude/proto-people-names）**永遠唔 merge 入 main** ——
+     同 #20、#26、#35、#40、#65 嗰批原型同一條規矩。佢淨係為咗俾 Cloudflare Pages
+     出一條 Branch Preview 網址，等 Jason 喺手機撳得到。
+  ⚠️ 擺喺 `public/` 係因為 Vite 淨係抄 `public/` 入 `dist/`。檔名用 ASCII。
+
+  ⭐ Preview 網址唔喺 Worker 個 ALLOWED_ORIGIN ⇒ 呢版⛔ 一個 Worker 請求都冇，
+     亦都唔需要 —— 純 HTML，冇網都撳得。
+
+  ⭐ 樣板資料用真名（CLAUDE.md §2.11）：工程名、地址、客戶、人名全部抄自
+     `docs/原型-stage57-autoupload.html` 嗰批樣板（Jason 2026-08-29 要求開嗰十單），
+     建立人五個（阿耀、聰、Isaac、Anna、Jason）亦係嗰份 `CREATORS`。
+     ⚠️ PR #66 份 SQL **淨係入四個人（冇 Jason）** —— 呢版特登照實咁做，等你見到後果。
+  ══════════════════════════════════════════════════════════════════
+-->
+<style>
+  :root{
+    --mq-bg:#0D120E; --mq-bg-elevated:#111712;
+    --mq-surface-1:#171E18; --mq-surface-2:#1C241D;
+    --mq-olive:#84945D; --mq-olive-strong:#98A56B; --mq-moss:#68794D;
+    --mq-text:#F1EBDD; --mq-text-2:#BDB6A6; --mq-text-3:#96978E;
+    --mq-border:rgba(190,178,139,.28); --mq-border-strong:rgba(157,169,105,.44);
+    --mq-warning:#B68A45; --mq-danger:#B35D4A;
+    --mq-serif:"Noto Serif TC","Source Han Serif TC","Songti TC",serif;
+    --mq-sans:"Noto Sans TC","PingFang TC","Microsoft JhengHei",sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:#0D120E;font-family:var(--mq-sans);color:var(--mq-text);font-size:16px;line-height:1.5}
+  .banner{background:#FDF6E3;color:#6B5A34;font-size:13.5px;line-height:1.66;padding:12px 16px;text-align:center;border-bottom:1px solid #E8DCC0}
+  .banner b{color:#4A3E1E}
+  .fp{font-family:ui-monospace,Menlo,monospace;font-size:12px;color:#8A7A52}
+  .ctl{max-width:430px;margin:0 auto;padding:14px 16px 0}
+  .lbl{font-size:12px;color:var(--mq-text-3);margin:14px 0 6px}
+  .segs{display:flex;gap:6px}
+  .segs button{flex:1 1 0;padding:9px 6px;border-radius:11px;border:1px solid var(--mq-border);background:rgba(28,36,29,.6);color:var(--mq-text-2);font:inherit;font-size:13px;font-weight:600;cursor:pointer}
+  .segs button.on{background:linear-gradient(160deg,#8B9C60,#68794D);color:#0D120E;border-color:var(--mq-border-strong)}
+  .segs button small{display:block;font-weight:400;font-size:11px;opacity:.88;margin-top:2px}
+  .cost{max-width:430px;margin:14px auto 0;padding:11px 14px;border-radius:12px;background:rgba(182,138,69,.14);border:1px solid rgba(182,138,69,.42);font-size:13px;line-height:1.7;color:#E6D2AC}
+  .cost b{color:#F4E3BE} .cost ul{margin:6px 0 0;padding-left:1.1em}
+  /* ⛔ 機殼釘死 390×727（照之前原型嘅做法），⛔ 唔跟瀏覽器。 */
+  .phone{width:390px;height:727px;margin:16px auto 40px;position:relative;border-radius:26px;overflow:hidden;background:var(--mq-bg);border:1px solid var(--mq-border)}
+  .top{height:56px;display:flex;align-items:center;justify-content:space-between;padding:0 16px;border-bottom:1px solid var(--mq-border)}
+  .top h1{font-family:var(--mq-serif);font-size:20px;margin:0}
+  .chip{width:44px;height:44px;border-radius:22px;border:1px solid var(--mq-border);background:var(--mq-surface-1);color:var(--mq-text);font-size:18px;cursor:pointer}
+  .scroll{position:absolute;top:57px;left:0;right:0;bottom:62px;overflow-y:auto;padding:12px 14px 20px}
+  .nav{position:absolute;left:0;right:0;bottom:0;height:62px;display:flex;background:var(--mq-bg-elevated);border-top:1px solid var(--mq-border)}
+  .nav div{flex:1;display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--mq-text-3)}
+  .nav div.on{color:var(--mq-olive-strong)}
+  .filterline{font-size:12.5px;color:var(--mq-text-2);background:rgba(132,148,93,.14);border:1px solid var(--mq-border);border-radius:10px;padding:7px 10px;margin-bottom:10px}
+  .card{background:var(--mq-surface-1);border:1px solid var(--mq-border);border-radius:16px;padding:12px 14px;margin-bottom:10px}
+  .ptop{display:flex;justify-content:space-between;gap:10px}
+  .ptitle{font-family:var(--mq-serif);font-size:16.5px;line-height:1.35}
+  .status{font-size:12px;color:var(--mq-text-2);white-space:nowrap;border:1px solid var(--mq-border);border-radius:99px;padding:1px 8px;height:fit-content}
+  .meta{display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px;font-size:12.5px;color:var(--mq-text-3);margin-top:6px}
+  .meta i{width:3px;height:3px;border-radius:2px;background:var(--mq-text-3);display:inline-block}
+  .who{color:var(--mq-text-2)}
+  .who--none{color:var(--mq-warning)}
+  .empty{color:var(--mq-text-3);font-size:13.5px;text-align:center;padding:30px 10px}
+  .scrim{position:absolute;inset:0;background:rgba(0,0,0,.5);display:none;align-items:flex-start;justify-content:center;padding-top:64px}
+  .scrim.show{display:flex}
+  .pop{width:358px;background:var(--mq-surface-2);border:1px solid var(--mq-border-strong);border-radius:16px;padding:14px}
+  .pop label{display:block;font-size:12.5px;color:var(--mq-text-3);margin:10px 0 4px}
+  .pop label:first-child{margin-top:0}
+  .pop input,.pop select{width:100%;padding:10px;border-radius:10px;border:1px solid var(--mq-border);background:var(--mq-bg);color:var(--mq-text);font:inherit;font-size:16px}
+  .acts{display:flex;gap:8px;margin-top:14px}
+  .acts button{flex:1;padding:11px;border-radius:12px;font:inherit;font-size:14.5px;font-weight:600;cursor:pointer;border:1px solid var(--mq-border)}
+  .ghost{background:transparent;color:var(--mq-text)}
+  .primary{background:linear-gradient(160deg,#8B9C60,#68794D);color:#0D120E}
+  .wait{color:var(--mq-text-3);font-style:italic}
+</style>
+
+<div class="banner">
+  <b>⛔ 樣板，唔會真係存嘢。</b> ⛔ 唔駁資料庫、⛔ 唔讀真人名。工程同人名係寫死嘅樣板。<br>
+  呢版要你試嘅：<b>張卡出唔出「邊個開」、擺邊、搜尋揀唔揀得</b>。<br>
+  <span class="fp">指紋：0176876</span>
+</div>
+
+<div class="ctl">
+  <p class="lbl">甲 · 「邊個開呢單」擺喺卡邊度？</p>
+  <div class="segs" id="segWhere">
+    <button data-v="line1" class="on">第一行尾<small>日期 · 地區 · 日夜 · 阿耀</small></button>
+    <button data-v="line2">自己一行<small>建立人：阿耀</small></button>
+    <button data-v="none">卡上唔出<small>淨係搜尋用</small></button>
+  </div>
+
+  <p class="lbl">乙 · 張表冇佢名嗰個人（⚠️ #66 份 SQL 淨係入四個人，⛔ 冇 Jason）</p>
+  <div class="segs" id="segNone">
+    <button data-v="hide" class="on">唔出<small>當冇呢樣</small></button>
+    <button data-v="mark">出「未登記」<small>橙色</small></button>
+    <button data-v="add">補返 Jason 一行<small>要多跑一句 SQL</small></button>
+  </div>
+
+  <p class="lbl">丙 · 一開清單，人名幾時出？</p>
+  <div class="segs" id="segLoad">
+    <button data-v="wait" class="on">同張卡一齊出<small>要等埋人名先畫</small></button>
+    <button data-v="late">卡先出，名遲啲補<small>「⋯」變名</small></button>
+  </div>
+</div>
+
+<div class="cost">
+  <b>⭐ 代價擺晒喺度，⛔ 冇收埋：</b>
+  <ul>
+    <li><b>甲 · 第一行尾</b>：夜更 ＋「已報價 N 日」＋ 人名嗰張卡（「逸東」），喺 390 闊會<b>斷開兩行</b>。下面張卡係真係斷咗，⛔ 唔係整爛。</li>
+    <li><b>乙 · 唔出</b>：Jason 開嗰兩單（象山、麗閣）睇落同「冇人開」一樣。<b>用「建立人」搜尋，Jason 揀唔到</b>。</li>
+    <li><b>乙 · 補返 Jason</b>：要你多跑一句 SQL（PR 入面有草稿 `docs/C-quote_people-Jason-草稿.sql`，⛔ 我冇跑）。</li>
+    <li><b>丙 · 同張卡一齊出</b>：多一次讀資料，樣板等 <b>0.8 秒</b>（⚠️ 呢個數係作出嚟嘅，⛔ 未量過真嘢）。撳右上「↻」再載一次就感受到。</li>
+    <li>人名淨係辦公室改得（P7 文件已定）：改咗，<b>所有舊卡即刻跟住變</b>。</li>
+  </ul>
+</div>
+
+<div class="phone">
+  <div class="top">
+    <h1>工程</h1>
+    <div>
+      <button class="chip" id="btnReload" aria-label="再載一次">↻</button>
+      <button class="chip" id="btnSearch" aria-label="搜尋">⌕</button>
+    </div>
+  </div>
+  <div class="scroll" id="list"></div>
+  <div class="nav"><div>首頁</div><div class="on">工程</div><div>同步</div><div>設定</div></div>
+
+  <div class="scrim" id="scrim">
+    <div class="pop" onclick="event.stopPropagation()">
+      <label for="q">搜尋</label>
+      <input id="q" type="search" placeholder="搜尋工程名稱、客戶、地址、聯絡人、電話">
+      <label>日期</label>
+      <div style="display:flex;gap:6px;align-items:center"><input id="df" type="date"><span style="color:var(--mq-text-3)">至</span><input id="dt" type="date"></div>
+      <label for="by">建立人</label>
+      <select id="by"></select>
+      <div class="acts"><button class="ghost" id="btnReset">重設</button><button class="primary" id="btnGo">搜尋</button></div>
+    </div>
+  </div>
+</div>
+
+<script>
+  /* 樣板資料：抄自 docs/原型-stage57-autoupload.html 嗰批 `projects`。 */
+  const RECORDS = [
+    {name:'彩霞邨彩月樓外圍樹木修剪及移除工程（第二期）', date:'2026-08-22', region:'九龍', shift:'日更', status:'待報價', by:'阿耀', client:'房屋署', addr:'彩霞邨，彩月樓'},
+    {name:'天恆', date:'2026-08-28', region:'新界', shift:'夜更', status:'待報價', by:'阿耀', client:'房屋署', addr:'天水圍天恆邨，恆貴樓'},
+    {name:'順利', date:'2026-08-27', region:'九龍', shift:'日更', status:'待報價', by:'Isaac', client:'房屋署', addr:'觀塘順利邨，利安樓'},
+    {name:'置富', date:'2026-08-26', region:'香港／大嶼山', shift:'日更', status:'待報價', by:'聰', client:'置富花園業主立案法團', addr:'薄扶林置富花園，順柏苑'},
+    {name:'乙明', date:'2026-08-24', region:'新界', shift:'日更', status:'已報價', age:'已報價 8 日', by:'Anna', client:'房屋署', addr:'沙田乙明邨，明恩樓'},
+    {name:'逸東', date:'2026-08-22', region:'香港／大嶼山', shift:'夜更', status:'已報價', age:'已報價 11 日', by:'阿耀', client:'房屋署', addr:'東涌逸東邨，逸潮樓'},
+    {name:'Testing01', date:'2026-08-14', region:'九龍', shift:'日更', status:'已報價', age:'已報價 50 日', by:'Isaac', client:'房屋署', addr:'Isaac - KLB'},
+    {name:'象山', date:'2026-08-20', region:'新界', shift:'日更', status:'中標', by:'Jason', client:'', addr:'荃灣象山邨，秀山樓'},
+    {name:'麗閣', date:'2026-08-18', region:'九龍', shift:'日更', status:'中標', by:'Jason', client:'', addr:'深水埗麗閣邨，麗菊樓'},
+  ];
+  /* ⚠️ 照 #66：quote_people 淨係四個人。⛔ 冇 Jason。 */
+  const PEOPLE_66 = ['阿耀', '聰', 'Isaac', 'Anna'];
+  const NONE = '__none__';
+
+  const st = { where:'line1', none:'hide', load:'wait', loaded:false, names:false, f:{q:'',df:'',dt:'',by:''} };
+
+  const people = () => st.none === 'add' ? [...PEOPLE_66, 'Jason'] : PEOPLE_66;
+  /** 一單嘅建立人「畫面睇到嘅名」。⛔ null ＝ 張表冇佢。 */
+  const nameOf = (r) => people().includes(r.by) ? r.by : null;
+
+  function whoHtml(r, prefix) {
+    if (!st.names) return '<span class="wait">⋯</span>';
+    const n = nameOf(r);
+    if (n) return `<span class="who">${prefix}${n}</span>`;
+    if (st.none === 'mark') return `<span class="who who--none">${prefix}未登記</span>`;
+    return '';
+  }
+
+  function matches(r) {
+    const f = st.f;
+    if (f.q && !(r.name + r.client + r.addr).includes(f.q)) return false;
+    if (f.df && r.date < f.df) return false;
+    if (f.dt && r.date > f.dt) return false;
+    if (f.by === NONE) return nameOf(r) === null;
+    if (f.by && nameOf(r) !== f.by) return false;
+    return true;
+  }
+
+  function render() {
+    const el = document.getElementById('list');
+    if (!st.loaded) { el.innerHTML = '<p class="empty">載入中⋯</p>'; return; }
+    const bits = [];
+    if (st.f.q) bits.push('「' + st.f.q + '」');
+    if (st.f.df || st.f.dt) bits.push((st.f.df || '…') + ' 至 ' + (st.f.dt || '…'));
+    if (st.f.by) bits.push('建立人：' + (st.f.by === NONE ? '未登記' : st.f.by));
+    const rows = RECORDS.filter(matches);
+    let html = bits.length ? `<div class="filterline">篩選中：${bits.join('，')}（${rows.length} 單）</div>` : '';
+    if (rows.length === 0) html += '<p class="empty">沒有符合的工程。</p>';
+    for (const r of rows) {
+      const w1 = st.where === 'line1' ? whoHtml(r, '') : '';
+      const w2 = st.where === 'line2' ? whoHtml(r, '建立人：') : '';
+      const line = [r.client, r.addr].filter(Boolean).join('，');
+      html += `<div class="card">
+        <div class="ptop"><div class="ptitle">${r.name}</div><span class="status">${r.status}</span></div>
+        <div class="meta"><span>${r.date}</span><i></i><span>${r.region}</span><i></i><span>${r.shift}</span>${r.age ? `<i></i><span>${r.age}</span>` : ''}${w1 ? `<i></i>${w1}` : ''}</div>
+        ${w2 ? `<div class="meta">${w2}</div>` : ''}
+        ${line ? `<div class="meta"><span>${line}</span></div>` : ''}
+      </div>`;
+    }
+    el.innerHTML = html;
+  }
+
+  function fillSelect() {
+    const sel = document.getElementById('by');
+    const opts = ['<option value="">選擇建立人</option>', ...people().map((p) => `<option>${p}</option>`)];
+    if (st.none === 'mark') opts.push(`<option value="${NONE}">未登記</option>`);
+    sel.innerHTML = opts.join('');
+    sel.value = st.f.by;
+    if (sel.value !== st.f.by) st.f.by = '';
+  }
+
+  /* ⭐ 代價要真：讀人名要等。「同張卡一齊出」⇒ 成版等；「遲啲補」⇒ 卡先出，名後到。 */
+  let timer = null;
+  function load() {
+    clearTimeout(timer);
+    st.loaded = false; st.names = false; render();
+    if (st.load === 'wait') {
+      timer = setTimeout(() => { st.loaded = true; st.names = true; render(); }, 1200);
+    } else {
+      timer = setTimeout(() => {
+        st.loaded = true; render();
+        timer = setTimeout(() => { st.names = true; render(); }, 800);
+      }, 400);
+    }
+  }
+
+  function seg(id, key) {
+    const box = document.getElementById(id);
+    box.addEventListener('click', (e) => {
+      const b = e.target.closest('button'); if (!b) return;
+      for (const x of box.querySelectorAll('button')) x.classList.toggle('on', x === b);
+      st[key] = b.dataset.v;
+      fillSelect();
+      if (key === 'load') load(); else render();
+    });
+  }
+  seg('segWhere', 'where'); seg('segNone', 'none'); seg('segLoad', 'load');
+
+  const scrim = document.getElementById('scrim');
+  document.getElementById('btnSearch').onclick = () => {
+    fillSelect();
+    document.getElementById('q').value = st.f.q;
+    document.getElementById('df').value = st.f.df;
+    document.getElementById('dt').value = st.f.dt;
+    scrim.classList.add('show');
+  };
+  scrim.onclick = () => scrim.classList.remove('show');
+  document.getElementById('btnReset').onclick = () => { st.f = {q:'',df:'',dt:'',by:''}; fillSelect(); scrim.classList.remove('show'); render(); };
+  document.getElementById('btnGo').onclick = () => {
+    let df = document.getElementById('df').value, dt = document.getElementById('dt').value;
+    if (df && dt && df > dt) [df, dt] = [dt, df];   // 樣板：揀反咗就掉轉
+    st.f = { q: document.getElementById('q').value.trim(), df, dt, by: document.getElementById('by').value };
+    scrim.classList.remove('show'); render();
+  };
+  document.getElementById('btnReload').onclick = load;
+
+  fillSelect(); load();
+</script>
