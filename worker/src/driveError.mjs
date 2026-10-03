@@ -57,6 +57,7 @@ export const WHERE = {
   getQuota: 'about.get（查看剩餘空間）',
   getName: 'files.get（取得檔名和資料夾）',
   rename: 'files.update（改檔名）',
+  getCreated: 'files.get（取得建立時間）',
 }
 
 /**

@@ -20,6 +20,7 @@ import {
 import { RENAME_BATCH_MAX, needsRename, renamePlan, renameSummary } from './rename.mjs'
 import { PURGE_BATCH_MAX, driveGone, purgePlan, purgeSummary, r2Gone } from './purge.mjs'
 import { WHERE, driveFailure, redact } from './driveError.mjs'
+import { pickWinner, trashable } from './mirrorDedupe.mjs'
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
@@ -263,14 +264,61 @@ async function ensureFolder(token, name, parentId) {
  * 而家用 `appProperties.quotePhotoId` —— 即係 `quote_photos` 嗰行嘅 id。
  * **一張相一個 id，撞唔到。**
  */
-async function findMirroredFile(token, photoId, folderId) {
+async function listMirroredCopies(token, photoId, folderId) {
   const q = [
     `appProperties has { key='quotePhotoId' and value='${escapeQ(photoId)}' }`,
     'trashed = false',
     `'${folderId}' in parents`,
   ].join(' and ')
-  const files = await driveList(token, q, WHERE.listMirrored)
-  return files.length ? files[0].id : null
+  // ⭐ 帶埋 `createdTime`：多過一份嗰陣用嚟揀邊份留低（`mirrorDedupe.mjs`）。
+  const url = `${DRIVE}/files?q=${encodeURIComponent(q)}&spaces=drive&fields=files(id,createdTime)&pageSize=100`
+  const res = await fetch(url, { headers: { authorization: `Bearer ${token}` } })
+  if (!res.ok) throw await driveThrow(WHERE.listMirrored, res)
+  return (await res.json()).files || []
+}
+
+/**
+ * ⭐ 多過一份 ⇒ 用 `pickWinner()` 揀定一份；輸咗嘅、而 `trashable()` 准嘅就**掉垃圾桶**
+ *    （⛔ 唔係真刪，30 日撈得返）。邊幾份准掉睇 `mirrorDedupe.mjs`。
+ *
+ * ⛔ 掉唔到唔准令成次 `/mirror` 失敗：贏嗰份已經喺度、DB 會寫返佢 ——
+ *    多出嚟嗰幾份淨係浪費位，之後再執（或者 `/purge` 掉成個資料夾）。
+ *
+ * @returns `{ winnerId, trashed, extra }`（`extra` ＝ 今次見到幾多份多出嚟）
+ */
+async function convergeCopies(token, files, mine) {
+  const { winnerId, loserIds } = pickWinner(files)
+  let trashed = 0
+  for (const loserId of trashable(files, loserIds, mine, Date.now())) {
+    try {
+      const status = await driveTrash(token, loserId)
+      if (status === 200 || status === 204 || status === 404) trashed += 1
+      else console.error(`[mirror] trash duplicate failed: ${status}`)
+    } catch (err) {
+      console.error('[mirror] trash duplicate failed:', String(err?.message || err).slice(0, 200))
+    }
+  }
+  return { winnerId, trashed, extra: loserIds.length }
+}
+
+/**
+ * 攞 DB 嗰個 `drive_file_id` 嘅 `createdTime`（佢未入到 `files.list` 嗰陣用）。
+ * ⛔ 唔喺呢個資料夾、唔係呢張相、入咗垃圾桶、或者攞唔到 ⇒ `null`（唔計佢）。
+ */
+async function driveCopyMeta(token, fileId, photoId, folderId) {
+  const res = await fetch(
+    `${DRIVE}/files/${encodeURIComponent(fileId)}?fields=id,createdTime,trashed,parents,appProperties`,
+    { headers: { authorization: `Bearer ${token}` } },
+  )
+  if (!res.ok) {
+    console.error((await driveThrow(WHERE.getCreated, res)).message)
+    return null
+  }
+  const body = await res.json()
+  if (body.trashed) return null
+  if (!Array.isArray(body.parents) || !body.parents.includes(folderId)) return null
+  if (body.appProperties?.quotePhotoId !== photoId) return null
+  return { id: body.id ?? fileId, createdTime: body.createdTime }
 }
 
 /**
@@ -499,7 +547,15 @@ async function mirror(request, env, origin) {
     )
 
     // ⛔ 「已經抄咗」淨係認呢一行自己個 id，唔認檔名（I7）。
-    let fileId = await findMirroredFile(gtoken, photo.id, folderId)
+    // ⭐ 已經有多過一份（之前撞車留低嘅）⇒ 用同一條規矩揀返一份，其餘掉垃圾桶。
+    const existing = await listMirroredCopies(gtoken, photo.id, folderId)
+    let fileId = null
+    let dedupe = { trashed: 0, extra: 0 }
+    if (existing.length > 0) {
+      const converged = await convergeCopies(gtoken, existing, null)
+      fileId = converged.winnerId
+      dedupe = { trashed: converged.trashed, extra: converged.extra }
+    }
 
     if (!fileId) {
       const clash = await findNameClash(gtoken, filename, folderId, photo.id, photo.size_bytes)
@@ -527,6 +583,38 @@ async function mirror(request, env, origin) {
         await patchPhoto(env, userToken, photo.id, { drive_error: why })
         return json({ ok: false, message: why }, 502, origin)
       }
+
+      /* ⭐⭐ 上完之後**收斂**（兩部機／兩個 tab 同時抄同一張相）。
+         ⚠️ 同時嚟嘅另一個 call 可能都啱啱上咗一份 ⇒ 再睇一次，大家用同一條規矩揀。
+         ⚠️ Drive 個 `files.list` 有時遲幾秒先見到新檔 ⇒ 再讀一次 DB：
+            另一個 call 已經寫咗 `drive_file_id` 嘅話，佢嗰份都計埋入去。 */
+      const mine = fileId
+      const after = await listMirroredCopies(gtoken, photo.id, folderId)
+      if (!after.some((file) => file.id === mine)) after.push({ id: mine, createdTime: null })
+      try {
+        const fresh = await pg(env, userToken, `quote_photos?id=eq.${photo.id}&select=drive_file_id`)
+        const theirs = typeof fresh[0]?.drive_file_id === 'string' ? fresh[0].drive_file_id.trim() : ''
+        if (theirs !== '' && !after.some((file) => file.id === theirs)) {
+          const meta = await driveCopyMeta(gtoken, theirs, photo.id, folderId)
+          if (meta) after.push(meta)
+        }
+      } catch (err) {
+        // ⛔ 讀唔到 DB 唔影響：照用 Drive 嗰張清單揀。
+        console.error('[mirror] re-read row failed:', String(err?.message || err).slice(0, 200))
+      }
+      const converged = await convergeCopies(gtoken, after, mine)
+      fileId = converged.winnerId ?? mine
+      dedupe = { trashed: converged.trashed, extra: converged.extra }
+
+      // ⛔ 贏嗰份唔係自己上嗰份 ⇒ 佢嘅大細都要對（⛔ 唔准寫一份冇對過數嘅入 DB）。
+      if (fileId !== mine) {
+        const theirSize = await driveFileSize(gtoken, fileId)
+        if (theirSize !== null && photo.size_bytes !== null && String(theirSize) !== String(photo.size_bytes)) {
+          const why = `複製上 Drive 之後核對不符：R2 ${photo.size_bytes} bytes，Drive ${theirSize} bytes。這張相片未算複製成功。`
+          await patchPhoto(env, userToken, photo.id, { drive_error: why })
+          return json({ ok: false, message: why }, 502, origin)
+        }
+      }
     }
 
     await patchPhoto(env, userToken, photo.id, {
@@ -535,7 +623,8 @@ async function mirror(request, env, origin) {
       drive_error: '',
     })
 
-    return json({ ok: true, alreadyDone: false, driveFileId: fileId, filename, quota }, 200, origin)
+    // ⭐ `dedupe`：今次見到幾多份多出嚟（`extra`）、掉咗幾多份（`trashed`）。前端唔使理。
+    return json({ ok: true, alreadyDone: false, driveFileId: fileId, filename, quota, dedupe }, 200, origin)
   } catch (caught) {
     const message = String(caught?.message ?? caught).slice(0, 300)
     // ⛔ 失敗一定要留低痕跡，唔准靜靜過骨。
