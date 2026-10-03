@@ -134,7 +134,12 @@ export function orphanPhotoCount(
 ): number {
   if (!live) return 0
   const seen = new Set<string>()
-  for (const row of splitOrphanRows(rows, live).hidden) seen.add(row.operation_id)
+  for (const row of splitOrphanRows(rows, live).hidden) {
+    // ⭐ P8：已經清走咗嘅（`purged_at` 有值）冇 bytes 剩 ⇒ ⛔ 唔再算「另有 N 張相」。
+    //    佢哋仍然喺 `hidden`（⛔ 唔准走返入同步頁），淨係唔數。
+    if (row.purged_at) continue
+    seen.add(row.operation_id)
+  }
   for (const item of splitOrphanPending(items, live).hidden) seen.add(item.operationId)
   return seen.size
 }

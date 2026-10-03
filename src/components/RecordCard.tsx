@@ -49,6 +49,11 @@ import DeleteRecordDialog from './DeleteRecordDialog'
 export type SwipeDeleteProps = {
   /** ⛔ 失敗要 throw，訊息會原封不動出喺彈窗。 */
   run: (record: QuoteRecord) => Promise<void>
+  /**
+   * 彈窗撳「取消」。回 `true` ＝ 嗰單其實已經軟刪咗（清相清到一半就取消）。
+   * ⛔ 必傳：唔傳嘅話清到一半取消，清單會留住一張已刪嘅卡。
+   */
+  dismissed: (record: QuoteRecord) => boolean
   /** 數「連帶消失：N 棵樹、N 張相」用。見 `src/lib/purgeCounts.ts`。 */
   apis: PurgeCountApis
 }
@@ -206,7 +211,10 @@ export default function RecordCard({
         <DeleteRecordDialog
           record={record}
           apis={swipeDelete.apis}
-          onCancel={() => setAsking(false)}
+          onCancel={() => {
+            setAsking(false)
+            swipeDelete.dismissed(record)
+          }}
           onConfirm={async () => {
             await swipeDelete.run(record)
             setAsking(false)

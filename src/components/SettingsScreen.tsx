@@ -1,6 +1,13 @@
 import { useEffect, useState } from 'react'
 import { clearStranded } from '../lib/clearStranded'
 import {
+  HALF_PURGED_CHECK_FAILED,
+  halfPurgedNote,
+  halfPurgedPhotoCount,
+  type HalfPurgedRecord,
+} from '../lib/halfPurged'
+import type { PurgeApi } from '../lib/purgeRecord'
+import {
   orphanNote,
   orphanPhotoCount,
   strandedConfirm,
@@ -19,6 +26,8 @@ type Props = {
   userId: string
   recordCount: number
   photos: PhotosApi
+  /** P8 步 5：「刪了一半」＋「繼續清」。⛔ 必傳。 */
+  purge: PurgeApi
   /** ⛔ `null` ＝ 未載完／攞唔到工程清單。見 `src/lib/orphanPhotos.ts`。 */
   liveRecordIds: Set<string> | null
   /** 向下拉刷新：重新攞工程清單。⛔ 唔傳就冇下拉。 */
@@ -37,6 +46,7 @@ export default function SettingsScreen({
   userId,
   recordCount,
   photos,
+  purge,
   liveRecordIds,
   onRefresh,
   onOpenPrices,
@@ -102,6 +112,70 @@ export default function SettingsScreen({
     }
   }, [photos, liveRecordIds, recount])
 
+  /**
+   * P8 步 5：「刪了一半」嗰批（`deleted_at` 有值、`purged_at` 仲係空）。
+   *
+   * ⛔ `null` ＝ 未知（讀緊／讀唔到）。讀唔到就**出一句講明**，
+   *    ⛔ 唔准當零 —— 當零即係同人講「冇嘢未清」，而嗰句可能係假嘅。
+   */
+  const [halfPurged, setHalfPurged] = useState<HalfPurgedRecord[] | null>(null)
+  const [halfPurgedFailed, setHalfPurgedFailed] = useState(false)
+  const [resuming, setResuming] = useState<'idle' | 'confirm' | 'busy'>('idle')
+  const [resumeResult, setResumeResult] = useState<{ ok: boolean; message: string } | null>(null)
+  useEffect(() => {
+    let live = true
+    void purge.listHalfPurged().then(
+      (items) => {
+        if (!live) return
+        setHalfPurged(items)
+        setHalfPurgedFailed(false)
+      },
+      (caught: unknown) => {
+        console.error('[quote-app] half purged check failed:', caught)
+        if (!live) return
+        setHalfPurged(null)
+        setHalfPurgedFailed(true)
+      },
+    )
+    return () => {
+      live = false
+    }
+  }, [purge, recount])
+
+  /**
+   * 繼續清。⭐ 撳落去嗰刻**由頭再讀一次**，逐單叫 `/purge`
+   * （已經清咗嘅會 skip）。⛔ 一單失敗就停，⛔ 唔准講成功。
+   */
+  async function handleResume() {
+    setResuming('busy')
+    setResumeResult(null)
+    let items: HalfPurgedRecord[]
+    try {
+      items = await purge.listHalfPurged()
+    } catch (caught) {
+      console.error('[quote-app] half purged check failed:', caught)
+      setResumeResult({ ok: false, message: HALF_PURGED_CHECK_FAILED })
+      setResuming('idle')
+      return
+    }
+    let cleared = 0
+    for (const item of items) {
+      const result = await purge.run(item.recordId)
+      if (!result.ok) {
+        setResumeResult({ ok: false, message: `「${item.name}」：${result.message}` })
+        setResuming('idle')
+        setRecount((n) => n + 1)
+        return
+      }
+      cleared += 1
+    }
+    setResumeResult({ ok: true, message: `已經清走 ${cleared} 單已刪除工程的雲端相片。` })
+    setResuming('idle')
+    // ⭐ 清完一定要重數 —— ⛔ 唔准喺本機自己減個數扮清咗。
+    setRecount((n) => n + 1)
+  }
+
+  const halfPurgedLine = halfPurged === null ? null : halfPurgedNote(halfPurged)
   const orphanLine = orphanNote(orphans)
   const strandedLine = strandedNote(stranded)
 
@@ -313,6 +387,74 @@ export default function SettingsScreen({
               )}
             </div>
           )}
+          {/*
+            ⭐ P8 步 5：「刪了一半」＋「繼續清」。**擺喺「清除無法上傳的相片」隔籬**
+            （計劃書 §3.2）。⛔ N 係零就成段唔出（連粒掣都冇）。
+            ⚠️ 新畫面元素未出原型（CLAUDE.md §2.11）—— AI 代揀，待 Jason 確認：
+               版面完全照抄上面 `stranded-zone` 嗰套（同一啲 class、同一個兩段式）。
+          */}
+          {halfPurgedFailed && (
+            <p className="notice notice--error" role="alert" data-testid="half-purged-check-failed">
+              {HALF_PURGED_CHECK_FAILED}
+            </p>
+          )}
+          {(halfPurgedLine !== null || resumeResult !== null) && (
+            <div className="danger-zone" data-testid="half-purged-zone">
+              {halfPurgedLine !== null && (
+                <p className="note-box note-box--warn" data-testid="half-purged-note">
+                  {halfPurgedLine}。點擊「繼續清」會清走它們在 R2 和 Google Drive 的副本，⛔ 無法還原。
+                </p>
+              )}
+
+              {halfPurgedLine !== null &&
+                (resuming === 'confirm' || resuming === 'busy' ? (
+                  <>
+                    <button
+                      className="button button--danger"
+                      type="button"
+                      data-testid="half-purged-confirm"
+                      disabled={resuming === 'busy'}
+                      onClick={() => void handleResume()}
+                    >
+                      {resuming === 'busy'
+                        ? '清除中⋯'
+                        : `再點擊一次確認清走這 ${halfPurgedPhotoCount(halfPurged ?? [])} 張`}
+                    </button>
+                    <button
+                      className="button button--secondary"
+                      type="button"
+                      disabled={resuming === 'busy'}
+                      onClick={() => setResuming('idle')}
+                    >
+                      取消
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    className="button button--secondary"
+                    type="button"
+                    data-testid="half-purged-resume"
+                    onClick={() => {
+                      setResumeResult(null)
+                      setResuming('confirm')
+                    }}
+                  >
+                    繼續清
+                  </button>
+                ))}
+
+              {resumeResult !== null && (
+                <p
+                  className={resumeResult.ok ? 'note-box' : 'notice notice--error'}
+                  role={resumeResult.ok ? undefined : 'alert'}
+                  data-testid="half-purged-result"
+                >
+                  {resumeResult.message}
+                </p>
+              )}
+            </div>
+          )}
+
           <div className="acct-row">
             <span className="acct-label">已載入工程</span>
             <span className="acct-val">{recordCount}</span>

@@ -36,6 +36,12 @@ export type QuotePhoto = {
   created_by: string
   created_at: string
   deleted_at: string | null
+  /**
+   * P8：雲端兩份（R2 ＋ Drive）已經清走嘅時間。⛔ 淨係 Worker `/purge`
+   * 經 `quote_purge_stamp()` 寫。有值 ＝ 呢張相冇 bytes 剩。
+   * ⚠️ 選填：舊測試資料冇呢個欄；`undefined` 當 `null`（未清）。
+   */
+  purged_at?: string | null
 }
 
 /**

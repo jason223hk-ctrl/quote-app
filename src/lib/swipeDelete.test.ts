@@ -136,21 +136,21 @@ describe('確認彈窗嘅文字', () => {
 
   /* ⭐⭐ 兩套字都要有測試 —— P8 步 3 改嗰個 boolean 嗰陣，
      ⛔ 唔應該要順手改測試先過到。 */
-  it('⛔⛔ 今日仲未真清相 ⇒ 一定要係「攞得返」嗰套', () => {
+  it('⛔⛔ P8 步 4 接咗 `/purge` ⇒ 一定要係「無法還原」嗰套', () => {
     // ⚠️ 呢條唔係量文案，係量「個 code 有冇講大話」。
-    //    今日 `softDelete()` 淨係寫 `deleted_at`，Worker 一行清相 code 都未有。
-    expect(PHOTOS_REALLY_PURGED).toBe(false)
+    //    2026-10-03 起刪工程 ＝ 軟刪 ＋ Worker `/purge`（R2 ＋ Drive）＋ 最後刪部機
+    //    （`src/lib/purgeRecord.ts`，測試喺 `purgeRecord.test.ts`）。
+    expect(PHOTOS_REALLY_PURGED).toBe(true)
     const truth = deleteDialogTruth()
-    expect(truth.strong).toBe('仍可取回')
-    expect(truth.before + truth.strong + truth.after).not.toContain('無法還原')
-    expect(deleteDialogTitle()).toBe('刪除工程？')
-    expect(DELETE_DIALOG_CONFIRM).toBe('刪除')
+    expect(truth.strong).toBe('無法還原')
+    expect(truth.before + truth.strong + truth.after).not.toContain('仍可取回')
+    expect(deleteDialogTitle()).toBe('永久刪除？')
+    expect(DELETE_DIALOG_CONFIRM).toBe('永久刪除')
   })
 
   it('⭐ 兩套字都寫齊咗 —— P8 步 3 淨係改一個 boolean', () => {
     // ⚠️ 呢條守住嘅係「⛔ 唔准到時再諗文案」。
-    //    改咗 `PHOTOS_REALLY_PURGED` 做 `true` 之後，上面嗰條會紅，
-    //    ⭐ 而嗰陣紅係啱嘅 —— 兩條一齊改，就係嗰日要做嘅嘢。
+    //    2026-10-03 改咗 `PHOTOS_REALLY_PURGED` 做 `true`，上面嗰條跟住一齊改咗。
     const src = deleteDialogTruth()
     expect(typeof src.before).toBe('string')
     expect(src.strong.length).toBeGreaterThan(0)

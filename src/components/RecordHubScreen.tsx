@@ -229,7 +229,11 @@ export default function RecordHubScreen({
         <DeleteRecordDialog
           record={record}
           apis={swipeDelete.apis}
-          onCancel={() => setAsking(false)}
+          onCancel={() => {
+            setAsking(false)
+            // ⭐ 清相清到一半就取消 ⇒ 單嘢其實已經刪咗 ⇒ 一樣要離開呢版。
+            if (swipeDelete.dismissed(record)) nav.go({ name: 'records' })
+          }}
           onConfirm={async () => {
             await swipeDelete.run(record)
             // ⛔ 刪完一定要離開呢版 —— ⚠️ 單嘢已經冇咗，留喺度就係望住一版

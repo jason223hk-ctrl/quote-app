@@ -220,3 +220,15 @@ describe('⛔ 「連帶消失」嗰句字只可以有一份', () => {
     expect(purgeCountsLabel(counts)).toBe('連帶消失：2 棵樹、4 張相')
   })
 })
+
+describe('P8 步 4：已經清走咗嘅相⛔ 唔再數落「會消失」', () => {
+  it('⭐ purged_at 有值 ⇒ 唔數', () => {
+    const counts = purgeCounts(
+      'r1',
+      [],
+      [row({ operation_id: 'a' }), row({ operation_id: 'b', purged_at: '2026-10-03T09:00:00Z' })],
+      [],
+    )
+    expect(counts?.photos).toBe(1)
+  })
+})
