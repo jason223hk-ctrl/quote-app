@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
 import { EMPTY_FILTERS, filterRecords } from '../lib/filters'
+import { creatorName, type Person } from '../lib/people'
 import type { QuoteRecord } from '../lib/records'
 import type { Nav } from '../ui/routes'
 import { PullIndicator } from '../ui/shell'
@@ -16,6 +17,8 @@ type Props = {
   onRefresh?: () => Promise<unknown>
   /** 向左推刪除。⛔ 唔傳就冇推；⛔ 要就 `run` 同 `apis` 一齊（見 `RecordCard`）。 */
   swipeDelete?: SwipeDeleteProps
+  /** 建立人名。⛔ 唔傳／`null` ⇒ 卡上唔出名。 */
+  people?: Person[] | null
 }
 
 /**
@@ -28,7 +31,14 @@ type Props = {
  * ⚠️ 原型嗰句「你好，Jason」同「今日有 N 個工程待報價」喺 stage57 度係
  *    `display:none` —— 即係最後決定咗唔出。⛔ 所以呢度都唔做，唔係漏咗。
  */
-export default function HomeScreen({ records, loading, nav, onRefresh, swipeDelete }: Props) {
+export default function HomeScreen({
+  records,
+  loading,
+  nav,
+  onRefresh,
+  swipeDelete,
+  people = null,
+}: Props) {
   /**
    * ⚠️⚠️ 首頁**唔用 `ScrollBody`**，⛔ 唔係懶。
    *
@@ -111,6 +121,7 @@ export default function HomeScreen({ records, loading, nav, onRefresh, swipeDele
                 record={record}
                 onOpen={() => nav.go({ name: 'record', recordId: record.id })}
                 swipeDelete={swipeDelete}
+                creatorName={creatorName(people, record.created_by)}
               />
             </li>
           ))}

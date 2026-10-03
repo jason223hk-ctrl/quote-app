@@ -6,6 +6,11 @@ export type RecordFilters = {
   /** 日期範圍，空字串 = 唔限 */
   dateFrom: string
   dateTo: string
+  /**
+   * 建立人（`quote_records.created_by`，即係 user id）。空字串 = 唔限。
+   * ⭐ 一次揀一個（原型 PR #83 預設；AI 代揀，待 Jason 確認）。
+   */
+  createdBy: string
 }
 
 /**
@@ -32,6 +37,7 @@ export const EMPTY_FILTERS: RecordFilters = {
   query: '',
   dateFrom: '',
   dateTo: '',
+  createdBy: '',
 }
 
 const SEARCH_FIELDS = ['name', 'client', 'address', 'contact', 'phone'] as const
@@ -62,6 +68,7 @@ export function filterRecords(records: QuoteRecord[], filters: RecordFilters): Q
     // ⛔ 呢度以前有一行 `if (record.archived …) return false`。⛔ 唔准加返 —— 見上面。
     if (filters.dateFrom !== '' && record.record_date < filters.dateFrom) return false
     if (filters.dateTo !== '' && record.record_date > filters.dateTo) return false
+    if (filters.createdBy !== '' && record.created_by !== filters.createdBy) return false
     return matchesQuery(record, filters.query)
   })
 
