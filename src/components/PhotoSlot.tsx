@@ -15,6 +15,7 @@ import {
 import { photoStore, localStorageAvailable } from '../lib/photoStore'
 import { BUSY_MESSAGE, claimUpload, releaseUpload } from '../lib/autoResume'
 import { refreshPhotos } from '../lib/photoRefresh'
+import { retryErrorMessage } from '../lib/retryError'
 import { uploadPending, type PendingPhoto } from '../lib/photoUpload'
 import {
   WORKER_MISSING_MESSAGE,
@@ -275,13 +276,18 @@ export default function PhotoSlot({
     for (const row of batch) triedRef.current.add(row.id)
 
     let live = true
-    void (async () => {
+    // ⛔ 背景補鏡像⛔ 唔出紅字（同以前一樣：失敗靠 `driveAttempts` 記低，
+    //    同步頁照出）。⭐ 但⛔ 唔准變 unhandled rejection —— 至少要入 console。
+    //    （開發紀錄 附錄 D3：`void` ＝「我保證唔會 reject」，呢度保證唔到。）
+    ;(async () => {
       for (const row of batch) {
         if (!live) return
         await runMirror(row)
       }
       if (live) await reload()
-    })()
+    })().catch((caught: unknown) => {
+      console.error('[quote-app] background mirror failed:', caught)
+    })
     return () => {
       live = false
     }
@@ -408,6 +414,11 @@ export default function PhotoSlot({
         return
       }
       if (item) await send(item)
+    } catch (caught) {
+      // ⛔⛔ 本來冇呢段：部機儲存一出錯，粒掣閃一閃就變返，**一隻字都冇**。
+      //    見 `src/lib/retryError.ts` 檔頭。英文原文入 console，畫面出中文。
+      console.error('[quote-app] retry failed:', caught)
+      setError(retryErrorMessage(caught))
     } finally {
       setBusy(false)
       setRetrying(null)
