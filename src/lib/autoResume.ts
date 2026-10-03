@@ -253,7 +253,10 @@ export async function resumeOnce(deps: ResumeDeps): Promise<ResumeReport> {
  */
 const triedMirror = new Set<string>()
 
-export type MirrorOutcome = { ok: true; alreadyDone?: boolean } | { ok: false; message: string }
+export type MirrorOutcome =
+  | { ok: true; alreadyDone?: boolean }
+  /** `busy` ＝ 另一部裝置抄緊（P10 租約）⇒ ⛔ 唔算失敗、⛔ 唔數多一次。 */
+  | { ok: false; message: string; busy?: boolean }
 
 export type MirrorDeps = {
   /** DB 嗰邊所有相嘅行。⛔ 要 DB 嗰份，唔係部機嗰份 —— 第二部機影嘅相一樣要補。 */
@@ -329,6 +332,7 @@ export async function mirrorOnce(
       report.tried += 1
       try {
         const result = await deps.mirror(row.id)
+        if (!result.ok && result.busy) continue
         const before = byOperation.get(row.operation_id)
         if (before) {
           await deps.save({

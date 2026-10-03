@@ -443,3 +443,29 @@ describe('mirrorOnce', () => {
     expect(report.skipped).toBe('list-failed')
   })
 })
+
+describe('mirrorOnce：另一部裝置抄緊（P10 busy）', () => {
+  it('⛔ 唔算失敗、⛔ 唔數多一次、⛔ 唔記錯誤', async () => {
+    const saved: PendingPhoto[] = []
+    const mirror = vi.fn().mockResolvedValue({ ok: false, busy: true, message: '另一部裝置正在複製' })
+    const report = await mirrorOnce(
+      {
+        listRows: () => Promise.resolve([dbRow({ id: 'm-busy', operation_id: 'op-busy' })]),
+        listAll: () =>
+          Promise.resolve([photo({ operationId: 'op-busy', status: 'uploaded', driveAttempts: 1 })]),
+        save: (item) => {
+          saved.push(item)
+          return Promise.resolve()
+        },
+        mirror,
+        online: () => true,
+        now: () => NOW,
+      },
+      { force: true },
+    )
+
+    expect(mirror).toHaveBeenCalledWith('m-busy')
+    expect(report).toMatchObject({ tried: 1, done: 0, failed: 0 })
+    expect(saved).toEqual([])
+  })
+})

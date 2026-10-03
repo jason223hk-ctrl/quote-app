@@ -49,10 +49,12 @@ const ago = (ms) => new Date(Date.now() - ms).toISOString()
  * @param trash   `files.update trashed` 回咩 status
  * @param theirSize 別人份嘅大細
  */
-function stub({ before = [], after = [], lag = false, dbTheirs = null, meta = null, trash = 200, theirSize = SIZE } = {}) {
+function stub({ before = [], after = [], lag = false, dbTheirs = null, meta = null, trash = 200, theirSize = SIZE, claim = null, row = {}, uploadStatus = 200 } = {}) {
   const calls = []
   const trashed = []
   const patches = []
+  const claims = []
+  const releases = []
   let listed = 0
   const fake = vi.fn(async (input, init = {}) => {
     const url = typeof input === 'string' ? input : String(input)
@@ -60,6 +62,13 @@ function stub({ before = [], after = [], lag = false, dbTheirs = null, meta = nu
     const q = decodeURIComponent(new URL(url).searchParams.get('q') ?? '')
 
     if (url.includes('/auth/v1/user')) return calls.push('whoami'), reply({ id: 'user-1' })
+    if (url.includes('/rest/v1/rpc/quote_claim_mirror')) {
+      calls.push('claim')
+      claims.push(JSON.parse(init.body))
+      // ⭐ 預設 404 ＝ SQL 未跑 ⇒ 照舊冇鎖（#78 嗰批測試就係呢個情況）
+      if (claim === null) return reply({ code: 'PGRST202', message: 'Could not find the function' }, 404)
+      return typeof claim === 'function' ? claim() : reply(claim)
+    }
     if (url.includes('oauth2.googleapis.com/token')) return calls.push('google-token'), reply({ access_token: 'gtok' })
     if (url.includes('/rest/v1/quote_photos') && method === 'GET') {
       if (url.includes('select=drive_file_id')) {
@@ -78,8 +87,14 @@ function stub({ before = [], after = [], lag = false, dbTheirs = null, meta = nu
           drive_synced_at: null,
           drive_file_id: null,
           size_bytes: SIZE,
+          ...row,
         },
       ])
+    }
+    if (url.includes('/rest/v1/quote_photos') && method === 'PATCH' && url.includes('mirror_claim_id=eq.')) {
+      calls.push('release')
+      releases.push({ url, body: JSON.parse(init.body) })
+      return new Response(null, { status: 204 })
     }
     if (url.includes('/rest/v1/quote_photos') && method === 'PATCH') {
       calls.push('patch-photo')
@@ -92,7 +107,10 @@ function stub({ before = [], after = [], lag = false, dbTheirs = null, meta = nu
     }
     if (url.includes('r2.cloudflarestorage.com')) return calls.push('r2-get'), new Response(new Uint8Array(SIZE))
     if (url.includes('/drive/v3/about')) return calls.push('quota'), reply({ storageQuota: { limit: '1e12', usage: '0' } })
-    if (url.includes('/upload/drive/v3/files')) return calls.push('upload'), reply({ id: 'mine' })
+    if (url.includes('/upload/drive/v3/files')) {
+      calls.push('upload')
+      return uploadStatus === 200 ? reply({ id: 'mine' }) : reply({ error: { message: 'boom' } }, uploadStatus)
+    }
     if (url.includes('/drive/v3/files?') && method === 'GET') {
       if (q.includes("mimeType = 'application/vnd.google-apps.folder'")) {
         calls.push('list-folder')
@@ -126,7 +144,7 @@ function stub({ before = [], after = [], lag = false, dbTheirs = null, meta = nu
     calls.push('⛔ 估唔到嘅外呼：' + method + ' ' + url)
     return new Response('', { status: 500 })
   })
-  return { calls, trashed, patches, fake }
+  return { calls, trashed, patches, claims, releases, fake }
 }
 
 async function mirror(opts) {
@@ -316,5 +334,102 @@ describe('⛔ 外呼額度（Cloudflare 一個 request 50 個）', () => {
     const { calls } = await mirror({ before })
     expect(calls.filter((c) => c === 'trash')).toHaveLength(MIRROR_TRASH_MAX)
     expect(calls.length).toBeLessThanOrEqual(50)
+  })
+})
+
+describe('P10 租約（`quote_claim_mirror`）', () => {
+  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/
+
+  it('攞到 ⇒ 照抄；寫「抄咗」嗰下一齊清租約；⛔ 唔使另外交還', async () => {
+    const { body, claims, patches, releases, calls } = await mirror({ claim: 'claimed' })
+    expect(body.ok).toBe(true)
+    expect(calls.indexOf('claim')).toBeLessThan(calls.indexOf('google-token')) // ⛔ 攞到先好掂 Drive
+    expect(claims[0].p_photo_id).toBe(PHOTO)
+    expect(claims[0].p_claim_id).toMatch(UUID_RE)
+    expect(claims[0].p_lease_seconds).toBe(120)
+    expect(patches.at(-1)).toMatchObject({ drive_file_id: 'mine', mirror_claim_id: null, mirror_claim_until: null })
+    expect(releases).toEqual([])
+  })
+
+  it('SQL 未跑（404）⇒ 照舊冇鎖咁行；⛔ 唔寫 `mirror_claim_*`（欄都未有）', async () => {
+    const { body, patches, releases } = await mirror()
+    expect(body.ok).toBe(true)
+    expect(patches.at(-1)).not.toHaveProperty('mirror_claim_id')
+    expect(releases).toEqual([])
+  })
+
+  it('另一部抄緊（busy）⇒ 409 ＋ busy；⛔ 唔掂 Drive、⛔ 唔寫 drive_error', async () => {
+    const { res, body, calls, patches } = await mirror({ claim: 'busy' })
+    expect(res.status).toBe(409)
+    expect(body).toMatchObject({ ok: false, busy: true })
+    expect(body.message).toContain('另一部裝置')
+    expect(calls).not.toContain('google-token')
+    expect(calls).not.toContain('upload')
+    expect(patches).toEqual([])
+  })
+
+  it('攞嗰陣先發現抄咗（done）⇒ alreadyDone，回 DB 個 id，⛔ 唔再上', async () => {
+    const { body, calls } = await mirror({ claim: 'done', dbTheirs: 'drv-done' })
+    expect(body).toMatchObject({ ok: true, alreadyDone: true, driveFileId: 'drv-done' })
+    expect(calls).not.toContain('upload')
+  })
+
+  it('denied ⇒ 403，⛔ 唔掂 Drive；missing ⇒ 404', async () => {
+    const d = await mirror({ claim: 'denied' })
+    expect(d.res.status).toBe(403)
+    expect(d.body.message).toContain('聯絡 Jason')
+    expect(d.calls).not.toContain('google-token')
+    const m = await mirror({ claim: 'missing' })
+    expect(m.res.status).toBe(404)
+  })
+
+  it('⛔ rpc 500 唔准當「未裝」⇒ 失敗、⛔ 唔掂 Drive', async () => {
+    const { res, calls } = await mirror({ claim: () => reply({ message: 'oops' }, 500) })
+    expect(res.status).toBe(502)
+    expect(calls).not.toContain('upload')
+  })
+
+  it('攞到之後失敗（大細對唔到）⇒ 交還**自己**個租約', async () => {
+    const { body, claims, releases } = await mirror({
+      claim: 'claimed',
+      after: [{ id: 'theirs', createdTime: ago(3000) }],
+      theirSize: 99,
+    })
+    expect(body.ok).toBe(false)
+    expect(releases).toHaveLength(1)
+    expect(releases[0].url).toContain(`mirror_claim_id=eq.${claims[0].p_claim_id}`)
+    expect(releases[0].body).toEqual({ mirror_claim_id: null, mirror_claim_until: null })
+  })
+
+  it('攞到之後 throw（上傳 500）⇒ 一樣交還', async () => {
+    const { body, releases } = await mirror({ claim: 'claimed', uploadStatus: 500 })
+    expect(body.ok).toBe(false)
+    expect(releases).toHaveLength(1)
+  })
+
+  it("⚠️ `drive_synced_at` 有值但 `drive_file_id` 係 '' ⇒ ⛔ 唔當抄咗，照行", async () => {
+    const { body, calls } = await mirror({ claim: 'claimed', row: { drive_synced_at: '2026-08-22T00:00:00Z', drive_file_id: '' } })
+    expect(calls).toContain('claim')
+    expect(body.alreadyDone).toBe(false)
+  })
+
+  it('`drive_synced_at` 有值而且有 id ⇒ 即刻 alreadyDone，⛔ 連租約都唔使攞', async () => {
+    const { body, calls } = await mirror({ claim: 'claimed', row: { drive_synced_at: '2026-08-22T00:00:00Z', drive_file_id: 'drv-ok' } })
+    expect(body).toMatchObject({ ok: true, alreadyDone: true, driveFileId: 'drv-ok' })
+    expect(calls).not.toContain('claim')
+  })
+
+  it('⛔ 外呼額度：攞租約 ＋ 最差收斂 ＋ 失敗交還 都唔超過 50', async () => {
+    const after = Array.from({ length: 30 }, (_, i) => ({ id: `old${i}`, createdTime: ago(MIRROR_STALE_MS + i * 1000) }))
+    const { calls } = await mirror({
+      claim: 'claimed',
+      after,
+      dbTheirs: 'theirs',
+      meta: { id: 'theirs', createdTime: ago(MIRROR_STALE_MS * 3), trashed: false, parents: [JOB_FOLDER], appProperties: { quotePhotoId: PHOTO } },
+      theirSize: 99, // ⇒ 最後要交還，多一個外呼
+    })
+    expect(calls).toContain('release')
+    expect(calls.length).toBeLessThanOrEqual(50)
+    expect(calls.filter((c) => c.startsWith('⛔'))).toEqual([])
   })
 })

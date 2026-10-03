@@ -108,7 +108,10 @@ export function createUploadDeps(accessToken: string, photos: PhotosApi): Upload
   }
 }
 
-export type MirrorResult = { ok: true; alreadyDone: boolean } | { ok: false; message: string }
+export type MirrorResult =
+  | { ok: true; alreadyDone: boolean }
+  /** `busy` ＝ 另一部裝置抄緊（P10 租約）。⛔ 唔係失敗：唔准數多一次、唔准記低做錯誤。 */
+  | { ok: false; message: string; busy?: boolean }
 
 /**
  * 叫 Worker 抄一份上 Drive。
@@ -126,7 +129,10 @@ export async function mirrorPhoto(accessToken: string, photoId: string): Promise
       headers: { 'content-type': 'application/json', authorization: `Bearer ${accessToken}` },
       body: JSON.stringify({ photoId }),
     })
-    const body = (await response.json().catch(() => ({}))) as { message?: string }
+    const body = (await response.json().catch(() => ({}))) as { message?: string; busy?: boolean }
+    if (response.status === 409 && body.busy === true) {
+      return { ok: false, busy: true, message: body.message ?? '另一部裝置正在複製這張相片到 Drive。' }
+    }
     if (!response.ok) {
       const detail = body.message ?? `上傳服務回覆 ${response.status}`
       console.error('[quote-app] drive mirror failed:', detail)
