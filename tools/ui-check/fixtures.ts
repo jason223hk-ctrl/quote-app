@@ -48,6 +48,22 @@ export const RECORDS: QuoteRecord[] = [
 export const RECORD = RECORDS[0]
 
 /**
+ * 建立人名（PR #83 原型 ＋ Jason 2026-10-04 拍板「補返 Jason 一行」）。
+ * ⭐ 最後一單特登用一個**張表冇佢**嘅 id —— 卡上應該唔出名（⛔ 唔准出 UUID）。
+ */
+export const PEOPLE = [
+  { userId: 'u-yiu', name: '阿耀' },
+  { userId: 'u-tsung', name: '聰' },
+  { userId: 'u-isaac', name: 'Isaac' },
+  { userId: 'u-anna', name: 'Anna' },
+  { userId: 'u-jason', name: 'Jason' },
+]
+const CREATORS = ['u-yiu', 'u-isaac', 'u-yiu', 'u-tsung', 'u-anna', 'u-nobody']
+export const NAMED_RECORDS: QuoteRecord[] = RECORDS.map(
+  (record, i) => ({ ...record, created_by: CREATORS[i] }) as QuoteRecord,
+)
+
+/**
  * 工程名長到爆嗰張卡。
  *
  * ⛔⛔ **個名係 Jason 2026-09-15 部機上面嗰單真嘢，⛔ 唔准改短、⛔ 唔准改做中文。**

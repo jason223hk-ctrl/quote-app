@@ -57,9 +57,16 @@ export default function RecordCard({
   record,
   onOpen,
   swipeDelete,
+  creatorName = null,
 }: {
   record: QuoteRecord
   onOpen: () => void
+  /**
+   * 建立人名（`quote_people`）。⛔ `null` ⇒ 成格唔出（連分隔點都冇）。
+   * ⭐ 擺第一行尾、⛔ 冇「建立人：」前綴 —— 照原型 PR #83 預設（AI 代揀，待 Jason 確認）。
+   * ⚠️ 夜更 ＋「已報價 N 日」＋ 名嗰種卡，喺 390 闊會斷兩行（原型量過），係已知代價。
+   */
+  creatorName?: string | null
   /** ⛔ 唔傳就完全冇滑動刪除（桌面、對數個殼）—— 連 handler 都唔掛。 */
   swipeDelete?: SwipeDeleteProps
 }) {
@@ -164,6 +171,14 @@ export default function RecordCard({
             <span className="meta-divider" />
             <span className="meta-item" data-testid="quoted-age">
               {age}
+            </span>
+          </>
+        )}
+        {creatorName !== null && (
+          <>
+            <span className="meta-divider" />
+            <span className="meta-item" data-testid="creator-name">
+              {creatorName}
             </span>
           </>
         )}

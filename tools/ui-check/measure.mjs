@@ -504,6 +504,14 @@ const SCREENS = {
          字疊埋咗，佢一樣撳得落，⛔ 一樣綠
      ⇒ **又一次：一把尺量唔到嘅嘢，佢綠燈證明唔到佢冇事。**
         （附錄 B「`ui:check` 綠燈 ≠ 個掣仲用得」係同一個病。） */
+  /* ⭐ 建立人名擺咗入工程卡第一行尾（PR #83 原型）。
+     ⛔ 要量：個名真係出咗、⛔ 冇壓住工程名同狀態膠囊。 */
+  names: {
+    query: '',
+    inView: [{ what: 'creator-name', inside: 'record-list' }],
+    overlap: [{ a: 'proj-title', b: 'proj-side', why: '工程名壓住右邊粒狀態標籤' }],
+  },
+
   longname: {
     query: '',
     overlap: [{ a: 'proj-title', b: 'proj-side', why: '工程名壓住右邊粒狀態標籤' }],
@@ -2060,9 +2068,9 @@ const FLOORS = [
   ['撳得到嘅檢查', hitChecked, 294],
   ['彈窗掣位', sameSpot + sameSpotBad, 2],
   ['真滑鼠拖', dragChecked, 1],
-  ['訊息睇得到', seenChecked, 1],
+  ['訊息睇得到', seenChecked, 2],
   ['數唔到就鎖住', lockChecked, 7],
-  ['兩件嘢冇疊埋', overlapChecked, 2],
+  ['兩件嘢冇疊埋', overlapChecked, 3],
   ['粒掣夠大撳', sizeChecked, 2],
   ['撳完⛔ 唔變藍', blueChecked, 4],
   ['打完字存唔到要出聲', typedChecked, 5],

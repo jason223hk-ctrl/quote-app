@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import type { QuoteStatus } from '../lib/records'
 import { EMPTY_FILTERS, filterRecords, type RecordFilters } from '../lib/filters'
 import type { QuoteRecord } from '../lib/records'
+import { creatorName, type Person } from '../lib/people'
 import { BotanicalHeader, ChipButton, ScrollBody, UserPill, type UserInfo } from '../ui/shell'
 import { Icon, ICONS } from '../ui/Icon'
 import RecordCard, { type SwipeDeleteProps } from './RecordCard'
@@ -24,6 +25,10 @@ type Props = {
   onRetry: () => void
   /** 向左推刪除。⛔ 唔傳就冇推；⛔ 要就 `run` 同 `apis` 一齊（見 `RecordCard`）。 */
   swipeDelete?: SwipeDeleteProps
+  /** 建立人名（`quote_people`）。⛔ `null` ＝ 未載到／載唔到。 */
+  people?: Person[] | null
+  /** 建立人名載唔到嘅原因。⛔ 有就要講出嚟，⛔ 唔准淨係靜靜冇名。 */
+  peopleError?: string | null
 }
 
 /**
@@ -39,6 +44,8 @@ export default function RecordListPage({
   onCreate,
   onRetry,
   swipeDelete,
+  people = null,
+  peopleError = null,
 }: Props) {
   const [filters, setFilters] = useState<RecordFilters>(EMPTY_FILTERS)
   const [popover, setPopover] = useState(false)
@@ -55,7 +62,10 @@ export default function RecordListPage({
   }
 
   const filtersTouched =
-    filters.query !== '' || filters.dateFrom !== '' || filters.dateTo !== ''
+    filters.query !== '' ||
+    filters.dateFrom !== '' ||
+    filters.dateTo !== '' ||
+    filters.createdBy !== ''
 
   return (
     <>
@@ -109,6 +119,16 @@ export default function RecordListPage({
 
         {loading && <p className="loading">載入中…</p>}
 
+        {/* ⛔ 人名載唔到⛔ 唔擋工程清單，但一定要講 —— 唔係人會以為「冇人開」。 */}
+        {!loading && peopleError !== null && (
+          <p className="muted soon" data-testid="people-error">
+            未能載入建立人名稱，卡上暫時不顯示：{peopleError}{' '}
+            <button className="link-button" type="button" onClick={onRetry}>
+              再試
+            </button>
+          </p>
+        )}
+
         {!loading && !error && visible.length === 0 && (
           <div className="muted empty">
             {records.length === 0 ? '尚未有工程。請點擊右下角「＋ 新增工程」開始。' : '沒有工程符合目前的篩選。'}
@@ -122,6 +142,7 @@ export default function RecordListPage({
                 record={record}
                 onOpen={() => onOpen(record)}
                 swipeDelete={swipeDelete}
+                creatorName={creatorName(people, record.created_by)}
               />
             </li>
           ))}
@@ -174,6 +195,25 @@ export default function RecordListPage({
                 onChange={(event) => patchFilters({ dateTo: event.target.value })}
               />
             </div>
+
+            {/* ⭐ 建立人：一次揀一個（原型 PR #83；AI 代揀，待 Jason 確認）。
+                ⛔ 人名未載到／載唔到 ⇒ 下拉 disable，⛔ 唔係出一個空嘅下拉扮冇人。 */}
+            <label htmlFor="q-creator">建立人</label>
+            <select
+              id="q-creator"
+              className="field__input"
+              data-testid="creator-filter"
+              value={filters.createdBy}
+              disabled={people === null}
+              onChange={(event) => patchFilters({ createdBy: event.target.value })}
+            >
+              <option value="">選擇建立人</option>
+              {(people ?? []).map((person) => (
+                <option key={person.userId} value={person.userId}>
+                  {person.name}
+                </option>
+              ))}
+            </select>
 
             {/* ⛔ 呢度以前有個「顯示封存」勾。2026-09-15 拆走，⛔ 唔准加返 ——
                 見 `src/lib/filters.ts` 檔頭（Jason 2026-08-24 已拍板拆走封存）。 */}

@@ -64,7 +64,17 @@ describe('filterRecords', () => {
   it('⛔ `RecordFilters` 入面⛔ 冇 `showArchived` —— 拆走咗，⛔ 唔准加返', () => {
     // ⚠️ 呢條守住嘅唔係行為，係「呢個係一個決定」。有人日後加返，
     //    一定要改埋呢度，⇒ 佢就會睇到 `filters.ts` 檔頭嗰段解釋。
-    expect(Object.keys(EMPTY_FILTERS).sort()).toEqual(['dateFrom', 'dateTo', 'query'])
+    expect(Object.keys(EMPTY_FILTERS).sort()).toEqual(['createdBy', 'dateFrom', 'dateTo', 'query'])
+  })
+
+  it('⭐ 建立人篩選：淨係出嗰個人開嘅單；空字串 = 唔限', () => {
+    const mine = makeRecord({ id: 'mine', created_by: 'u-yiu' })
+    const theirs = makeRecord({ id: 'theirs', created_by: 'u-isaac' })
+    const ids = (createdBy: string) =>
+      filterRecords([mine, theirs], { ...EMPTY_FILTERS, createdBy }).map((r) => r.id).sort()
+    expect(ids('u-yiu')).toEqual(['mine'])
+    expect(ids('')).toEqual(['mine', 'theirs'])
+    expect(ids('u-nobody')).toEqual([])
   })
 
   it('搜尋覆蓋工程名稱、客戶、地址、聯絡人、電話', () => {

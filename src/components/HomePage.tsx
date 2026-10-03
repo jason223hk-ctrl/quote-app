@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { Session, SupabaseClient } from '@supabase/supabase-js'
 import {
   createRecordsApi,
@@ -12,6 +12,7 @@ import { createTreesApi, type TreesApi } from '../lib/trees'
 import { createSiteFormApi, type SiteFormApi } from '../lib/siteForm'
 import { createPhotosApi, type PhotosApi } from '../lib/photos'
 import { createPriceApi, type PriceApi } from '../lib/prices'
+import { createPeopleApi, type PeopleApi, type Person } from '../lib/people'
 import { isOffice } from '../lib/office'
 import { liveRecordIds } from '../lib/orphanPhotos'
 import { useAutoResume } from '../lib/useAutoResume'
@@ -43,6 +44,7 @@ export type QuoteApi = {
   photos: PhotosApi
   prices: PriceApi
   clients: ClientsApi
+  people: PeopleApi
 }
 
 export default function HomePage({ client, session }: Props) {
@@ -54,6 +56,7 @@ export default function HomePage({ client, session }: Props) {
       photos: createPhotosApi(client, session.user.id),
       prices: createPriceApi(client, session.user.id),
       clients: createClientsApi(client, session.user.id),
+      people: createPeopleApi(client),
     }),
     [client, session.user.id],
   )
@@ -124,6 +127,18 @@ export function RecordsScreen({
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [route, setRoute] = useState<Route>({ name: 'home' })
+  /**
+   * 建立人名（`quote_people`）。⛔ `null` ＝ 未載到／載唔到 ⇒ 卡上唔出名。
+   *
+   * ⭐ 同工程清單**一齊等**先出張卡（原型 PR #83「丙 · 同張卡一齊出」；AI 代揀，待 Jason 確認）
+   *    ⇒ ⛔ 唔會見到張卡先出、個名之後跳出嚟。
+   * ⭐ 載到一次就唔再載（人名好少改）⇒ 每次寫完嘢 reload ⛔ 唔使多一個來回。
+   *    ⚠️ 代價：辦公室改咗人名，要重新開 app 先見到（AI 代揀，待 Jason 確認）。
+   * ⛔ 載唔到⛔ 唔准擋住工程清單 —— 工程照出，淨係冇名，清單頂出一句講明。
+   */
+  const [people, setPeople] = useState<Person[] | null>(null)
+  const [peopleError, setPeopleError] = useState<string | null>(null)
+  const peopleLoaded = useRef(false)
 
   const nav: Nav = { go: setRoute }
 
@@ -139,11 +154,25 @@ export function RecordsScreen({
   const reload = useCallback(async () => {
     setLoading(true)
     setError(null)
+    // ⭐ 兩樣一齊行；⛔ 呢個 promise 自己食晒錯（兩個 handler 都有），唔會 reject。
+    const peopleTask: Promise<void> = peopleLoaded.current
+      ? Promise.resolve()
+      : api.people.list().then(
+          (list) => {
+            peopleLoaded.current = true
+            setPeople(list)
+            setPeopleError(null)
+          },
+          (caught: unknown) => {
+            setPeopleError(caught instanceof Error ? caught.message : String(caught))
+          },
+        )
     try {
       setRecords(await api.records.list())
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : String(caught))
     } finally {
+      await peopleTask
       setLoading(false)
     }
   }, [api])
@@ -232,6 +261,7 @@ export function RecordsScreen({
             nav={nav}
             onRefresh={reload}
             swipeDelete={swipeDelete}
+            people={people}
           />
         )
 
@@ -246,6 +276,8 @@ export function RecordsScreen({
             onCreate={() => nav.go({ name: 'record-form', recordId: null })}
             onRetry={() => void reload()}
             swipeDelete={swipeDelete}
+            people={people}
+            peopleError={peopleError}
           />
         )
 

@@ -85,6 +85,19 @@ const body =
       onCreate={() => {}}
       onRetry={() => {}}
     />
+  ) : screen === 'names' ? (
+    /* ⭐ 建立人名（PR #83 原型預設：第一行尾、冇前綴）。
+       ⛔ 最後一單個建立人張表冇 ⇒ 應該唔出名。 */
+    <RecordListPage
+      records={fx.NAMED_RECORDS}
+      loading={false}
+      error={null}
+      user={{ email: 'jason@x.com', initial: 'J' }}
+      onOpen={() => {}}
+      onCreate={() => {}}
+      onRetry={() => {}}
+      people={fx.PEOPLE}
+    />
   ) : screen === 'basic' ? (
     <RecordFormPage
       record={fx.RECORD}
