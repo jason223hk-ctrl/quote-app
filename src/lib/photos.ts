@@ -199,6 +199,21 @@ export const MAX_DRIVE_ATTEMPTS = 3
 export const MIRROR_BATCH_SIZE = 3
 
 /**
+ * 屬於某一格（某棵樹 ＋ 某個工序；環境相兩樣都係 `null`）嘅相。
+ *
+ * ⭐ `PhotoSlot` 自動補鏡像要先用呢個篩，⛔ 唔准用成單工程嘅相：
+ *    一版有幾格，每格都揀「成單最舊三張」⇒ 幾格同時搶同一批相（2026-10-03 Drive 出 4 份）。
+ *    條件同 `PhotoSlot` `mergeItems()` 顯示嗰邊一樣。
+ */
+export function rowsForSlot(
+  rows: QuotePhoto[],
+  treeId: string | null,
+  mitigation: string | null,
+): QuotePhoto[] {
+  return rows.filter((row) => row.tree_id === treeId && (row.mitigation ?? null) === mitigation)
+}
+
+/**
  * 揀邊幾張相今次補鏡像。
  *
  * 只揀「已入 R2、Drive 未做、而且仲未試夠三次」嗰啲，舊嘅行先。
