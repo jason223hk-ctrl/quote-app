@@ -1,0 +1,120 @@
+[
+  {
+    "file": "src/App.tsx",
+    "text": "client.auth.getSession().then(({ data }) => { if (!active) return setSession(data.session) setCheckingSession(false) })",
+    "why": "⛔ 內部冇 catch（void 掃描 2026-09-19「內部⛔ 冇 catch」）。getSession() reject 嘅話「檢查登入中」會停喺度；onAuthStateChange 通常會補返，但未驗。"
+  },
+  {
+    "file": "src/components/ClientBookScreen.tsx",
+    "text": "reload()",
+    "why": "⚠️ 未驗：內部有 catch，但未證到佢真係出字落畫面（void 掃描 2026-09-19）",
+    "count": 2
+  },
+  {
+    "file": "src/components/ClientBookScreen.tsx",
+    "text": "save()",
+    "why": "⚠️ 未驗：內部有 catch，但未證到佢真係出字落畫面（void 掃描 2026-09-19）"
+  },
+  {
+    "file": "src/components/ClientBookScreen.tsx",
+    "text": "remove()",
+    "why": "⚠️ 未驗：內部有 catch，但未證到佢真係出字落畫面（void 掃描 2026-09-19）"
+  },
+  {
+    "file": "src/components/ClientFormScreen.tsx",
+    "text": "loadBook()",
+    "why": "⚠️ 未驗：內部有 catch，但未證到佢真係出字落畫面（void 掃描 2026-09-19）",
+    "count": 2
+  },
+  {
+    "file": "src/components/DeleteRecordDialog.tsx",
+    "text": "Promise.allSettled([listTrees(record.id), listRows(record.id), localPromise]).then( ([treesResult, rowsResult, localResu",
+    "why": "⚠️ 未驗：callee 喺第二個檔，未追落去（void 掃描 2026-09-19「揾唔到定義」）。allSettled 本身唔會 reject，但 .then 入面嘅 callback throw 咗就冇人接。"
+  },
+  {
+    "file": "src/components/DeleteRecordDialog.tsx",
+    "text": "run()",
+    "why": "⚠️ 未驗：內部有 catch，但未證到佢真係出字落畫面（void 掃描 2026-09-19）"
+  },
+  {
+    "file": "src/components/ExportPdfScreen.tsx",
+    "text": "load()",
+    "why": "⚠️ 未驗：內部有 catch，但未證到佢真係出字落畫面（void 掃描 2026-09-19）",
+    "count": 2
+  },
+  {
+    "file": "src/components/ExportPdfScreen.tsx",
+    "text": "doExport()",
+    "why": "⚠️ 未驗：內部有 catch，但未證到佢真係出字落畫面（void 掃描 2026-09-19）"
+  },
+  {
+    "file": "src/components/HomePage.tsx",
+    "text": "isOffice(client, session.user.id).then((yes) => { if (active) setOffice(yes) })",
+    "why": "⚠️ 未驗：callee 喺第二個檔，未追落去（void 掃描 2026-09-19「揾唔到定義」）"
+  },
+  {
+    "file": "src/components/HomePage.tsx",
+    "text": "reload()",
+    "why": "⚠️ 未驗：內部有 catch，但未證到佢真係出字落畫面（void 掃描 2026-09-19）",
+    "count": 2
+  },
+  {
+    "file": "src/components/PhotoSlot.tsx",
+    "text": "(async () => { for (const row of batch) { if (!live) return await runMirror(row) } if (live) await reload() })()",
+    "why": "⛔ 冇 catch（背景補鏡像），PR #81 修緊 —— #81 merge 嗰陣要剷走呢行。"
+  },
+  {
+    "file": "src/components/PhotoSlot.tsx",
+    "text": "handleFile(event.target.files?.[0] ?? null)",
+    "why": "⚠️ 未驗：內部有 catch，但未證到佢真係出字落畫面（void 掃描 2026-09-19）",
+    "count": 2
+  },
+  {
+    "file": "src/components/PhotoSlot.tsx",
+    "text": "retry(item.operationId)",
+    "why": "⛔ 內部冇 catch（void 掃描 2026-09-19「內部⛔ 冇 catch」第 3 個）。PR #81 喺 retry() 入面加咗 catch —— #81 merge 之後呢行照留，但 why 要改做「已驗：retry() 內部 catch ＋ setError」。"
+  },
+  {
+    "file": "src/components/PriceScreen.tsx",
+    "text": "save()",
+    "why": "⚠️ 未驗：內部有 catch，但未證到佢真係出字落畫面（void 掃描 2026-09-19）"
+  },
+  {
+    "file": "src/components/SettingsScreen.tsx",
+    "text": "(async () => { try { const rows = await photos.listAll() const local = localStorageAvailable() ? await photoStore.listAl",
+    "why": "⚠️ 未驗：入面有 try，但未逐條證到冇漏（2026-10-04 新收錄，void 掃描嗰日未列）。"
+  },
+  {
+    "file": "src/components/SettingsScreen.tsx",
+    "text": "handleClearStranded()",
+    "why": "✅ 已驗（2026-10-04 讀 code）：handleClearStranded() 淨係叫 clearStranded() 再 set state；clearStranded.ts 檔頭寫明「⛔ 唔會 throw」，四條路都 catch 晒、回 blocked 句。⚠️ void 掃描嗰日將佢列入「冇 catch」係因為冇追落 lib。"
+  },
+  {
+    "file": "src/components/SyncScreen.tsx",
+    "text": "load()",
+    "why": "⚠️ 未驗：內部有 catch，但未證到佢真係出字落畫面（void 掃描 2026-09-19）"
+  },
+  {
+    "file": "src/components/TreesScreen.tsx",
+    "text": "reload()",
+    "why": "⚠️ 未驗：內部有 catch，但未證到佢真係出字落畫面（void 掃描 2026-09-19）",
+    "count": 2
+  },
+  {
+    "file": "src/components/TreesScreen.tsx",
+    "text": "afterWrite(() => api.softDelete(tree.id))",
+    "why": "⛔ 內部冇 catch（void 掃描 2026-09-19「內部⛔ 冇 catch」）。已坐實壞咗（刪樹失敗冇聲），PR #80 修緊 —— #80 merge 嗰陣要剷走呢行。"
+  },
+  {
+    "file": "src/lib/useAutoResume.ts",
+    "text": "tick()",
+    "why": "⚠️ 未驗：內部有 catch，但未證到佢真係出字落畫面（void 掃描 2026-09-19）",
+    "count": 4
+  },
+  {
+    "file": "src/lib/usePendingCount.ts",
+    "text": "recount()",
+    "why": "⚠️ 未驗：內部有 catch，但未證到佢真係出字落畫面（void 掃描 2026-09-19）",
+    "count": 3
+  }
+]

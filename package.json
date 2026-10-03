@@ -10,11 +10,12 @@
     "typecheck": "tsc -b --noEmit",
     "lint": "eslint .",
     "test": "vitest run",
-    "gate": "npm run typecheck && npm run lint && npm run written && npm run test && npm run build",
+    "gate": "npm run typecheck && npm run lint && npm run written && npm run voids && npm run test && npm run build",
     "ui:build": "vite build --config tools/ui-check/vite.config.ts",
     "ui:check": "npm run ui:build --silent && node tools/ui-check/measure.mjs",
     "pdf:proof": "vite build -c tools/pdf-proof/vite.config.ts && node tools/pdf-proof/shot.mjs",
-    "written": "node tools/written/check.mjs"
+    "written": "node tools/written/check.mjs",
+    "voids": "node tools/void/check.mjs"
   },
   "dependencies": {
     "@pdf-lib/fontkit": "^1.1.1",
